@@ -209,7 +209,11 @@ const Orders = {
 
       // Re-render modal and table
       this.openNoteModal(this._activeRowIndex, this._activeDsi);
-      this.applyFilters(this._mode);
+      if (this._mode === 'payroll') {
+        App._filterPayrollOrders();
+      } else {
+        this.applyFilters(this._mode);
+      }
       App.showToast('Note added');
     } catch (err) {
       if (errorEl) errorEl.textContent = 'Failed: ' + err.message;

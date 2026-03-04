@@ -109,6 +109,8 @@
       <button class="nav-tab" id="nav-teams" onclick="App.navTo('teams')" style="display:none">Teams</button>
       <button class="nav-tab" id="nav-all-orders" onclick="App.navTo('allOrders')" style="display:none">All Orders</button>
       <button class="nav-tab" id="nav-my-orders" onclick="App.navTo('myOrders')" style="display:none">My Orders</button>
+      <button class="nav-tab" id="nav-payroll" onclick="App.navTo('payroll')" style="display:none">Payroll</button>
+      <button class="nav-tab" id="nav-office" onclick="App.navTo('office')" style="display:none">Office</button>
     </nav>
   </header>
 
@@ -331,6 +333,71 @@
             </tr>
           </thead>
           <tbody id="my-orders-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       OFFICE PAGE (Owner only)
+       ════════════════════════════════════════════════ -->
+  <div id="office-page" style="display:none;position:fixed;inset:0;z-index:999;background:linear-gradient(135deg,#c8dff0 0%,#daeaf5 40%,#c2daea 70%,#b8d4e8 100%);overflow-y:auto">
+    <div style="max-width:800px;margin:0 auto;padding:24px 24px 80px">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+        <button class="profile-back" onclick="App.navTo('leaderboard')"><span>&larr;</span> Back</button>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;letter-spacing:-0.5px;color:var(--white)">Office</div>
+          <div style="font-size:12px;color:var(--silver-dim);margin-top:4px">Office-level settings and assignments</div>
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.5);border:1px solid rgba(26,92,229,0.2);border-radius:12px;padding:24px;margin-bottom:16px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--silver-dim);margin-bottom:12px">Payroll Manager</div>
+        <div style="font-size:12px;color:var(--silver-dim);margin-bottom:12px;line-height:1.5">Assign an admin to manage payroll. They will gain access to the Payroll tab.</div>
+        <select id="office-payroll-select" onchange="App._setPayrollManager(this.value)"
+          style="width:100%;max-width:360px;background:rgba(0,0,0,0.06);border:1px solid rgba(26,92,229,0.25);border-radius:8px;color:var(--white);padding:10px 14px;font-family:'Barlow Condensed',sans-serif;font-size:14px;cursor:pointer;outline:none">
+          <option value="">— None —</option>
+        </select>
+        <div id="office-payroll-saved" style="display:none;font-size:11px;color:var(--green);margin-top:8px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase">Saved</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       PAYROLL PAGE (Owner + Payroll Manager)
+       ════════════════════════════════════════════════ -->
+  <div id="payroll-page" style="display:none;position:fixed;inset:0;z-index:999;background:linear-gradient(135deg,#c8dff0 0%,#daeaf5 40%,#c2daea 70%,#b8d4e8 100%);overflow-y:auto">
+    <div style="max-width:1100px;margin:0 auto;padding:24px 24px 80px">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+        <button class="profile-back" onclick="App.navTo('leaderboard')"><span>&larr;</span> Back</button>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;letter-spacing:-0.5px;color:var(--white)">Payroll</div>
+          <div style="font-size:12px;color:var(--silver-dim);margin-top:4px" id="payroll-page-subtitle"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+        <input type="text" id="payroll-search" placeholder="Search by rep or DSI..."
+          oninput="App._filterPayrollOrders()"
+          style="flex:1;min-width:200px;background:rgba(255,255,255,0.5);border:1px solid rgba(26,92,229,0.2);border-radius:8px;padding:8px 14px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:14px;outline:none">
+      </div>
+
+      <div id="payroll-count" style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim);margin-bottom:8px"></div>
+
+      <div style="overflow-x:auto;border-radius:10px;border:1px solid rgba(26,92,229,0.2)">
+        <table style="width:100%;border-collapse:collapse;background:rgba(255,255,255,0.5)">
+          <thead>
+            <tr>
+              <th style="padding:10px 16px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim);border-bottom:1px solid rgba(26,92,229,0.2)">Rep</th>
+              <th style="padding:10px 16px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim);border-bottom:1px solid rgba(26,92,229,0.2)">DSI</th>
+              <th style="padding:10px 16px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim);border-bottom:1px solid rgba(26,92,229,0.2)">Date</th>
+              <th style="padding:10px 16px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim);border-bottom:1px solid rgba(26,92,229,0.2)">Products</th>
+              <th style="padding:10px 16px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim);border-bottom:1px solid rgba(26,92,229,0.2)">Units</th>
+              <th style="padding:10px 16px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim);border-bottom:1px solid rgba(26,92,229,0.2)">Status</th>
+              <th style="padding:10px 16px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim);border-bottom:1px solid rgba(26,92,229,0.2)">Notes</th>
+            </tr>
+          </thead>
+          <tbody id="payroll-body"></tbody>
         </table>
       </div>
     </div>

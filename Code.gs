@@ -11,6 +11,7 @@ const ORDER_OVERRIDES_TAB = '_OrderOverrides';
 const TEAM_CUSTOM_TAB = '_TeamCustomizations';
 const UNLOCK_REQ_TAB = '_UnlockRequests';
 const TEAMS_TAB = '_Teams';
+const SETTINGS_TAB = '_Settings';
 
 const TEAM_EMOJI_MAP = {
   '🐙': 'Squids',
@@ -38,6 +39,7 @@ const OL = {
   DATE_OF_SALE: 3,
   REP_NAME: 4,
   DSI: 5,
+  TRAINEE: 6,
   VOIP_QTY: 20,
   TEAM_EMOJI: 26,
   FIBER: 31,
@@ -89,6 +91,9 @@ function getOrCreateSheet(name) {
         break;
       case TEAMS_TAB:
         sheet.appendRow(['teamId', 'name', 'parentId', 'leaderId', 'emoji', 'createdDate']);
+        break;
+      case SETTINGS_TAB:
+        sheet.appendRow(['key', 'value']);
         break;
     }
   }
@@ -146,6 +151,12 @@ function doGet(e) {
       return jsonResponse({ orders: orders });
     }
 
+    // Payroll orders — trainee=Yes, past 2 months
+    if (action === 'readPayrollOrders') {
+      const orders = readPayrollOrders(ss);
+      return jsonResponse({ orders: orders });
+    }
+
     // Default: return full dashboard data
     const roster = readRoster(ss);
     const peopleResult = readPeople(ss, roster);
@@ -157,6 +168,7 @@ function doGet(e) {
       orderOverrides: readOrderOverrides(ss),
       teamCustomizations: readTeamCustomizations(ss),
       unlockRequests: readUnlockRequests(ss),
+      settings: readSettings(ss),
       _debug: peopleResult._debug || null
     };
     return jsonResponse(data);
@@ -477,6 +489,94 @@ function readOrders(ss, filterEmail) {
 }
 
 
+// === readPayrollOrders() — Trainee orders (col G = Yes) past 2 months ===
+
+function readPayrollOrders(ss) {
+  const olSheet = ss.getSheetByName(ORDER_LOG_TAB);
+  if (!olSheet) return [];
+
+  const olData = olSheet.getDataRange().getValues();
+  if (olData.length < 2) return [];
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 60);
+  cutoff.setHours(0, 0, 0, 0);
+
+  const orders = [];
+
+  for (let i = 1; i < olData.length; i++) {
+    const row = olData[i];
+    const email = String(row[OL.EMAIL] || '').trim().toLowerCase();
+    if (!email) continue;
+
+    // Only include rows where "Did you have a trainee?" = Yes
+    const trainee = String(row[OL.TRAINEE] || '').trim().toLowerCase();
+    if (trainee !== 'yes') continue;
+
+    const rawDate = row[OL.DATE_OF_SALE];
+    if (!rawDate) continue;
+    const saleDate = new Date(rawDate);
+    if (isNaN(saleDate.getTime())) continue;
+    saleDate.setHours(0, 0, 0, 0);
+    if (saleDate < cutoff) continue;
+
+    orders.push({
+      rowIndex: i + 1,
+      email: email,
+      repName: String(row[OL.REP_NAME] || '').trim(),
+      dsi: String(row[OL.DSI] || '').trim(),
+      dateOfSale: saleDate.toISOString().split('T')[0],
+      air:   Number(row[OL.AIR]) || 0,
+      cell:  Number(row[OL.CELL]) || 0,
+      fiber: Number(row[OL.FIBER]) || 0,
+      voip:  Number(row[OL.VOIP_QTY]) || 0,
+      units: Number(row[OL.UNITS]) || 0,
+      status: String(row[OL.STATUS] || 'Pending').trim(),
+      notes:  String(row[OL.NOTES] || '').trim()
+    });
+  }
+
+  orders.sort((a, b) => b.dateOfSale.localeCompare(a.dateOfSale));
+  return orders;
+}
+
+
+// === readSettings() — Key-value settings from _Settings tab ===
+
+function readSettings(ss) {
+  const sheet = ss.getSheetByName(SETTINGS_TAB);
+  if (!sheet) return {};
+  const data = sheet.getDataRange().getValues();
+  const result = {};
+  for (let i = 1; i < data.length; i++) {
+    const key = String(data[i][0] || '').trim();
+    if (key) result[key] = String(data[i][1] || '').trim();
+  }
+  return result;
+}
+
+
+// === writeSetting() — Upsert a key-value setting ===
+
+function writeSetting(body) {
+  const sheet = getOrCreateSheet(SETTINGS_TAB);
+  const key = String(body.key || '').trim();
+  const value = String(body.value || '').trim();
+  if (!key) return { error: 'missing key' };
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() === key) {
+      sheet.getRange(i + 1, 2).setValue(value);
+      return { ok: true };
+    }
+  }
+  // Not found — append new row
+  sheet.appendRow([key, value]);
+  return { ok: true };
+}
+
+
 function readOrderOverrides(ss) {
   const sheet = ss.getSheetByName(ORDER_OVERRIDES_TAB);
   if (!sheet) return {};
@@ -587,6 +687,7 @@ function doPost(e) {
       case 'writeOrderNote':       result = writeOrderNote(body); break;
       case 'setOrderStatus':       result = writeSetOrderStatus(body); break;
       case 'updateOrder':          result = writeUpdateOrder(body); break;
+      case 'setSetting':           result = writeSetting(body); break;
       default: result = { error: 'unknown action: ' + body.action };
     }
     return jsonResponse(result);

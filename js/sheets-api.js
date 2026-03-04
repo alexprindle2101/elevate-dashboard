@@ -53,6 +53,16 @@ const SheetsAPI = {
     return data.orders || [];
   },
 
+  // ── Fetch payroll orders (trainee=Yes, past 2 months) ──
+  async fetchPayrollOrders(config) {
+    const url = `${config.appsScriptUrl}?key=${encodeURIComponent(config.apiKey)}&action=readPayrollOrders`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Apps Script HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    return data.orders || [];
+  },
+
   // ── Check if Apps Script URL is configured ──
   isConfigured(config) {
     return config.appsScriptUrl &&

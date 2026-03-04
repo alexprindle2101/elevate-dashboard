@@ -9,6 +9,7 @@ const App = {
     teams: [],
     teamsData: {},       // raw _Teams sheet data (for rebuilding hierarchy)
     roster: {},          // email-keyed roster from API
+    settings: {},        // key-value settings from _Settings tab
     currentRole: 'rep',
     realRole: 'rep',       // actual logged-in role (stays superadmin during View-As)
     viewAsActive: false,   // whether superadmin View-As switcher is expanded
@@ -206,6 +207,7 @@ const App = {
     this.state.roster = apiData.roster || {};
 
     this.state.teamsData = apiData.teams || {};
+    this.state.settings = apiData.settings || {};
     Roster.init(this.state.roster);
     Roster.initFromApi(apiData);
     TeamsManager.init(this.state.teamsData);
@@ -222,6 +224,8 @@ const App = {
     // Re-fetch orders if orders page is visible
     if (this.state.currentNav === 'allOrders') this._loadAndRenderOrders('all');
     if (this.state.currentNav === 'myOrders') this._loadAndRenderOrders('my');
+    if (this.state.currentNav === 'payroll') this._loadAndRenderPayroll();
+    if (this.state.currentNav === 'office') this._renderOfficePage();
     // Ensure role-switcher stays visible for superadmin after refresh
     if (this.state.realRole === 'superadmin') {
       const switcher = document.getElementById('role-switcher');
@@ -303,6 +307,10 @@ const App = {
     const showTeams = isSuperAdmin || (role === 'owner' || role === 'manager' || role === 'admin');
     const showAllOrders = isSuperAdmin || (role === 'owner' || role === 'manager' || role === 'admin');
     const showMyOrders = isSuperAdmin || (role === 'rep' || role === 'l1' || role === 'jd' || role === 'manager');
+    const showOffice = isSuperAdmin || (role === 'owner');
+    const curEmail = (this.state.currentEmail || '').toLowerCase();
+    const payrollMgr = (this.state.settings.payrollManager || '').toLowerCase();
+    const showPayroll = isSuperAdmin || (role === 'owner') || (payrollMgr && curEmail === payrollMgr);
 
     const setDisplay = (id, show) => {
       const el = document.getElementById(id);
@@ -316,6 +324,8 @@ const App = {
     setDisplay('nav-teams', showTeams);
     setDisplay('nav-all-orders', showAllOrders);
     setDisplay('nav-my-orders', showMyOrders);
+    setDisplay('nav-office', showOffice);
+    setDisplay('nav-payroll', showPayroll);
 
     // Update team label
     if (showTeam) {
@@ -352,7 +362,7 @@ const App = {
 
   navTo(tab) {
     // Hide overlay pages when navigating away
-    const overlays = { roster: 'roster-page', teams: 'teams-page', allOrders: 'all-orders-page', myOrders: 'my-orders-page' };
+    const overlays = { roster: 'roster-page', teams: 'teams-page', allOrders: 'all-orders-page', myOrders: 'my-orders-page', office: 'office-page', payroll: 'payroll-page' };
     Object.entries(overlays).forEach(([key, id]) => {
       if (tab !== key) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
     });
@@ -387,6 +397,16 @@ const App = {
       this._loadAndRenderOrders('my');
       return;
     }
+    if (tab === 'office') {
+      Render.closeProfile();
+      this._renderOfficePage();
+      return;
+    }
+    if (tab === 'payroll') {
+      Render.closeProfile();
+      this._loadAndRenderPayroll();
+      return;
+    }
   },
 
   async _loadAndRenderOrders(mode) {
@@ -399,6 +419,150 @@ const App = {
 
     await Orders.fetchOrders(OFFICE_CONFIG, mode);
     Orders.renderOrdersPage(mode, OFFICE_CONFIG);
+  },
+
+  // ══════════════════════════════════════════════
+  // OFFICE PAGE
+  // ══════════════════════════════════════════════
+  _renderOfficePage() {
+    const page = document.getElementById('office-page');
+    if (page) page.style.display = 'block';
+
+    // Populate payroll manager dropdown with all admins
+    const sel = document.getElementById('office-payroll-select');
+    if (!sel) return;
+
+    const admins = [];
+    Object.entries(this.state.roster).forEach(([email, r]) => {
+      if (r.rank === 'admin' && !r.deactivated) {
+        admins.push({ email: email.toLowerCase(), name: r.name || email });
+      }
+    });
+    admins.sort((a, b) => a.name.localeCompare(b.name));
+
+    sel.innerHTML = '<option value="">— None —</option>'
+      + admins.map(a => `<option value="${a.email}">${a.name}</option>`).join('');
+
+    // Set current selection
+    const current = (this.state.settings.payrollManager || '').toLowerCase();
+    if (current) sel.value = current;
+
+    // Hide saved indicator
+    const saved = document.getElementById('office-payroll-saved');
+    if (saved) saved.style.display = 'none';
+  },
+
+  async _setPayrollManager(email) {
+    this.state.settings.payrollManager = email;
+    this.updateNav();
+
+    // Show saved indicator briefly
+    const saved = document.getElementById('office-payroll-saved');
+    if (saved) {
+      saved.style.display = 'block';
+      setTimeout(() => { saved.style.display = 'none'; }, 2000);
+    }
+
+    await SheetsAPI.post(OFFICE_CONFIG, 'setSetting', { key: 'payrollManager', value: email });
+  },
+
+  // ══════════════════════════════════════════════
+  // PAYROLL PAGE
+  // ══════════════════════════════════════════════
+  _payrollOrders: [],
+
+  async _loadAndRenderPayroll() {
+    const page = document.getElementById('payroll-page');
+    if (page) page.style.display = 'block';
+
+    const subtitle = document.getElementById('payroll-page-subtitle');
+    if (subtitle) subtitle.textContent = 'Loading payroll orders...';
+
+    try {
+      this._payrollOrders = await SheetsAPI.fetchPayrollOrders(OFFICE_CONFIG);
+    } catch (err) {
+      console.error('Failed to fetch payroll orders:', err);
+      this._payrollOrders = [];
+    }
+
+    // Sync into Orders module so note modal can find orders by rowIndex
+    Orders._orders = this._payrollOrders;
+    Orders._mode = 'payroll';
+
+    if (subtitle) subtitle.textContent = `${this._payrollOrders.length} trainee orders · Past 2 months`;
+    this._filterPayrollOrders();
+  },
+
+  _filterPayrollOrders() {
+    const search = (document.getElementById('payroll-search')?.value || '').toLowerCase().trim();
+    let filtered = this._payrollOrders;
+    if (search) {
+      filtered = filtered.filter(o => {
+        const haystack = (o.repName + ' ' + o.dsi).toLowerCase();
+        return haystack.includes(search);
+      });
+    }
+
+    const countEl = document.getElementById('payroll-count');
+    if (countEl) {
+      countEl.textContent = filtered.length === this._payrollOrders.length
+        ? `Showing all ${this._payrollOrders.length}`
+        : `Showing ${filtered.length} of ${this._payrollOrders.length}`;
+    }
+
+    this._renderPayrollRows(filtered);
+  },
+
+  _renderPayrollRows(orders) {
+    const tbody = document.getElementById('payroll-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (orders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
+      return;
+    }
+
+    orders.forEach(o => {
+      // Build product list
+      const soldParts = [];
+      OFFICE_CONFIG.columns.products.forEach(prod => {
+        const val = o[prod.key] || 0;
+        if (val > 0) {
+          soldParts.push(prod.type === 'boolean' ? prod.label : `${prod.label} x${val}`);
+        }
+      });
+      const soldStr = soldParts.length > 0 ? soldParts.join(', ') : '—';
+
+      // Status badge
+      const statusColors = { Active: '#22c55e', Pending: '#f0b429', Cancelled: '#e53535', Complete: '#0099cc' };
+      const sColor = statusColors[o.status] || 'var(--silver-dim)';
+
+      // Notes preview
+      const noteLines = o.notes ? o.notes.split('\n').filter(l => l.trim()) : [];
+      const notePreview = noteLines.length > 0
+        ? `<span style="font-size:11px;color:var(--silver-dim)">${noteLines[noteLines.length - 1].substring(0, 40)}${noteLines[noteLines.length - 1].length > 40 ? '...' : ''}</span>
+           ${noteLines.length > 1 ? `<span style="background:rgba(26,92,229,0.15);color:var(--blue-core);font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px;margin-left:4px">${noteLines.length}</span>` : ''}`
+        : '<span style="font-size:11px;color:var(--silver-dim)">—</span>';
+
+      const escapedDsi = (o.dsi || '').replace(/'/g, "\\'");
+
+      const tr = document.createElement('tr');
+      tr.style.cssText = 'border-bottom:1px solid rgba(0,0,0,0.06)';
+      tr.innerHTML = `
+        <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;color:var(--white)">${o.repName}</td>
+        <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--silver)">${o.dsi}</td>
+        <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--silver)">${o.dateOfSale}</td>
+        <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--silver-dim)">${soldStr}</td>
+        <td style="padding:10px 16px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--white)">${o.units}</td>
+        <td style="padding:10px 16px"><span style="display:inline-block;padding:3px 10px;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:${sColor}22;color:${sColor};border:1px solid ${sColor}44">${o.status}</span></td>
+        <td style="padding:10px 16px;text-align:center">
+          <button onclick="Orders.openNoteModal(${o.rowIndex},'${escapedDsi}')"
+            style="background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.3);border-radius:6px;color:var(--sc-cyan);padding:4px 12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes</button>
+          <div style="margin-top:4px">${notePreview}</div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
   },
 
   // ══════════════════════════════════════════════

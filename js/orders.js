@@ -100,6 +100,14 @@ const Orders = {
     return remapped;
   },
 
+  // ── Format date string to MM/DD/YYYY ──
+  _formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+  },
+
   // ── Status color map for Tableau DTR statuses ──
   _dtrStatusColor(status) {
     const map = {
@@ -107,7 +115,7 @@ const Orders = {
       'Shipped': 'var(--sc-cyan)', 'Scheduled': 'var(--sc-cyan)',
       'Open': 'var(--yellow)', 'Pending': 'var(--yellow)',
       'Port Approved': 'var(--blue-core)', 'Porting Issue': '#cc6600', 'Pending Install': 'var(--sc-teal)', 'BYOD': 'var(--blue-core)', 'Backordered': 'var(--orange)',
-      'Canceled': 'var(--red)', 'Disconnected': '#8b0000'
+      'Canceled': '#e53535', 'Disconnected': '#8b1a1a'
     };
     return map[status] || 'var(--silver-dim)';
   },
@@ -374,7 +382,7 @@ const Orders = {
           <span style="font-size:10px;font-weight:700;color:${statusColor};background:${statusColor}18;border:1px solid ${statusColor}44;border-radius:4px;padding:2px 6px">${this._escapeHtml(displayStatus)}</span>
         </td>
         <td style="padding:4px 8px;color:var(--silver);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._escapeHtml(d.phone) || '\u2014'}</td>
-        ${hasFiber ? `<td style="padding:4px 8px;color:var(--silver)">${isFiber && d.installDate ? this._escapeHtml(d.installDate) : '\u2014'}</td>` : ''}
+        ${hasFiber ? `<td style="padding:4px 8px;color:var(--silver)">${isFiber && d.installDate ? this._formatDate(d.installDate) : '\u2014'}</td>` : ''}
         <td style="padding:4px 8px;color:${d.discoReason ? 'var(--red)' : 'var(--silver-dim)'}">${this._escapeHtml(d.discoReason) || '\u2014'}</td>
       </tr>`;
     });

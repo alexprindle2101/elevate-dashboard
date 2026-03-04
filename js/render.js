@@ -315,7 +315,14 @@ const Render = {
     const page = document.getElementById('profile-page');
     const inner = document.getElementById('profile-page-inner');
     if (!page || !inner) return;
-    inner.innerHTML = this._profileHeaderBar() + html;
+    // Insert header bar before the inner container, content inside inner
+    const headerEl = page.querySelector('.profile-header-bar');
+    if (headerEl) headerEl.remove();
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'profile-header-bar';
+    headerDiv.innerHTML = this._profileHeaderBar();
+    page.insertBefore(headerDiv, inner);
+    inner.innerHTML = html;
     page.style.display = 'block';
     page.scrollTop = 0;
     document.body.style.overflow = 'hidden';

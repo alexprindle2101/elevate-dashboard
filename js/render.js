@@ -327,8 +327,8 @@ const Render = {
     ).join('');
 
     return `
-    <header style="position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#c8dff0 0%,#daeaf5 40%,#c2daea 70%,#b8d4e8 100%);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:12px 24px 0;border-bottom:1px solid rgba(0,200,255,0.25);box-shadow:0 2px 12px rgba(0,0,0,0.06)">
-      <div style="max-width:1300px;margin:0 auto">
+    <header style="position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#c8dff0 0%,#daeaf5 40%,#c2daea 70%,#b8d4e8 100%);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:12px 0 0;border-bottom:1px solid rgba(0,200,255,0.25);box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+      <div style="max-width:1300px;margin:0 auto;padding:0 24px">
         <div class="header-top">
           <div class="logo-area">
             <img src="references/logos/elevate-logo-full-standard-blue.png" alt="Elevate" style="height:44px;width:auto;">

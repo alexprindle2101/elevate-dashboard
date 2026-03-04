@@ -127,23 +127,23 @@ header {
 }
 
 .live-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   background: #22c55e;
   border: none;
-  border-radius: 20px;
-  padding: 5px 14px;
-  font-size: 11px;
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   color: #fff;
   text-transform: uppercase;
 }
 
 .live-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #fff;
   animation: pulse 2s infinite;

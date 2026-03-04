@@ -291,32 +291,70 @@ const Render = {
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--white);letter-spacing:0.5px">${info.name}</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--silver-dim);letter-spacing:0.5px">${info.sub}</div>
       </div>` : '';
+
+    // Build nav tabs based on role (mirrors App.updateNav logic)
+    const role = App.state.currentRole;
+    const isSA = role === 'superadmin';
+    const tabs = [];
+    tabs.push({ label: 'Leaderboard', action: "App.navTo('leaderboard')" });
+    tabs.push({ label: 'My Profile', action: null, active: true });
+    if (isSA || ['rep','l1','jd','manager'].includes(role)) {
+      const myTeam = Roster.getEffectiveTeam(App.state.currentPersona, App.state.people);
+      let teamLabel = 'My Team';
+      if (myTeam) {
+        const d = Roster.getTeamDisplay(myTeam, App.state.people, App.state.teams);
+        teamLabel = (d.emoji || '') + ' ' + d.name;
+      }
+      tabs.push({ label: teamLabel, action: "App.navTo('team')" });
+    }
+    if (isSA || ['owner','manager','admin','jd'].includes(role))
+      tabs.push({ label: 'People', action: "App.navTo('roster')" });
+    if (isSA || ['owner','manager','admin'].includes(role))
+      tabs.push({ label: 'Teams', action: "App.navTo('teams')" });
+    if (isSA || ['owner','manager','admin'].includes(role))
+      tabs.push({ label: 'All Orders', action: "App.navTo('allOrders')" });
+    if (isSA || ['rep','l1','jd','manager'].includes(role))
+      tabs.push({ label: 'My Orders', action: "App.navTo('myOrders')" });
+    const curEmail = (App.state.currentEmail || '').toLowerCase();
+    const payrollMgr = (App.state.settings?.payrollManager || '').toLowerCase();
+    if (isSA || role === 'owner' || (payrollMgr && curEmail === payrollMgr))
+      tabs.push({ label: 'Payroll', action: "App.navTo('payroll')" });
+    if (isSA || role === 'owner')
+      tabs.push({ label: 'Office', action: "App.navTo('office')" });
+
+    const navHtml = tabs.map(t =>
+      `<button class="nav-tab${t.active ? ' active' : ''}" ${t.action ? `onclick="${t.action}"` : ''}>${t.label}</button>`
+    ).join('');
+
     return `
-    <div class="header-top">
-      <div class="logo-area">
-        <img src="references/logos/elevate-logo-full-standard-blue.png" alt="Elevate" style="height:44px;width:auto;">
-        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
-          <span class="week-label">Weekly Leaderboard</span>
-          <div class="live-badge"><span class="live-dot"></span>Live</div>
+    <header style="position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#c8dff0 0%,#daeaf5 40%,#c2daea 70%,#b8d4e8 100%);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:12px 24px 0;border-bottom:1px solid rgba(0,200,255,0.25);box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+      <div style="max-width:1300px;margin:0 auto">
+        <div class="header-top">
+          <div class="logo-area">
+            <img src="references/logos/elevate-logo-full-standard-blue.png" alt="Elevate" style="height:44px;width:auto;">
+            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
+              <span class="week-label">Weekly Leaderboard</span>
+              <div class="live-badge"><span class="live-dot"></span>Live</div>
+            </div>
+          </div>
+          <div class="header-right">
+            <span class="last-updated">${updated}</span>
+            <button class="refresh-btn" onclick="App.manualRefresh()" title="Refresh data">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 4v6h-6"/>
+                <path d="M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+              </svg>
+            </button>
+            ${infoHtml}
+            <button onclick="App.logout()" title="Sign out" style="background:none;border:1px solid rgba(229,53,53,0.3);border-radius:6px;padding:5px 10px;color:#e53535;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer">Logout</button>
+          </div>
         </div>
+        <nav style="display:flex;align-items:center;gap:4px;padding:0 0 10px;overflow-x:auto">
+          ${navHtml}
+        </nav>
       </div>
-      <div class="header-right">
-        <span class="last-updated">${updated}</span>
-        <button class="refresh-btn" onclick="App.manualRefresh()" title="Refresh data">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M23 4v6h-6"/>
-            <path d="M1 20v-6h6"/>
-            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-          </svg>
-        </button>
-        ${infoHtml}
-        <button onclick="App.logout()" title="Sign out" style="background:none;border:1px solid rgba(229,53,53,0.3);border-radius:6px;padding:5px 10px;color:#e53535;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer">Logout</button>
-      </div>
-    </div>
-    <nav id="profile-nav" style="display:flex;align-items:center;gap:4px;padding:0 0 10px">
-      <button class="nav-tab" onclick="App.navTo('leaderboard')">Leaderboard</button>
-      <button class="nav-tab active">My Profile</button>
-    </nav>`;
+    </header>`;
   },
 
   // ── PROFILE PAGE ──

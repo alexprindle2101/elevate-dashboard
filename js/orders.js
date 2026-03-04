@@ -115,7 +115,7 @@ const Orders = {
       'Shipped': 'var(--sc-cyan)', 'Scheduled': 'var(--sc-cyan)',
       'Open': 'var(--yellow)', 'Pending': 'var(--yellow)',
       'Port Approved': 'var(--blue-core)', 'Porting Issue': '#cc6600', 'Pending Install': 'var(--sc-teal)', 'BYOD': 'var(--blue-core)', 'Backordered': 'var(--orange)',
-      'Canceled': '#e53535', 'Disconnected': '#8b1a1a'
+      'Canceled': '#e53535', 'Cancelled': '#e53535', 'Disconnected': '#8b1a1a'
     };
     return map[status] || 'var(--silver-dim)';
   },

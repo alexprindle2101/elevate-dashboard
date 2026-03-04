@@ -322,7 +322,7 @@ const App = {
       const myTeam = Roster.getEffectiveTeam(this.state.currentPersona, this.state.people);
       const label = document.getElementById('nav-team-label');
       if (label && myTeam) {
-        const d = Roster.getTeamDisplay(myTeam, this.state.people);
+        const d = Roster.getTeamDisplay(myTeam, this.state.people, this.state.teams);
         label.textContent = d.emoji + ' ' + d.name;
       }
     }

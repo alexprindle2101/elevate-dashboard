@@ -129,10 +129,15 @@ const Roster = {
     await SheetsAPI.post(config, 'setTeamCustomization', { persona, emoji, displayName: name });
   },
 
-  getTeamDisplay(teamName, people) {
+  getTeamDisplay(teamName, people, teams) {
     for (const [persona, custom] of Object.entries(this.teamCustomizations)) {
       const p = people.find(x => x.name === persona);
       if (p && p.team === teamName) return { emoji: custom.emoji, name: custom.name };
+    }
+    // Fall back to actual team emoji from _Teams hierarchy
+    if (teams) {
+      const team = teams.find(t => t.name === teamName);
+      if (team && team.emoji) return { emoji: team.emoji, name: teamName };
     }
     return { emoji: '⚡', name: teamName };
   },

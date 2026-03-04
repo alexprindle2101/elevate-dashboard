@@ -284,8 +284,13 @@ const Render = {
   },
 
   // ── Profile header bar (mirrors main header) ──
-  _profileHeaderBar() {
+  _profileHeaderBar(info) {
     const updated = document.getElementById('last-updated-text')?.textContent || '';
+    const infoHtml = info ? `
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px;margin-right:4px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--white);letter-spacing:0.5px">${info.name}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--silver-dim);letter-spacing:0.5px">${info.sub}</div>
+      </div>` : '';
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:rgba(255,255,255,0.35);border-bottom:1px solid rgba(26,92,229,0.12)">
       <div style="display:flex;align-items:center;gap:12px">
         <img src="references/logos/elevate-logo-full-standard-blue.png" alt="Elevate" style="height:36px;width:auto">
@@ -299,6 +304,7 @@ const Render = {
         <button onclick="App.manualRefresh()" title="Refresh data" style="background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.3);border-radius:6px;padding:5px 8px;cursor:pointer;color:var(--sc-cyan);display:flex;align-items:center">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
         </button>
+        ${infoHtml}
         <button onclick="App.logout()" title="Sign out" style="background:none;border:1px solid rgba(229,53,53,0.3);border-radius:6px;padding:5px 10px;color:#e53535;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer">Logout</button>
       </div>
     </div>
@@ -309,7 +315,7 @@ const Render = {
   },
 
   // ── PROFILE PAGE ──
-  openProfilePage(html) {
+  openProfilePage(html, info) {
     this.activeCharts.forEach(c => { try { c.destroy(); } catch (e) {} });
     this.activeCharts = [];
     const page = document.getElementById('profile-page');
@@ -320,7 +326,7 @@ const Render = {
     if (headerEl) headerEl.remove();
     const headerDiv = document.createElement('div');
     headerDiv.className = 'profile-header-bar';
-    headerDiv.innerHTML = this._profileHeaderBar();
+    headerDiv.innerHTML = this._profileHeaderBar(info);
     page.insertBefore(headerDiv, inner);
     inner.innerHTML = html;
     page.style.display = 'block';
@@ -350,18 +356,11 @@ const Render = {
   openPersonProfile(name) {
     if (!Roster.canViewMetrics(name, App.state.currentRole, App.state.currentPersona, App.state.people)) {
       this.openProfilePage(`
-        <div class="profile-topbar">
-          <button class="profile-back" onclick="Render.closeProfile()"><span>←</span> Back</button>
-          <div class="profile-heading">
-            <div class="profile-page-name">${name}</div>
-            <div class="profile-page-sub">Profile Restricted</div>
-          </div>
-        </div>
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center">
           <div style="font-size:48px;margin-bottom:16px">🔒</div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--white);margin-bottom:8px">Access Restricted</div>
           <div style="color:var(--silver-dim);font-size:14px;max-width:360px;line-height:1.6">You don't have permission to view this person's full profile. Contact your Junior Director or Admin.</div>
-        </div>`);
+        </div>`, { name: name, sub: 'Profile Restricted' });
       return;
     }
 
@@ -383,14 +382,6 @@ const Render = {
       </div>`).join('');
 
     this.openProfilePage(`
-      <div class="profile-topbar">
-        <button class="profile-back" onclick="Render.closeProfile()"><span>←</span> Back</button>
-        <div class="profile-heading">
-          <div class="profile-page-name">${p.name}</div>
-          <div class="profile-page-sub">${p.role} · Team: <span class="name-link" onclick="App.openTeamProfile('${(p.team || '').replace(/'/g, "\\'")}')" style="cursor:pointer">${p.team || 'Unassigned'}</span></div>
-        </div>
-      </div>
-
       <div class="profile-stats-bar">
         <div class="profile-stat"><div class="profile-stat-val units-val">${twU}</div><div class="profile-stat-lbl">This Wk Units</div></div>
         <div class="profile-stat"><div class="profile-stat-val">${twY}</div><div class="profile-stat-lbl">This Wk Yeses</div></div>
@@ -457,7 +448,7 @@ const Render = {
           <div class="chart-wrap" style="height:180px"><canvas id="p4_${id}"></canvas></div>
         </div>
       </div>
-    `);
+    `, { name: p.name, sub: `${p.role} · Team: ${p.team || 'Unassigned'}` });
 
     setTimeout(() => this.drawCharts(id, m), 100);
   },
@@ -466,18 +457,11 @@ const Render = {
   openTeamProfile(teamName) {
     if (!Roster.canViewTeam(teamName, App.state.currentRole, App.state.currentPersona, App.state.people, App.state.teams)) {
       this.openProfilePage(`
-        <div class="profile-topbar">
-          <button class="profile-back" onclick="Render.closeProfile()"><span>←</span> Back</button>
-          <div class="profile-heading">
-            <div class="profile-page-name">${teamName}</div>
-            <div class="profile-page-sub">Team Restricted</div>
-          </div>
-        </div>
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center">
           <div style="font-size:48px;margin-bottom:16px">🔒</div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--white);margin-bottom:8px">Access Restricted</div>
           <div style="color:var(--silver-dim);font-size:14px;max-width:360px;line-height:1.6">You can only view your own team's dashboard.</div>
-        </div>`);
+        </div>`, { name: teamName, sub: 'Team Restricted' });
       return;
     }
 
@@ -489,14 +473,8 @@ const Render = {
 
     if (!m) {
       this.openProfilePage(`
-        <div class="profile-topbar">
-          <button class="profile-back" onclick="Render.closeProfile()"><span>←</span> Back</button>
-          <div class="profile-heading">
-            <div class="profile-page-name">${team.name}</div>
-            <div class="profile-page-sub">Team · <span>0 members</span></div>
-          </div>
-        </div>
-        <p style="color:var(--silver-dim);padding:40px;text-align:center">No members assigned to this team yet.</p>`);
+        <p style="color:var(--silver-dim);padding:40px;text-align:center">No members assigned to this team yet.</p>`,
+        { name: team.name, sub: 'Team · 0 members' });
       return;
     }
 
@@ -531,14 +509,7 @@ const Render = {
     const safeTeamName = teamName.replace(/'/g, "\\'");
 
     this.openProfilePage(`
-      <div class="profile-topbar">
-        <button class="profile-back" onclick="Render.closeProfile()"><span>←</span> Back</button>
-        <div class="profile-heading">
-          <div class="profile-page-name">${team.name}</div>
-          <div class="profile-page-sub">Team · <span>${members.length} members</span></div>
-          ${tabBarHTML}
-        </div>
-      </div>
+      ${tabBarHTML}
 
       <div id="team-tab-overview">
       <div class="profile-stats-bar">
@@ -655,7 +626,7 @@ const Render = {
           </div>
         </div>
       </div>` : ''}
-    `);
+    `, { name: team.name, sub: `Team · ${members.length} members` });
 
     // Store team name for manage tab refresh
     this._manageTeamName = teamName;

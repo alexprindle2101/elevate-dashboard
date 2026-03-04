@@ -516,7 +516,8 @@ const App = {
     let filtered = this._payrollOrders;
     if (search) {
       filtered = filtered.filter(o => {
-        const haystack = (o.repName + ' ' + o.dsi).toLowerCase();
+        const speStr = (o.speList || []).join(' ');
+        const haystack = (o.repName + ' ' + o.dsi + ' ' + speStr).toLowerCase();
         return haystack.includes(search);
       });
     }
@@ -537,7 +538,7 @@ const App = {
     tbody.innerHTML = '';
 
     if (orders.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
       return;
     }
 
@@ -551,10 +552,6 @@ const App = {
         }
       });
       const soldStr = soldParts.length > 0 ? soldParts.join(', ') : '—';
-
-      // Status badge
-      const statusColors = { Active: '#22c55e', Pending: '#f0b429', Cancelled: '#e53535', Complete: '#0099cc' };
-      const sColor = statusColors[o.status] || 'var(--silver-dim)';
 
       // Notes preview
       const noteLines = o.notes ? o.notes.split('\n').filter(l => l.trim()) : [];
@@ -578,7 +575,6 @@ const App = {
         <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--silver-dim)">${soldStr}</td>
         <td style="padding:10px 16px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--white)">${o.units}</td>
         <td style="padding:10px 16px">${paidOutHtml}</td>
-        <td style="padding:10px 16px"><span style="display:inline-block;padding:3px 10px;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:${sColor}22;color:${sColor};border:1px solid ${sColor}44">${o.status}</span></td>
         <td style="padding:10px 16px;text-align:center">
           <button onclick="Orders.openNoteModal(${o.rowIndex},'${escapedDsi}')"
             style="background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.3);border-radius:6px;color:var(--sc-cyan);padding:4px 12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes</button>

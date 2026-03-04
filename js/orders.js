@@ -398,14 +398,23 @@ const Orders = {
     tbody.appendChild(tr);
   },
 
-  // ── Open SARA+ with DSI copied to clipboard ──
+  // ── Open SARA+ with DSI copied to clipboard (reuse same tab) ──
+  _saraWindow: null,
   _openSaraPlus(dsi) {
     navigator.clipboard.writeText(dsi).then(() => {
       this._showToast(`${dsi} copied — paste into SARA+ search`);
-      window.open('https://www.saraplus.com', '_blank');
+      this._openSaraWindow();
     }).catch(() => {
-      window.open('https://www.saraplus.com', '_blank');
+      this._openSaraWindow();
     });
+  },
+  _openSaraWindow() {
+    // Reuse the same named window so session persists
+    if (this._saraWindow && !this._saraWindow.closed) {
+      this._saraWindow.focus();
+    } else {
+      this._saraWindow = window.open('https://www.saraplus.com', 'saraplus');
+    }
   },
 
   _showToast(msg) {

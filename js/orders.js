@@ -45,7 +45,7 @@ const Orders = {
     if (mode === 'all') {
       const repSel = document.getElementById('all-orders-filter-rep');
       if (repSel) {
-        const reps = [...new Set(this._orders.map(o => o.repName).filter(Boolean))].sort();
+        const reps = [...new Set((App.state.people || []).map(p => p.name).filter(Boolean))].sort();
         const current = repSel.value;
         repSel.innerHTML = '<option value="">All Reps</option>'
           + reps.map(r => `<option value="${r}">${r}</option>`).join('');

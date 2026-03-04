@@ -519,7 +519,7 @@ const App = {
     tbody.innerHTML = '';
 
     if (orders.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
       return;
     }
 
@@ -547,6 +547,9 @@ const App = {
 
       const escapedDsi = (o.dsi || '').replace(/'/g, "\\'");
 
+      // Build paid-out checkboxes
+      const paidOutHtml = this._buildPaidOutHtml(o);
+
       const tr = document.createElement('tr');
       tr.style.cssText = 'border-bottom:1px solid rgba(0,0,0,0.06)';
       tr.innerHTML = `
@@ -556,6 +559,7 @@ const App = {
         <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--silver)">${o.dateOfSale}</td>
         <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--silver-dim)">${soldStr}</td>
         <td style="padding:10px 16px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--white)">${o.units}</td>
+        <td style="padding:10px 16px">${paidOutHtml}</td>
         <td style="padding:10px 16px"><span style="display:inline-block;padding:3px 10px;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:${sColor}22;color:${sColor};border:1px solid ${sColor}44">${o.status}</span></td>
         <td style="padding:10px 16px;text-align:center">
           <button onclick="Orders.openNoteModal(${o.rowIndex},'${escapedDsi}')"
@@ -564,6 +568,123 @@ const App = {
         </td>`;
       tbody.appendChild(tr);
     });
+  },
+
+  // Build paid-out checkbox HTML for a single order
+  _buildPaidOutHtml(order) {
+    // Determine which products have units
+    const products = [];
+    OFFICE_CONFIG.columns.products.forEach(prod => {
+      const qty = order[prod.key] || 0;
+      if (qty > 0) {
+        products.push({ key: prod.key, label: prod.label, qty: qty });
+      }
+    });
+
+    if (products.length === 0) return '<span style="font-size:11px;color:var(--silver-dim)">—</span>';
+
+    // Build/merge paid-out state from saved data
+    const saved = order.paidOut || {};
+    const state = {};
+    products.forEach(p => {
+      const savedArr = Array.isArray(saved[p.key]) ? saved[p.key] : [];
+      state[p.key] = Array.from({ length: p.qty }, (_, i) => savedArr[i] === true);
+    });
+
+    // Check if all are paid
+    const totalUnits = products.reduce((sum, p) => sum + p.qty, 0);
+    const paidCount = products.reduce((sum, p) => sum + state[p.key].filter(v => v).length, 0);
+    const allPaid = totalUnits > 0 && paidCount === totalUnits;
+    const rowId = order.rowIndex;
+
+    let html = '';
+
+    // ALL checkbox
+    html += `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-bottom:4px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${allPaid ? 'var(--green)' : 'var(--silver-dim)'}">
+      <input type="checkbox" ${allPaid ? 'checked' : ''} onchange="App._togglePaidOutAll(${rowId},this.checked)"
+        style="accent-color:#22c55e;cursor:pointer;width:14px;height:14px"> ALL
+    </label>`;
+
+    // Per-product checkboxes
+    products.forEach(p => {
+      html += `<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;letter-spacing:0.5px;color:var(--silver-dim);min-width:32px">${p.label}</span>`;
+      for (let i = 0; i < p.qty; i++) {
+        const checked = state[p.key][i] ? 'checked' : '';
+        html += `<input type="checkbox" ${checked} onchange="App._togglePaidOutUnit(${rowId},'${p.key}',${i},this.checked)"
+          style="accent-color:#22c55e;cursor:pointer;width:13px;height:13px">`;
+      }
+      html += `</div>`;
+    });
+
+    // Paid count summary
+    if (paidCount > 0 && paidCount < totalUnits) {
+      html += `<div style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:var(--sc-cyan);margin-top:2px">${paidCount}/${totalUnits} paid</div>`;
+    } else if (allPaid) {
+      html += `<div style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:var(--green);margin-top:2px">✓ All paid</div>`;
+    }
+
+    return html;
+  },
+
+  // Toggle ALL paid-out checkboxes for an order
+  _togglePaidOutAll(rowIndex, checked) {
+    const order = this._payrollOrders.find(o => o.rowIndex === rowIndex);
+    if (!order) return;
+
+    // Build state — set all to checked/unchecked
+    const state = {};
+    OFFICE_CONFIG.columns.products.forEach(prod => {
+      const qty = order[prod.key] || 0;
+      if (qty > 0) {
+        state[prod.key] = Array.from({ length: qty }, () => checked);
+      }
+    });
+
+    order.paidOut = state;
+    this._persistPaidOut(order);
+    this._filterPayrollOrders(); // re-render to update all checkbox visuals
+  },
+
+  // Toggle a single unit's paid-out checkbox
+  _togglePaidOutUnit(rowIndex, prodKey, unitIdx, checked) {
+    const order = this._payrollOrders.find(o => o.rowIndex === rowIndex);
+    if (!order) return;
+
+    // Initialize paidOut state if needed
+    if (!order.paidOut || typeof order.paidOut !== 'object') order.paidOut = {};
+
+    // Ensure array exists for this product with correct length
+    const qty = order[prodKey] || 0;
+    if (!Array.isArray(order.paidOut[prodKey])) {
+      order.paidOut[prodKey] = Array.from({ length: qty }, () => false);
+    }
+
+    // Update the specific unit
+    order.paidOut[prodKey][unitIdx] = checked;
+
+    this._persistPaidOut(order);
+    this._filterPayrollOrders(); // re-render to update ALL checkbox state
+  },
+
+  // Debounced save of paid-out state to server
+  _paidOutDebounce: {},
+
+  _persistPaidOut(order) {
+    // Debounce saves per order (wait 600ms to batch rapid clicks)
+    if (this._paidOutDebounce[order.rowIndex]) {
+      clearTimeout(this._paidOutDebounce[order.rowIndex]);
+    }
+    this._paidOutDebounce[order.rowIndex] = setTimeout(async () => {
+      try {
+        await SheetsAPI.post(OFFICE_CONFIG, 'savePaidOut', {
+          rowIndex: order.rowIndex,
+          paidOut: order.paidOut
+        });
+      } catch (err) {
+        console.error('Failed to save paid-out state:', err);
+      }
+    }, 600);
   },
 
   // ══════════════════════════════════════════════

@@ -50,7 +50,8 @@ const OL = {
   CELL: 35,
   UNITS: 36,
   STATUS: 38,
-  NOTES: 39
+  NOTES: 39,
+  PAID_OUT: 40
 };
 
 
@@ -521,6 +522,13 @@ function readPayrollOrders(ss) {
     saleDate.setHours(0, 0, 0, 0);
     if (saleDate < cutoff) continue;
 
+    // Parse paid-out JSON (col AO) — defaults to empty object
+    let paidOut = {};
+    try {
+      const rawPaid = String(row[OL.PAID_OUT] || '').trim();
+      if (rawPaid) paidOut = JSON.parse(rawPaid);
+    } catch (e) { paidOut = {}; }
+
     orders.push({
       rowIndex: i + 1,
       email: email,
@@ -534,7 +542,8 @@ function readPayrollOrders(ss) {
       voip:  Number(row[OL.VOIP_QTY]) || 0,
       units: Number(row[OL.UNITS]) || 0,
       status: String(row[OL.STATUS] || 'Pending').trim(),
-      notes:  String(row[OL.NOTES] || '').trim()
+      notes:  String(row[OL.NOTES] || '').trim(),
+      paidOut: paidOut
     });
   }
 
@@ -690,6 +699,7 @@ function doPost(e) {
       case 'setOrderStatus':       result = writeSetOrderStatus(body); break;
       case 'updateOrder':          result = writeUpdateOrder(body); break;
       case 'setSetting':           result = writeSetting(body); break;
+      case 'savePaidOut':          result = writeSavePaidOut(body); break;
       default: result = { error: 'unknown action: ' + body.action };
     }
     return jsonResponse(result);
@@ -1067,5 +1077,21 @@ function writeUpdateOrder(body) {
   if (body.voip !== undefined)      sheet.getRange(rowIndex, OL.VOIP_QTY + 1).setValue(Number(body.voip) || 0);
   if (body.status !== undefined)    sheet.getRange(rowIndex, OL.STATUS + 1).setValue(String(body.status).trim());
 
+  return { ok: true };
+}
+
+
+// === PAYROLL PAID-OUT ===
+
+function writeSavePaidOut(body) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ORDER_LOG_TAB);
+  if (!sheet) return { error: 'Order Log not found' };
+
+  var rowIndex = Number(body.rowIndex);
+  if (!rowIndex || rowIndex < 2) return { error: 'Invalid row' };
+
+  var paidOutJson = JSON.stringify(body.paidOut || {});
+  sheet.getRange(rowIndex, OL.PAID_OUT + 1).setValue(paidOutJson);
   return { ok: true };
 }

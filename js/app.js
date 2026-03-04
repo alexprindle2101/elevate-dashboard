@@ -538,7 +538,7 @@ const App = {
     tbody.innerHTML = '';
 
     if (orders.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
       return;
     }
 
@@ -573,7 +573,6 @@ const App = {
         <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--silver)">${o.dsi}</td>
         <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--silver)">${o.dateOfSale}</td>
         <td style="padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--silver-dim)">${soldStr}</td>
-        <td style="padding:10px 16px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--white)">${o.units}</td>
         <td style="padding:10px 16px">${paidOutHtml}</td>
         <td style="padding:10px 16px;text-align:center">
           <button onclick="Orders.openNoteModal(${o.rowIndex},'${escapedDsi}')"

@@ -64,7 +64,7 @@ const Orders = {
     }
 
     // Default fallback
-    return { label: 'Pending', color: 'var(--yellow)', source: 'default', badges: null };
+    return { label: 'N/A', color: 'var(--silver-dim)', source: 'default', badges: null };
   },
 
   // ── Remap device statuses based on product type ──

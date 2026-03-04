@@ -9,7 +9,7 @@ const OFFICE_CONFIG = {
 
   // ── Apps Script Middleware ──
   // All reads and writes go through Apps Script to keep the sheet private.
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwBKnF4m_3ZgPAq9huKUljbofzn-Rp29KCEJSsHJc82xssqCz9SedjZ5akP1GMZ6eFi/exec",
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbydLBnmME2cDMOQAVOk7yjun5Fus18nojdU6XXduFeip7VdcZYWcS3kpo1DVcfl8FVD/exec",
   apiKey: "elevate-dash-2026-secret",
 
   // ── Sheet reference (for documentation — reads go through Apps Script) ──

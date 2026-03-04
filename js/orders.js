@@ -401,11 +401,25 @@ const Orders = {
   // ── Open SARA+ with DSI copied to clipboard ──
   _openSaraPlus(dsi) {
     navigator.clipboard.writeText(dsi).then(() => {
+      this._showToast(`${dsi} copied — paste into SARA+ search`);
       window.open('https://www.saraplus.com', '_blank');
     }).catch(() => {
-      // Clipboard failed — still open the page
       window.open('https://www.saraplus.com', '_blank');
     });
+  },
+
+  _showToast(msg) {
+    let toast = document.getElementById('sc-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'sc-toast';
+      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d2035;color:#f0f4f8;padding:10px 20px;border-radius:8px;font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:600;letter-spacing:0.5px;z-index:99999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
   },
 
   // ── Note Modal ──

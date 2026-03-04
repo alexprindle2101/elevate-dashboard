@@ -579,6 +579,8 @@ const App = {
     Roster.renderRoster(this.state.people, this.state.currentRole, OFFICE_CONFIG);
     Render.renderMainTable(this.state.people);
     Render.renderTeamGrid(this.state.teams);
+    // Refresh manage team tab if visible
+    Render._refreshManageTeam();
   },
 
   async approveUnlock(name) {
@@ -596,7 +598,7 @@ const App = {
   // ══════════════════════════════════════════════
   // ADD MEMBER (JD+ only)
   // ══════════════════════════════════════════════
-  openAddMemberModal() {
+  openAddMemberModal(presetTeam) {
     const modal = document.getElementById('add-member-modal');
     if (!modal) return;
     modal.style.display = 'flex';
@@ -614,7 +616,12 @@ const App = {
         : OFFICE_CONFIG.teams;
       teamSel.innerHTML = '<option value="Unassigned">Unassigned</option>'
         + teamNames.map(t => `<option value="${t}">${t}</option>`).join('');
-      teamSel.selectedIndex = 0;
+      // Pre-select team if provided (from Manage Team tab)
+      if (presetTeam) {
+        teamSel.value = presetTeam;
+      } else {
+        teamSel.selectedIndex = 0;
+      }
     }
     const rankSel = document.getElementById('add-member-rank');
     if (rankSel) rankSel.selectedIndex = 0;

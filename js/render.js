@@ -469,15 +469,33 @@ const Render = {
         <div class="churn-pct" style="color:${b.pct === 'N/A' ? 'var(--silver-dim)' : (b.disco > 0 ? '#f97316' : 'var(--silver-dim)')}">${b.pct === 'N/A' ? 'Pending' : (b.disco > 0 ? b.pct + '%' : '---')}</div>
       </div>`).join('');
 
+    // Determine if current user can manage this team
+    const curEmail = (App.state.currentEmail || '').toLowerCase();
+    const curRole = App.state.currentRole;
+    const teamData = Object.values(App.state.teamsData || {}).find(t => t.name === teamName);
+    const teamLeaderId = teamData ? (teamData.leaderId || '').toLowerCase() : '';
+    const canManage = curRole === 'superadmin' || curRole === 'owner' || curRole === 'manager' || curRole === 'admin'
+      || (teamLeaderId && curEmail === teamLeaderId);
+
+    const tabBarHTML = canManage ? `
+      <div class="view-toggle-group" style="margin-top:8px">
+        <button class="view-toggle active" onclick="Render.switchTeamTab('overview')" id="team-tab-btn-overview">Overview</button>
+        <button class="view-toggle" onclick="Render.switchTeamTab('manage')" id="team-tab-btn-manage">Manage Team</button>
+      </div>` : '';
+
+    const safeTeamName = teamName.replace(/'/g, "\\'");
+
     this.openProfilePage(`
       <div class="profile-topbar">
         <button class="profile-back" onclick="Render.closeProfile()"><span>←</span> Back</button>
         <div class="profile-heading">
           <div class="profile-page-name">${team.name}</div>
           <div class="profile-page-sub">Team · <span>${members.length} members</span></div>
+          ${tabBarHTML}
         </div>
       </div>
 
+      <div id="team-tab-overview">
       <div class="profile-stats-bar">
         <div class="profile-stat"><div class="profile-stat-val units-val">${tw.u}</div><div class="profile-stat-lbl">This Wk Units</div></div>
         <div class="profile-stat"><div class="profile-stat-val">${tw.y}</div><div class="profile-stat-lbl">This Wk Yeses</div></div>
@@ -552,13 +570,136 @@ const Render = {
           <div class="chart-wrap" style="height:180px"><canvas id="p4_${id}"></canvas></div>
         </div>
       </div>
+      </div>
+
+      ${canManage ? `
+      <div id="team-tab-manage" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div class="profile-section-title" style="margin:0">Team Roster</div>
+          <button onclick="App.openAddMemberModal('${safeTeamName}')"
+            style="margin-left:auto;background:var(--blue-core);border:none;border-radius:6px;padding:6px 16px;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer">+ Add Member</button>
+        </div>
+        <input type="text" id="manage-team-search" placeholder="Search by name..."
+          oninput="Render._renderManageTeamRows('${safeTeamName}', this.value)"
+          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.5);border:1px solid rgba(26,92,229,0.2);border-radius:8px;padding:8px 14px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:14px;outline:none;margin-bottom:12px">
+        <div class="table-scroll">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="padding:10px 16px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim)">Name</th>
+                  <th style="padding:10px 16px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim)">Role</th>
+                  <th style="padding:10px 16px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim)">Status</th>
+                </tr>
+              </thead>
+              <tbody id="manage-team-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>` : ''}
     `);
+
+    // Store team name for manage tab refresh
+    this._manageTeamName = teamName;
 
     // Build leaderboard table (same format as office leaderboard)
     this._activeTeamLB = { tableId, members };
     this._rebuildTeamLeaderboard();
 
+    // Pre-populate manage team rows if canManage
+    if (canManage) this._renderManageTeamRows(teamName);
+
     setTimeout(() => this.drawCharts(id, m), 100);
+  },
+
+  // ── Manage Team tab switching ──
+  _manageTeamName: null,
+
+  switchTeamTab(tab) {
+    const overview = document.getElementById('team-tab-overview');
+    const manage = document.getElementById('team-tab-manage');
+    const btnOverview = document.getElementById('team-tab-btn-overview');
+    const btnManage = document.getElementById('team-tab-btn-manage');
+    if (!overview || !manage) return;
+
+    if (tab === 'manage') {
+      overview.style.display = 'none';
+      manage.style.display = '';
+      if (btnOverview) btnOverview.classList.remove('active');
+      if (btnManage) btnManage.classList.add('active');
+      if (this._manageTeamName) this._renderManageTeamRows(this._manageTeamName);
+    } else {
+      overview.style.display = '';
+      manage.style.display = 'none';
+      if (btnOverview) btnOverview.classList.add('active');
+      if (btnManage) btnManage.classList.remove('active');
+    }
+  },
+
+  _renderManageTeamRows(teamName, searchText) {
+    const tbody = document.getElementById('manage-team-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const team = App.state.teams.find(t => t.name === teamName);
+    if (!team) return;
+
+    let teamMembers = (team.members || []).slice();
+    if (searchText && searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      teamMembers = teamMembers.filter(p => p.name.toLowerCase().includes(q));
+    }
+
+    // Sort: active first, then alphabetical
+    teamMembers.sort((a, b) => {
+      const aDeact = Roster.deactivated.has(a.name) ? 1 : 0;
+      const bDeact = Roster.deactivated.has(b.name) ? 1 : 0;
+      if (aDeact !== bDeact) return aDeact - bDeact;
+      return a.name.localeCompare(b.name);
+    });
+
+    if (teamMembers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px">No members found</td></tr>';
+      return;
+    }
+
+    teamMembers.forEach(p => {
+      const isDeactivated = Roster.deactivated.has(p.name);
+      const safeName = p.name.replace(/'/g, "\\'");
+      const email = p.email || Roster.getEmail(p.name) || '';
+      const roleKey = p._roleKey || 'rep';
+      const roleLabel = OFFICE_CONFIG.roles[roleKey]?.label || roleKey;
+
+      const tr = document.createElement('tr');
+      tr.style.cssText = `border-bottom:1px solid rgba(0,0,0,0.06);${isDeactivated ? 'opacity:0.35;' : ''}`;
+      tr.innerHTML = `
+        <td style="padding:12px 16px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
+            ${p.name}
+            ${isDeactivated ? '<span style="font-size:10px;letter-spacing:1px;color:#e53535;margin-left:8px;border:1px solid rgba(229,53,53,0.4);border-radius:4px;padding:1px 5px;text-transform:uppercase">Inactive</span>' : ''}
+          </div>
+          ${email ? `<div style="font-size:10px;color:var(--silver-dim);margin-top:2px">${email}</div>` : ''}
+        </td>
+        <td style="padding:12px 16px">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;color:var(--silver)">${roleLabel}</span>
+        </td>
+        <td style="padding:12px 16px;text-align:center">
+          <button onclick="App.toggleDeactivate('${safeName}')"
+            style="background:${isDeactivated ? 'rgba(34,197,94,0.1)' : 'rgba(229,53,53,0.1)'};border:1px solid ${isDeactivated ? 'rgba(34,197,94,0.3)' : 'rgba(229,53,53,0.3)'};border-radius:6px;color:${isDeactivated ? '#22c55e' : '#e53535'};padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
+            ${isDeactivated ? 'Reactivate' : 'Deactivate'}
+          </button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  },
+
+  // Called after deactivation to refresh manage team view if visible
+  _refreshManageTeam() {
+    const manage = document.getElementById('team-tab-manage');
+    if (manage && manage.style.display !== 'none' && this._manageTeamName) {
+      const search = document.getElementById('manage-team-search');
+      this._renderManageTeamRows(this._manageTeamName, search ? search.value : '');
+    }
   },
 
   // ── Team Leaderboard rebuild (for period toggle) ──

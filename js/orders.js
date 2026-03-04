@@ -337,7 +337,13 @@ const Orders = {
     // Check if any device has an install date (for fiber column)
     const hasFiber = devices.some(d => (d.productType || '').toUpperCase().includes('INTERNET'));
 
+    const escapedDsi = dsi.replace(/'/g, "\\'");
     let html = `<td colspan="${colSpan}" style="padding:8px 16px">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+        <button onclick="Orders._openSaraPlus('${escapedDsi}')" style="background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.3);border-radius:6px;padding:4px 12px;color:var(--sc-cyan);font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <span style="font-size:12px">&#x1F50D;</span> SARA+
+        </button>
+      </div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:'Barlow Condensed',sans-serif">
         <thead>
           <tr style="color:var(--silver-dim);text-transform:uppercase;letter-spacing:1px;font-size:10px;font-weight:700">
@@ -390,6 +396,16 @@ const Orders = {
     html += '</tbody></table></td>';
     tr.innerHTML = html;
     tbody.appendChild(tr);
+  },
+
+  // ── Open SARA+ with DSI copied to clipboard ──
+  _openSaraPlus(dsi) {
+    navigator.clipboard.writeText(dsi).then(() => {
+      window.open('https://www.saraplus.com', '_blank');
+    }).catch(() => {
+      // Clipboard failed — still open the page
+      window.open('https://www.saraplus.com', '_blank');
+    });
   },
 
   // ── Note Modal ──

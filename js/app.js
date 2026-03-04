@@ -215,6 +215,11 @@ const App = {
     if (apiData.tableauSummary) {
       this.state.tableauDsi = apiData.tableauSummary.dsiSummary || {};
       this.state.tableauByRep = apiData.tableauSummary.repSummary || {};
+      console.log('[Tableau] DSIs loaded:', Object.keys(this.state.tableauDsi).length);
+      const firstDsi = Object.keys(this.state.tableauDsi)[0];
+      if (firstDsi) console.log('[Tableau] Sample DSI:', firstDsi, this.state.tableauDsi[firstDsi]);
+    } else {
+      console.warn('[Tableau] No tableauSummary in API response. Keys:', Object.keys(apiData));
     }
 
     // Enrich person and team metrics with Tableau data

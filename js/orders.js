@@ -24,9 +24,17 @@ const Orders = {
         : null;
       this._orders = await SheetsAPI.fetchOrders(config, email);
       // Attach Tableau data to each order
+      const tableauKeys = Object.keys(App.state.tableauDsi);
+      let matched = 0;
       this._orders.forEach(o => {
         o.tableau = App.state.tableauDsi[o.dsi] || null;
+        if (o.tableau) matched++;
       });
+      console.log(`[Orders] ${matched}/${this._orders.length} orders matched Tableau DSIs`);
+      if (this._orders.length > 0 && matched === 0 && tableauKeys.length > 0) {
+        console.log('[Orders] Sample order DSI:', JSON.stringify(this._orders[0].dsi));
+        console.log('[Orders] Sample Tableau DSI:', JSON.stringify(tableauKeys[0]));
+      }
     } catch (err) {
       console.error('Failed to fetch orders:', err);
       this._orders = [];
@@ -278,7 +286,7 @@ const Orders = {
 
     const devices = this._detailCache[dsi];
     if (!devices || devices.length === 0) {
-      tr.innerHTML = `<td colspan="${colSpan}" style="padding:12px 24px;font-size:12px;color:var(--silver-dim)">Loading device detail...</td>`;
+      tr.innerHTML = `<td colspan="${colSpan}" style="padding:12px 24px;font-size:12px;color:var(--silver-dim)">No device detail available for this DSI</td>`;
       tbody.appendChild(tr);
       return;
     }

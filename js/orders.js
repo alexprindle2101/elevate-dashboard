@@ -57,7 +57,8 @@ const Orders = {
 
     // If Tableau data exists → derive from device statuses
     if (order.tableau && order.tableau.statusCounts) {
-      const counts = order.tableau.statusCounts;
+      // Remap fiber pending statuses to "Pending Install" in the badge counts
+      const counts = this._remapFiberStatuses(order.tableau);
       const total = order.tableau.totalDevices || 0;
       return { label: null, color: null, source: 'tableau', badges: counts, total };
     }
@@ -66,13 +67,32 @@ const Orders = {
     return { label: 'Pending', color: 'var(--yellow)', source: 'default', badges: null };
   },
 
+  // ── Remap fiber device statuses to "Pending Install" ──
+  _remapFiberStatuses(tableau) {
+    if (!tableau.devices || tableau.devices.length === 0) {
+      return { ...tableau.statusCounts };
+    }
+    const ACTIVE = ['Posted', 'Delivered', 'Confirmed'];
+    const KEEP = ['Canceled', 'Disconnected'];
+    const remapped = {};
+    tableau.devices.forEach(d => {
+      const isFiber = (d.productType || '').toUpperCase().includes('INTERNET');
+      let status = d.dtrStatus || '';
+      if (isFiber && status && !ACTIVE.includes(status) && !KEEP.includes(status)) {
+        status = 'Pending Install';
+      }
+      remapped[status] = (remapped[status] || 0) + 1;
+    });
+    return remapped;
+  },
+
   // ── Status color map for Tableau DTR statuses ──
   _dtrStatusColor(status) {
     const map = {
       'Posted': 'var(--green)', 'Delivered': 'var(--green)', 'Confirmed': 'var(--green)',
       'Shipped': 'var(--sc-cyan)', 'Scheduled': 'var(--sc-cyan)',
       'Open': 'var(--yellow)', 'Pending': 'var(--yellow)',
-      'Port Approved': 'var(--blue-core)', 'Porting Issue': '#cc6600', 'BYOD': 'var(--blue-core)', 'Backordered': 'var(--orange)',
+      'Port Approved': 'var(--blue-core)', 'Porting Issue': '#cc6600', 'Pending Install': 'var(--sc-teal)', 'BYOD': 'var(--blue-core)', 'Backordered': 'var(--orange)',
       'Disconnected': 'var(--red)', 'Canceled': 'var(--red)'
     };
     return map[status] || 'var(--silver-dim)';
@@ -82,7 +102,7 @@ const Orders = {
   _renderStatusBadges(badges, total) {
     const parts = [];
     // Sort: active first, then pending, then bad
-    const order = ['Posted', 'Delivered', 'Confirmed', 'Shipped', 'Scheduled', 'Open', 'Pending', 'Port Approved', 'Porting Issue', 'BYOD', 'Backordered', 'Disconnected', 'Canceled'];
+    const order = ['Posted', 'Delivered', 'Confirmed', 'Shipped', 'Scheduled', 'Open', 'Pending', 'Port Approved', 'Porting Issue', 'Pending Install', 'BYOD', 'Backordered', 'Disconnected', 'Canceled'];
     const sorted = Object.entries(badges).sort((a, b) => {
       const ai = order.indexOf(a[0]), bi = order.indexOf(b[0]);
       return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
@@ -94,6 +114,7 @@ const Orders = {
       const short = status === 'Disconnected' ? 'Disco'
         : status === 'Port Approved' ? 'Port'
         : status === 'Porting Issue' ? 'Port Issue'
+        : status === 'Pending Install' ? 'P. Install'
         : status === 'Backordered' ? 'B/O'
         : status;
       parts.push(`<span style="font-size:10px;font-weight:700;letter-spacing:0.5px;color:${color};background:${color}18;border:1px solid ${color}44;border-radius:4px;padding:2px 6px;white-space:nowrap">${count} ${short}</span>`);
@@ -291,6 +312,9 @@ const Orders = {
       return;
     }
 
+    // Check if any device has an install date (for fiber column)
+    const hasFiber = devices.some(d => (d.productType || '').toUpperCase().includes('INTERNET'));
+
     let html = `<td colspan="${colSpan}" style="padding:8px 16px">
       <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:'Barlow Condensed',sans-serif">
         <thead>
@@ -300,20 +324,31 @@ const Orders = {
             <th style="padding:4px 8px;text-align:center">CRU/IRU</th>
             <th style="padding:4px 8px;text-align:center">Status</th>
             <th style="padding:4px 8px;text-align:left">Device</th>
+            ${hasFiber ? '<th style="padding:4px 8px;text-align:left">Install Date</th>' : ''}
             <th style="padding:4px 8px;text-align:left">Disco Reason</th>
           </tr>
         </thead><tbody>`;
 
+    const ACTIVE = ['Posted', 'Delivered', 'Confirmed'];
+    const KEEP_AS_IS = ['Canceled', 'Disconnected'];
+
     devices.forEach(d => {
-      const statusColor = this._dtrStatusColor(d.dtrStatus);
+      const isFiber = (d.productType || '').toUpperCase().includes('INTERNET');
+      // Fiber: show "Pending Install" unless active, canceled, or disconnected
+      let displayStatus = d.dtrStatus;
+      if (isFiber && displayStatus && !ACTIVE.includes(displayStatus) && !KEEP_AS_IS.includes(displayStatus)) {
+        displayStatus = 'Pending Install';
+      }
+      const statusColor = this._dtrStatusColor(displayStatus);
       html += `<tr style="border-top:1px solid rgba(26,92,229,0.1)">
         <td style="padding:4px 8px;color:var(--silver)">${this._escapeHtml(d.spe)}</td>
         <td style="padding:4px 8px;color:var(--white)">${this._escapeHtml(d.productType)}</td>
         <td style="padding:4px 8px;text-align:center;color:var(--silver)">${this._escapeHtml(d.cruIru)}</td>
         <td style="padding:4px 8px;text-align:center">
-          <span style="font-size:10px;font-weight:700;color:${statusColor};background:${statusColor}18;border:1px solid ${statusColor}44;border-radius:4px;padding:2px 6px">${this._escapeHtml(d.dtrStatus)}</span>
+          <span style="font-size:10px;font-weight:700;color:${statusColor};background:${statusColor}18;border:1px solid ${statusColor}44;border-radius:4px;padding:2px 6px">${this._escapeHtml(displayStatus)}</span>
         </td>
         <td style="padding:4px 8px;color:var(--silver);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._escapeHtml(d.phone) || '\u2014'}</td>
+        ${hasFiber ? `<td style="padding:4px 8px;color:var(--silver)">${isFiber && d.installDate ? this._escapeHtml(d.installDate) : '\u2014'}</td>` : ''}
         <td style="padding:4px 8px;color:${d.discoReason ? 'var(--red)' : 'var(--silver-dim)'}">${this._escapeHtml(d.discoReason) || '\u2014'}</td>
       </tr>`;
     });

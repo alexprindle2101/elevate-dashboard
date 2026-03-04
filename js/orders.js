@@ -413,7 +413,7 @@ const Orders = {
     if (this._saraWindow && !this._saraWindow.closed) {
       this._saraWindow.focus();
     } else {
-      this._saraWindow = window.open('https://www.saraplus.com/e/(S(wsskrvbjonferie4wb1n2g4o))/ServicePages/CustomerRecords.aspx', 'saraplus');
+      this._saraWindow = window.open('https://www.saraplus.com', 'saraplus');
     }
   },
 

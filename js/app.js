@@ -49,6 +49,9 @@ const App = {
         const switcher = document.getElementById('role-switcher');
         if (switcher) switcher.style.display = 'flex';
         this._applySuperAdminViewAs();
+        // Re-open profile after superadmin setup (which resets view)
+        this.state.currentNav = 'profile';
+        this.openPersonProfile(this.state.currentPersona);
       }
     } else {
       // Need login — fetch all data (includes roster for email validation)
@@ -852,6 +855,7 @@ const App = {
     this.updateNav();
     Render.closeProfile();
     Render.renderAll(this.state.people, this.state.teams);
+    this.openPersonProfile(this.state.currentPersona);
   },
 
   setPersona(name) {
@@ -861,6 +865,7 @@ const App = {
     this.updateNav();
     Render.closeProfile();
     Render.renderAll(this.state.people, this.state.teams);
+    this.openPersonProfile(name);
   },
 
   populatePersonaSelect(role) {

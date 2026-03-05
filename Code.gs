@@ -756,6 +756,11 @@ function readTableauSummary(ss) {
   // Build DSI → email map for rep aggregation
   var dsiEmailMap = buildDsiEmailMap(ss);
 
+  // Month window cutoff for Active % calc
+  var thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+
   var dsiSummary = {};
 
   for (var i = 1; i < data.length; i++) {
@@ -775,6 +780,9 @@ function readTableauSummary(ss) {
     var totalActs = Number(row[TOL.TOTAL_ACTS]) || 0;
     var tableauRep = String(row[TOL.REP] || '').trim();
 
+    var orderStatus = String(row[TOL.ORDER_STATUS] || '').trim();
+    var orderDate = row[TOL.ORDER_DATE];
+
     if (!dsiSummary[dsi]) {
       dsiSummary[dsi] = {
         tableauRep: tableauRep,
@@ -785,7 +793,8 @@ function readTableauSummary(ss) {
         productCounts: {},
         disconnectReasons: {},
         speList: [],
-        devices: []
+        devices: [],
+        monthSPEs: {}  // spe → true if Approved, false otherwise
       };
     }
 
@@ -805,6 +814,12 @@ function readTableauSummary(ss) {
     }
     if (spe) {
       s.speList.push(spe);
+      // Track SPEs within 30-day window for Active % calculation
+      var isInMonth = orderDate instanceof Date && orderDate >= thirtyDaysAgo;
+      if (isInMonth) {
+        if (!s.monthSPEs[spe]) s.monthSPEs[spe] = false;
+        if (orderStatus.toLowerCase() === 'approved') s.monthSPEs[spe] = true;
+      }
     }
     s.devices.push({
       spe: spe,
@@ -835,7 +850,8 @@ function readTableauSummary(ss) {
         totalVolume: 0,
         statusCounts: {},
         productCounts: {},
-        tableauName: ds.tableauRep
+        tableauName: ds.tableauRep,
+        monthSPEs: {}
       };
     }
 
@@ -850,6 +866,20 @@ function readTableauSummary(ss) {
     Object.keys(ds.productCounts).forEach(function(pt) {
       rs.productCounts[pt] = (rs.productCounts[pt] || 0) + ds.productCounts[pt];
     });
+    // Merge month-window SPEs (Approved wins if any DSI has it)
+    Object.keys(ds.monthSPEs).forEach(function(spe) {
+      if (!rs.monthSPEs[spe]) rs.monthSPEs[spe] = false;
+      if (ds.monthSPEs[spe]) rs.monthSPEs[spe] = true;
+    });
+  });
+
+  // Convert monthSPEs maps to counts for the response
+  Object.keys(repSummary).forEach(function(email) {
+    var rs = repSummary[email];
+    var spValues = Object.keys(rs.monthSPEs);
+    rs.monthTotalSPEs = spValues.length;
+    rs.monthApprovedSPEs = spValues.filter(function(spe) { return rs.monthSPEs[spe]; }).length;
+    delete rs.monthSPEs; // don't send the full map to client
   });
 
   return { dsiSummary: dsiSummary, repSummary: repSummary };

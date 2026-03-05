@@ -842,6 +842,12 @@ const DataPipeline = {
         : 0;
       m.productBreakdown = rep.productCounts || {};
       m.tableauName = rep.tableauName || '';
+      // Active % — Approved SPEs / Total SPEs in 30-day window
+      m.monthTotalSPEs = rep.monthTotalSPEs || 0;
+      m.monthApprovedSPEs = rep.monthApprovedSPEs || 0;
+      m.activePct = m.monthTotalSPEs > 0
+        ? parseFloat((m.monthApprovedSPEs / m.monthTotalSPEs * 100).toFixed(1))
+        : 0;
     });
   },
 

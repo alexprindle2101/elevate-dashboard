@@ -479,6 +479,7 @@ const Render = {
         <div class="profile-stat"><div class="profile-stat-val units-val">${tw4.units}</div><div class="profile-stat-lbl">4W Units</div></div>
         <div class="profile-stat"><div class="profile-stat-val">${tw4.y}</div><div class="profile-stat-lbl">4W Yeses</div></div>
         <div class="profile-stat"><div class="profile-stat-val" style="color:${vsColor}">${vsArrow}${Math.abs(m.vsPct)}%</div><div class="profile-stat-lbl">vs 4Wk Avg</div></div>
+        <div class="profile-stat"><div class="profile-stat-val" style="color:${m.activePct >= 75 ? '#22c55e' : m.activePct >= 50 ? '#f0b429' : m.activePct > 0 ? '#e53535' : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.activePct + '%' : '---'}</div><div class="profile-stat-lbl">Active %</div></div>
       </div>
 
       <div class="profile-section-title">Sales Breakdown</div>

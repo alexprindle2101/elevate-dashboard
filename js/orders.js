@@ -234,23 +234,26 @@ const Orders = {
           if (COMPLETED_STATUSES.includes((o.status || '').toLowerCase())) return false;
         }
       }
-      // Hide recently noted — orders that have any note dated within the past 3 days
+      // Hide recently noted — orders with an admin/owner/manager note within the past 3 days
       if (hideNoted && o.notes) {
         const lines = o.notes.split('\n');
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         const cutoff = new Date(now.getTime() - 3 * 86400000);
-        const hasRecentNote = lines.some(line => {
-          const m = line.match(/^\[(\w{3})\s+(\d{1,2})/);
+        const hasRecentAdminNote = lines.some(line => {
+          const m = line.match(/^\[(\w{3})\s+(\d{1,2})\s*[—–\-]\s*(.+?)\]/);
           if (!m) return false;
           const mi = MONTHS[m[1]];
           if (mi === undefined) return false;
+          // Check if author is an admin-level role
+          const author = m[3].trim();
+          const person = (App.state.people || []).find(p => p.name === author);
+          if (!person || !['admin', 'owner', 'superadmin', 'manager'].includes(person.role)) return false;
           const noteDate = new Date(now.getFullYear(), mi, parseInt(m[2]));
-          // Handle year boundary (note in Dec, now in Jan → use previous year)
           if (noteDate > now) noteDate.setFullYear(noteDate.getFullYear() - 1);
           return noteDate >= cutoff;
         });
-        if (hasRecentNote) return false;
+        if (hasRecentAdminNote) return false;
       }
       return true;
     });

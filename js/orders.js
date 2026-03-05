@@ -294,6 +294,9 @@ const Orders = {
         : '';
       const noteCount = noteLines.length;
 
+      const tickets = o.tickets || [];
+      const openTickets = tickets.filter(t => !t.resolved).length;
+
       const escapedDsi = (o.dsi || '').replace(/'/g, "\\'");
       const hasDrillDown = !!o.tableau;
       const isExpanded = this._expandedDsi === o.dsi;
@@ -314,7 +317,7 @@ const Orders = {
         <td style="padding:10px 8px;text-align:right;white-space:nowrap">
           ${canEdit ? `<button onclick="Orders.openEditModal(${o.rowIndex})" style="background:none;border:1px solid rgba(26,92,229,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-right:4px">Edit</button>` : ''}
           <button onclick="Orders.openNoteModal(${o.rowIndex},'${escapedDsi}')"
-            style="background:none;border:1px solid rgba(26,92,229,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes${noteCount > 0 ? ' (' + noteCount + ')' : ''}</button>
+            style="background:none;border:1px solid rgba(26,92,229,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes${noteCount > 0 ? ' (' + noteCount + ')' : ''}</button>${openTickets > 0 ? `<span style="display:inline-flex;align-items:center;gap:2px;margin-left:6px;font-size:11px;font-weight:700;color:var(--orange);background:rgba(249,115,22,0.12);border:1px solid rgba(249,115,22,0.3);border-radius:6px;padding:3px 8px;font-family:'Barlow Condensed',sans-serif">\uD83C\uDFAB ${openTickets}</span>` : ''}
         </td>`;
       tbody.appendChild(tr);
 
@@ -474,6 +477,9 @@ const Orders = {
       }
     }
 
+    // Render tickets
+    this._renderTicketsList(order);
+
     const dsiLabel = document.getElementById('order-note-dsi');
     if (dsiLabel) dsiLabel.textContent = dsi ? `DSI: ${dsi}` : 'Order Note';
 
@@ -482,12 +488,152 @@ const Orders = {
 
     const errorEl = document.getElementById('order-note-error');
     if (errorEl) errorEl.textContent = '';
+
+    // Clear ticket inputs
+    const ticketIdInput = document.getElementById('ticket-id-input');
+    const ticketTextInput = document.getElementById('ticket-text-input');
+    const ticketError = document.getElementById('ticket-error');
+    if (ticketIdInput) ticketIdInput.value = '';
+    if (ticketTextInput) ticketTextInput.value = '';
+    if (ticketError) ticketError.textContent = '';
   },
 
   closeNoteModal() {
     const modal = document.getElementById('order-note-modal');
     if (modal) modal.style.display = 'none';
     this._activeRowIndex = null;
+  },
+
+  // ── Ticket rendering ──
+  _renderTicketsList(order) {
+    const container = document.getElementById('order-note-tickets');
+    if (!container) return;
+
+    const tickets = (order && order.tickets) || [];
+    if (tickets.length === 0) {
+      container.innerHTML = '<div style="color:var(--silver-dim);font-size:12px;padding:12px 0">No tickets</div>';
+      return;
+    }
+
+    container.innerHTML = tickets.map(t => {
+      const escapedId = this._escapeHtml(t.id).replace(/'/g, "\\'");
+      const resolvedStyle = t.resolved ? 'text-decoration:line-through;opacity:0.6' : '';
+      return `<div style="padding:8px 0;border-bottom:1px solid rgba(26,92,229,0.1);display:flex;align-items:flex-start;gap:8px">
+        <input type="checkbox" ${t.resolved ? 'checked' : ''} onchange="Orders.toggleTicket('${escapedId}')" style="cursor:pointer;margin-top:2px;flex-shrink:0">
+        <div style="flex:1;min-width:0;${resolvedStyle}">
+          <div style="font-size:13px;color:var(--white);font-weight:700;font-family:'Barlow Condensed',sans-serif">${this._escapeHtml(t.id)} <span style="font-weight:400;color:var(--silver)">\u2014 ${this._escapeHtml(t.text || '')}</span></div>
+          <div style="font-size:11px;color:var(--silver-dim);margin-top:2px">${this._escapeHtml(t.date || '')} \u2014 ${this._escapeHtml(t.author || '')}</div>
+        </div>
+        <button onclick="Orders.deleteTicket('${escapedId}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0;line-height:1" title="Delete ticket">\u00D7</button>
+      </div>`;
+    }).join('');
+  },
+
+  // ── Add ticket ──
+  _savingTicket: false,
+
+  async addTicket() {
+    if (this._savingTicket || !this._activeRowIndex) return;
+
+    const idInput = document.getElementById('ticket-id-input');
+    const textInput = document.getElementById('ticket-text-input');
+    const errorEl = document.getElementById('ticket-error');
+    const ticketId = (idInput?.value || '').trim();
+    const ticketText = (textInput?.value || '').trim();
+
+    if (!ticketId) {
+      if (errorEl) errorEl.textContent = 'Ticket ID is required';
+      return;
+    }
+
+    this._savingTicket = true;
+    const btn = document.getElementById('ticket-submit-btn');
+    if (btn) { btn.textContent = 'Saving...'; btn.style.opacity = '0.5'; }
+
+    try {
+      const result = await SheetsAPI.post(OFFICE_CONFIG, 'addTicket', {
+        rowIndex: this._activeRowIndex,
+        ticketId: ticketId,
+        ticketText: ticketText,
+        authorName: App.state.currentPersona
+      });
+
+      if (result.data?.error) {
+        if (errorEl) errorEl.textContent = result.data.error;
+        return;
+      }
+
+      // Update local cache
+      const order = this._orders.find(o => o.rowIndex === this._activeRowIndex);
+      if (order && result.data?.tickets) {
+        order.tickets = result.data.tickets;
+      }
+
+      // Re-render modal and table
+      this.openNoteModal(this._activeRowIndex, this._activeDsi);
+      this.applyFilters(this._mode);
+      App.showToast('Ticket added');
+    } catch (err) {
+      if (errorEl) errorEl.textContent = 'Failed: ' + err.message;
+    } finally {
+      this._savingTicket = false;
+      if (btn) { btn.textContent = 'ADD TICKET'; btn.style.opacity = ''; }
+    }
+  },
+
+  // ── Toggle ticket resolved ──
+  async toggleTicket(ticketId) {
+    if (!this._activeRowIndex) return;
+
+    try {
+      const result = await SheetsAPI.post(OFFICE_CONFIG, 'toggleTicket', {
+        rowIndex: this._activeRowIndex,
+        ticketId: ticketId
+      });
+
+      if (result.data?.error) {
+        App.showToast(result.data.error);
+        return;
+      }
+
+      const order = this._orders.find(o => o.rowIndex === this._activeRowIndex);
+      if (order && result.data?.tickets) {
+        order.tickets = result.data.tickets;
+      }
+
+      this._renderTicketsList(order);
+      this.applyFilters(this._mode);
+    } catch (err) {
+      App.showToast('Failed: ' + err.message);
+    }
+  },
+
+  // ── Delete ticket ──
+  async deleteTicket(ticketId) {
+    if (!this._activeRowIndex) return;
+
+    try {
+      const result = await SheetsAPI.post(OFFICE_CONFIG, 'deleteTicket', {
+        rowIndex: this._activeRowIndex,
+        ticketId: ticketId
+      });
+
+      if (result.data?.error) {
+        App.showToast(result.data.error);
+        return;
+      }
+
+      const order = this._orders.find(o => o.rowIndex === this._activeRowIndex);
+      if (order && result.data?.tickets) {
+        order.tickets = result.data.tickets;
+      }
+
+      this._renderTicketsList(order);
+      this.applyFilters(this._mode);
+      App.showToast('Ticket removed');
+    } catch (err) {
+      App.showToast('Failed: ' + err.message);
+    }
   },
 
   async submitNote() {

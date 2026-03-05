@@ -51,7 +51,8 @@ const OL = {
   UNITS: 36,
   STATUS: 38,
   NOTES: 39,
-  PAID_OUT: 40
+  PAID_OUT: 40,
+  TICKETS: 41
 };
 
 
@@ -509,7 +510,8 @@ function readOrders(ss, filterEmail) {
       voip:  Number(row[OL.VOIP_QTY]) || 0,
       units: Number(row[OL.UNITS]) || 0,
       status: String(row[OL.STATUS] || 'Pending').trim(),
-      notes:  String(row[OL.NOTES] || '').trim()
+      notes:  String(row[OL.NOTES] || '').trim(),
+      tickets: (function() { try { return JSON.parse(row[OL.TICKETS] || '[]'); } catch(e) { return []; } })()
     });
   }
 
@@ -918,6 +920,10 @@ function doPost(e) {
       case 'updateOrder':          result = writeUpdateOrder(body); break;
       case 'setSetting':           result = writeSetting(body); break;
       case 'savePaidOut':          result = writeSavePaidOut(body); break;
+      // Ticket management
+      case 'addTicket':            result = writeAddTicket(body); break;
+      case 'toggleTicket':         result = writeToggleTicket(body); break;
+      case 'deleteTicket':         result = writeDeleteTicket(body); break;
       default: result = { error: 'unknown action: ' + body.action };
     }
     return jsonResponse(result);
@@ -1263,6 +1269,93 @@ function writeOrderNote(body) {
   sheet.getRange(rowIndex, OL.NOTES + 1).setValue(updated);
   return { ok: true, notes: updated };
 }
+
+
+// === TICKET MANAGEMENT ===
+
+function writeAddTicket(body) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ORDER_LOG_TAB);
+  if (!sheet) return { error: 'Order Log not found' };
+
+  var rowIndex = Number(body.rowIndex);
+  if (!rowIndex || rowIndex < 2) return { error: 'Invalid row' };
+
+  var ticketId = String(body.ticketId || '').trim();
+  var ticketText = String(body.ticketText || '').trim();
+  var authorName = String(body.authorName || '').trim();
+  if (!ticketId) return { error: 'Ticket ID required' };
+
+  var now = new Date();
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var dateStr = months[now.getMonth()] + ' ' + now.getDate();
+
+  var existing = String(sheet.getRange(rowIndex, OL.TICKETS + 1).getValue() || '').trim();
+  var tickets;
+  try { tickets = JSON.parse(existing || '[]'); } catch(e) { tickets = []; }
+
+  tickets.push({
+    id: ticketId,
+    text: ticketText,
+    author: authorName,
+    date: dateStr,
+    resolved: false
+  });
+
+  sheet.getRange(rowIndex, OL.TICKETS + 1).setValue(JSON.stringify(tickets));
+  return { ok: true, tickets: tickets };
+}
+
+function writeToggleTicket(body) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ORDER_LOG_TAB);
+  if (!sheet) return { error: 'Order Log not found' };
+
+  var rowIndex = Number(body.rowIndex);
+  if (!rowIndex || rowIndex < 2) return { error: 'Invalid row' };
+
+  var ticketId = String(body.ticketId || '').trim();
+  if (!ticketId) return { error: 'Ticket ID required' };
+
+  var existing = String(sheet.getRange(rowIndex, OL.TICKETS + 1).getValue() || '').trim();
+  var tickets;
+  try { tickets = JSON.parse(existing || '[]'); } catch(e) { tickets = []; }
+
+  var found = false;
+  for (var i = 0; i < tickets.length; i++) {
+    if (tickets[i].id === ticketId) {
+      tickets[i].resolved = !tickets[i].resolved;
+      found = true;
+      break;
+    }
+  }
+  if (!found) return { error: 'Ticket not found' };
+
+  sheet.getRange(rowIndex, OL.TICKETS + 1).setValue(JSON.stringify(tickets));
+  return { ok: true, tickets: tickets };
+}
+
+function writeDeleteTicket(body) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ORDER_LOG_TAB);
+  if (!sheet) return { error: 'Order Log not found' };
+
+  var rowIndex = Number(body.rowIndex);
+  if (!rowIndex || rowIndex < 2) return { error: 'Invalid row' };
+
+  var ticketId = String(body.ticketId || '').trim();
+  if (!ticketId) return { error: 'Ticket ID required' };
+
+  var existing = String(sheet.getRange(rowIndex, OL.TICKETS + 1).getValue() || '').trim();
+  var tickets;
+  try { tickets = JSON.parse(existing || '[]'); } catch(e) { tickets = []; }
+
+  tickets = tickets.filter(function(t) { return t.id !== ticketId; });
+
+  sheet.getRange(rowIndex, OL.TICKETS + 1).setValue(JSON.stringify(tickets));
+  return { ok: true, tickets: tickets };
+}
+
 
 function writeSetOrderStatus(body) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();

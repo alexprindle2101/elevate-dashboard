@@ -510,6 +510,18 @@
       <div style="font-size:12px;color:var(--silver-dim);margin-bottom:20px">Add or view notes for this order</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--silver-dim);margin-bottom:8px">History</div>
       <div id="order-note-history" style="background:rgba(255,255,255,0.4);border:1px solid rgba(26,92,229,0.15);border-radius:10px;padding:12px 16px;margin-bottom:20px;max-height:200px;overflow-y:auto"></div>
+
+      <!-- Tickets Section -->
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--silver-dim);margin-bottom:8px">Tickets</div>
+      <div id="order-note-tickets" style="background:rgba(255,255,255,0.4);border:1px solid rgba(26,92,229,0.15);border-radius:10px;padding:12px 16px;margin-bottom:12px;max-height:180px;overflow-y:auto"></div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--silver-dim);margin-bottom:6px">Add Ticket</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="ticket-id-input" type="text" placeholder="Ticket ID (e.g. TK-1234)" style="flex:1;box-sizing:border-box;background:rgba(0,0,0,0.06);border:1px solid rgba(26,92,229,0.3);border-radius:8px;padding:10px 14px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:13px;outline:none">
+        <input id="ticket-text-input" type="text" placeholder="Description" style="flex:2;box-sizing:border-box;background:rgba(0,0,0,0.06);border:1px solid rgba(26,92,229,0.3);border-radius:8px;padding:10px 14px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:13px;outline:none">
+      </div>
+      <div id="ticket-error" style="color:#e53535;font-size:12px;font-family:'Barlow Condensed',sans-serif;min-height:18px;margin-bottom:4px"></div>
+      <button id="ticket-submit-btn" onclick="Orders.addTicket()" style="width:100%;background:rgba(0,200,255,0.15);border:1px solid rgba(0,200,255,0.3);border-radius:8px;padding:8px;color:var(--sc-cyan);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-bottom:20px">ADD TICKET</button>
+
       <label style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--silver-dim);display:block;margin-bottom:6px">Add Note</label>
       <textarea id="order-note-input" rows="3" placeholder="Type your note..." style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.06);border:1px solid rgba(26,92,229,0.3);border-radius:8px;padding:10px 14px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:14px;outline:none;resize:vertical;margin-bottom:12px"></textarea>
       <div id="order-note-error" style="color:#e53535;font-size:12px;font-family:'Barlow Condensed',sans-serif;min-height:18px;margin-bottom:12px"></div>

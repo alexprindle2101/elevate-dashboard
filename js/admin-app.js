@@ -553,16 +553,29 @@ const AdminApp = {
   // ═══════════════════════════════════════════════════════
 
   async _post(action, payload) {
+    const body = JSON.stringify({
+      key: ADMIN_CONFIG.apiKey,
+      action,
+      ...payload
+    });
+    console.log('[Admin API] POST', action, '→', ADMIN_CONFIG.appsScriptUrl);
+
     const resp = await fetch(ADMIN_CONFIG.appsScriptUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        key: ADMIN_CONFIG.apiKey,
-        action,
-        ...payload
-      })
+      redirect: 'follow',
+      body
     });
-    return await resp.json();
+
+    const text = await resp.text();
+    console.log('[Admin API] Response status:', resp.status, 'body:', text.substring(0, 200));
+
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error('[Admin API] Failed to parse JSON:', text.substring(0, 500));
+      throw new Error('Invalid response from server');
+    }
   }
 };
 

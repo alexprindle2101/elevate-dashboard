@@ -618,7 +618,11 @@ function readChurnReport(ss) {
   const data = sheet.getDataRange().getValues();
   if (data.length < 2) return [];
 
-  const headers = data[0].map(h => String(h).trim());
+  // Map headers, assigning 'metricType' to the blank column (index 4)
+  const headers = data[0].map((h, j) => {
+    const trimmed = String(h).trim();
+    return trimmed === '' ? 'metricType' : trimmed;
+  });
   const rows = [];
   for (let i = 1; i < data.length; i++) {
     const row = {};

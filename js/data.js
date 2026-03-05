@@ -888,12 +888,12 @@ const DataPipeline = {
   enrichWithChurnReport(people, churnReport) {
     if (!churnReport || churnReport.length === 0) return;
 
-    // Group rows by rep name → { metricType: { col: value } }
+    // Group rows by rep name → { metricType: row }
     const byRep = {};
     churnReport.forEach(row => {
-      const repName = (row['rep.Full Name'] || '').trim();
-      const metricType = (row['(Metric Type)'] || '').trim();
-      if (!repName || !metricType) return;
+      const repName = String(row['rep.Full Name'] || '').trim();
+      const metricType = String(row['metricType'] || '').trim();
+      if (!repName || !metricType || repName === 'Grand Total') return;
       if (!byRep[repName]) byRep[repName] = {};
       byRep[repName][metricType] = row;
     });
@@ -917,7 +917,9 @@ const DataPipeline = {
           bucket.disco = parseInt(discoRow[col]) || 0;
         }
         if (churnRow && churnRow[col] !== undefined && churnRow[col] !== '') {
-          const pctVal = parseFloat(churnRow[col]);
+          // Strip % suffix if present (e.g., "3.30%" → 3.3)
+          const raw = String(churnRow[col]).replace('%', '');
+          const pctVal = parseFloat(raw);
           bucket.pct = isNaN(pctVal) ? 'N/A' : parseFloat(pctVal.toFixed(1));
         }
       });

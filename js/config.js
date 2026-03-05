@@ -55,8 +55,8 @@ const OFFICE_CONFIG = {
   roles: {
     superadmin: { label: "Super Admin",  rank: 7 },
     owner:      { label: "Owner",        rank: 6 },
-    manager:    { label: "Manager",      rank: 5 },
-    admin:      { label: "Admin",        rank: 4 },
+    admin:      { label: "Admin",        rank: 5 },
+    manager:    { label: "Manager",      rank: 4 },
     jd:         { label: "Jr. Director", rank: 3 },
     l1:         { label: "Team Leader",  rank: 2 },
     rep:        { label: "Client Rep",   rank: 1 }

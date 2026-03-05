@@ -135,7 +135,7 @@ const Auth = {
 
     if (input) input.value = '';
     if (error) error.textContent = '';
-    if (btn) { btn.textContent = 'CONTINUE'; btn.disabled = false; }
+    if (btn) { btn.textContent = 'Continue'; btn.disabled = false; }
 
     const doSubmit = () => {
       const currentInput = document.getElementById('login-email');
@@ -180,7 +180,7 @@ const Auth = {
 
     if (pinInput) pinInput.value = '';
     if (error) error.textContent = '';
-    if (btn) { btn.textContent = 'SIGN IN'; btn.disabled = false; }
+    if (btn) { btn.textContent = 'Sign In'; btn.disabled = false; }
     if (backLink) backLink.style.display = 'inline';
 
     const doSubmit = () => {
@@ -234,7 +234,7 @@ const Auth = {
     if (pinNew) pinNew.value = '';
     if (pinConfirm) pinConfirm.value = '';
     if (error) error.textContent = '';
-    if (btn) { btn.textContent = 'SET PIN & SIGN IN'; btn.disabled = false; }
+    if (btn) { btn.textContent = 'Set PIN & Sign In'; btn.disabled = false; }
     if (backLink) backLink.style.display = 'inline';
 
     const doSubmit = () => {

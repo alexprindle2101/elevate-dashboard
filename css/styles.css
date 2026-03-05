@@ -837,10 +837,10 @@ th.week-col { color: var(--silver); }
   .charts-row { grid-template-columns: 1fr; }
 }
 
-/* ── LOGIN SCREEN ── */
+/* ── LOGIN SCREEN (Aptel Brand) ── */
 #login-screen {
   position: fixed; inset: 0; z-index: 9999;
-  background: linear-gradient(135deg, #c8dff0 0%, #daeaf5 40%, #c2daea 70%, #b8d4e8 100%);
+  background: #FEFAF3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -848,51 +848,70 @@ th.week-col { color: var(--silver); }
 }
 
 .login-card {
-  background: rgba(255,255,255,0.6);
-  border: 1px solid rgba(26,92,229,0.3);
-  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 20px;
   padding: 48px 40px;
   width: min(400px, 90vw);
   text-align: center;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.06);
 }
 
-.login-card img { margin-bottom: 24px; }
-
-.login-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  color: var(--white);
-  margin-bottom: 8px;
+/* Logo centering — clip the off-center canvas and show only the symbol */
+.login-logo-wrap {
+  width: 72px;
+  height: 52px;
+  margin: 0 auto 28px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-logo-wrap img {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  display: block;
 }
 
-.login-subtitle {
+.login-step-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #242124;
+  margin-bottom: 6px;
+}
+
+.login-step-subtitle {
+  font-family: 'Inter', sans-serif;
   font-size: 13px;
-  color: var(--silver-dim);
+  color: #708090;
   margin-bottom: 28px;
 }
 
 .login-input {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(0,0,0,0.06);
-  border: 1px solid rgba(26,92,229,0.3);
+  background: #F5F2EE;
+  border: 1px solid rgba(0,0,0,0.10);
   border-radius: 10px;
   padding: 14px 18px;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
   text-align: left;
-  color: var(--white);
+  color: #242124;
   outline: none;
   margin-bottom: 16px;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+.login-input::placeholder { color: #9AA5B1; }
+
 .login-input:focus {
-  border-color: var(--sc-cyan);
-  box-shadow: 0 0 0 3px rgba(0,200,255,0.15);
+  border-color: #43B3AE;
+  box-shadow: 0 0 0 3px rgba(67,179,174,0.12);
 }
 
 .login-pin-input {
@@ -905,40 +924,46 @@ th.week-col { color: var(--silver); }
 
 .login-pin-input::placeholder {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.5px;
 }
 
 #login-pin-create-wrap .login-input { margin-bottom: 12px; }
 #login-pin-create-wrap .login-input:last-child { margin-bottom: 16px; }
 
-#login-back-link:hover { color: var(--white); text-decoration: underline; }
+#login-back-link {
+  margin-top: 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #43B3AE;
+  cursor: pointer;
+}
+#login-back-link:hover { color: #242124; text-decoration: underline; }
 
 .login-btn {
   width: 100%;
-  background: var(--blue-core);
+  background: #2C6E6A;
   border: none;
   border-radius: 10px;
   padding: 14px;
   color: #fff;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  text-transform: uppercase;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.login-btn:hover { background: var(--blue-deep); }
+.login-btn:hover { background: #1E4F46; }
 .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .login-error {
-  color: var(--red);
-  font-family: 'Barlow Condensed', sans-serif;
+  color: #E5564A;
+  font-family: 'Inter', sans-serif;
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-weight: 600;
   margin-top: 12px;
   min-height: 20px;
 }
@@ -946,7 +971,7 @@ th.week-col { color: var(--silver); }
 /* ── LOADING SCREEN ── */
 #loading-screen {
   position: fixed; inset: 0; z-index: 9998;
-  background: linear-gradient(135deg, #c8dff0 0%, #daeaf5 40%, #c2daea 70%, #b8d4e8 100%);
+  background: #FEFAF3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -956,8 +981,8 @@ th.week-col { color: var(--silver); }
 
 .loading-spinner {
   width: 40px; height: 40px;
-  border: 3px solid rgba(26,92,229,0.2);
-  border-top-color: var(--sc-cyan);
+  border: 3px solid rgba(44,110,106,0.15);
+  border-top-color: #2C6E6A;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

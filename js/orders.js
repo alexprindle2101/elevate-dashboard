@@ -263,7 +263,7 @@ const Orders = {
     const colSpan = canEdit ? baseCols + 1 : baseCols;
 
     if (orders.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:'Inter',sans-serif;font-size:14px">No orders match the current filters</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px">No orders match the current filters</td></tr>`;
       return;
     }
 
@@ -315,9 +315,9 @@ const Orders = {
         <td style="padding:10px 12px;text-align:center">${statusHtml}</td>
         <td style="padding:10px 12px;font-size:11px;color:var(--silver-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._escapeHtml(notePreview)}${noteCount > 1 ? ` <span style="color:var(--blue-core)">(${noteCount})</span>` : ''}</td>
         <td style="padding:10px 8px;text-align:right;white-space:nowrap">
-          ${canEdit ? `<button onclick="Orders.openEditModal(${o.rowIndex})" style="background:none;border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-right:4px">Edit</button>` : ''}
+          ${canEdit ? `<button onclick="Orders.openEditModal(${o.rowIndex})" style="background:none;border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-right:4px">Edit</button>` : ''}
           <button onclick="Orders.openNoteModal(${o.rowIndex},'${escapedDsi}')"
-            style="background:none;border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes${noteCount > 0 ? ' (' + noteCount + ')' : ''}</button>${openTickets > 0 ? `<span style="display:inline-flex;align-items:center;gap:2px;margin-left:6px;font-size:11px;font-weight:700;color:var(--orange);background:rgba(249,115,22,0.12);border:1px solid rgba(249,115,22,0.3);border-radius:6px;padding:3px 8px;font-family:'Inter',sans-serif">\uD83C\uDFAB ${openTickets}</span>` : ''}
+            style="background:none;border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes${noteCount > 0 ? ' (' + noteCount + ')' : ''}</button>${openTickets > 0 ? `<span style="display:inline-flex;align-items:center;gap:2px;margin-left:6px;font-size:11px;font-weight:700;color:var(--orange);background:rgba(249,115,22,0.12);border:1px solid rgba(249,115,22,0.3);border-radius:6px;padding:3px 8px;font-family:'Helvetica Neue','Inter',sans-serif">\uD83C\uDFAB ${openTickets}</span>` : ''}
         </td>`;
       tbody.appendChild(tr);
 
@@ -362,11 +362,11 @@ const Orders = {
     const escapedDsi = dsi.replace(/'/g, "\\'");
     let html = `<td colspan="${colSpan}" style="padding:8px 16px">
       <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
-        <button onclick="Orders._openSaraPlus('${escapedDsi}')" style="background:rgba(44,110,106,0.1);border:1px solid rgba(44,110,106,0.3);border-radius:6px;padding:4px 12px;color:var(--sc-cyan);font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:4px">
+        <button onclick="Orders._openSaraPlus('${escapedDsi}')" style="background:rgba(44,110,106,0.1);border:1px solid rgba(44,110,106,0.3);border-radius:6px;padding:4px 12px;color:var(--sc-cyan);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:4px">
           <span style="font-size:12px">&#x1F50D;</span> SARA+
         </button>
       </div>
-      <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:'Inter',sans-serif">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif">
         <thead>
           <tr style="color:var(--silver-dim);text-transform:uppercase;letter-spacing:1px;font-size:10px;font-weight:700">
             <th style="padding:4px 8px;text-align:left">SPE</th>
@@ -444,7 +444,7 @@ const Orders = {
     if (!toast) {
       toast = document.createElement('div');
       toast.id = 'sc-toast';
-      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#242124;color:#FEFAF3;padding:10px 20px;border-radius:8px;font-family:"Inter",sans-serif;font-size:13px;font-weight:600;letter-spacing:0.5px;z-index:99999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#242124;color:#FEFAF3;padding:10px 20px;border-radius:8px;font-family:"Cerebri Sans","DM Sans","Inter",sans-serif;font-size:13px;font-weight:600;letter-spacing:0.5px;z-index:99999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
       document.body.appendChild(toast);
     }
     toast.textContent = msg;
@@ -521,7 +521,7 @@ const Orders = {
       return `<div style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.1);display:flex;align-items:flex-start;gap:8px">
         <input type="checkbox" ${t.resolved ? 'checked' : ''} onchange="Orders.toggleTicket('${escapedId}')" style="cursor:pointer;margin-top:2px;flex-shrink:0">
         <div style="flex:1;min-width:0;${resolvedStyle}">
-          <div style="font-size:13px;color:var(--white);font-weight:700;font-family:'Inter',sans-serif">${this._escapeHtml(t.id)} <span style="font-weight:400;color:var(--silver)">\u2014 ${this._escapeHtml(t.text || '')}</span></div>
+          <div style="font-size:13px;color:var(--white);font-weight:700;font-family:'Neue Montreal','Inter',sans-serif">${this._escapeHtml(t.id)} <span style="font-weight:400;color:var(--silver)">\u2014 ${this._escapeHtml(t.text || '')}</span></div>
           <div style="font-size:11px;color:var(--silver-dim);margin-top:2px">${this._escapeHtml(t.date || '')} \u2014 ${this._escapeHtml(t.author || '')}</div>
         </div>
       </div>`;

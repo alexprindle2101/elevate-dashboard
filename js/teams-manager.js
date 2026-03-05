@@ -125,8 +125,8 @@ const TeamsManager = {
         <td style="text-align:center">${memberText}</td>
         <td style="text-align:center">${units}</td>
         <td style="text-align:right">${canEdit ? `
-          <button onclick="App.openEditTeamModal('${node.teamId}')" style="background:none;border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-right:4px">Edit</button>
-          <button onclick="App.confirmDeleteTeam('${node.teamId}','${node.name.replace(/'/g, "\\'")}')" style="background:none;border:1px solid rgba(229,53,53,0.3);border-radius:6px;padding:4px 10px;color:var(--red);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Del</button>
+          <button onclick="App.openEditTeamModal('${node.teamId}')" style="background:none;border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-right:4px">Edit</button>
+          <button onclick="App.confirmDeleteTeam('${node.teamId}','${node.name.replace(/'/g, "\\'")}')" style="background:none;border:1px solid rgba(229,53,53,0.3);border-radius:6px;padding:4px 10px;color:var(--red);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Del</button>
         ` : ''}</td>
       `;
       tbody.appendChild(row);

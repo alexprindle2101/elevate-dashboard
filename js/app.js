@@ -587,7 +587,7 @@ const App = {
     tbody.innerHTML = '';
 
     if (orders.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Inter\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Cerebri Sans\',\'DM Sans\',\'Inter\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
       return;
     }
 
@@ -617,15 +617,15 @@ const App = {
       const tr = document.createElement('tr');
       tr.style.cssText = 'border-bottom:1px solid rgba(0,0,0,0.06)';
       tr.innerHTML = `
-        <td style="padding:10px 16px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white)">${o.repName}</td>
-        <td style="padding:10px 16px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--sc-cyan)">${o.traineeName || '—'}</td>
-        <td style="padding:10px 16px;font-family:'Inter',sans-serif;font-size:13px;color:var(--silver)">${o.dsi}</td>
-        <td style="padding:10px 16px;font-family:'Inter',sans-serif;font-size:13px;color:var(--silver)">${o.dateOfSale}</td>
-        <td style="padding:10px 16px;font-family:'Inter',sans-serif;font-size:12px;color:var(--silver-dim)">${soldStr}</td>
+        <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white)">${o.repName}</td>
+        <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;font-weight:600;color:var(--sc-cyan)">${o.traineeName || '—'}</td>
+        <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--silver)">${o.dsi}</td>
+        <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--silver)">${o.dateOfSale}</td>
+        <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:12px;color:var(--silver-dim)">${soldStr}</td>
         <td style="padding:10px 16px">${paidOutHtml}</td>
         <td style="padding:10px 16px;text-align:center">
           <button onclick="Orders.openNoteModal(${o.rowIndex},'${escapedDsi}')"
-            style="background:rgba(44,110,106,0.1);border:1px solid rgba(44,110,106,0.3);border-radius:6px;color:var(--sc-cyan);padding:4px 12px;font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes</button>
+            style="background:rgba(44,110,106,0.1);border:1px solid rgba(44,110,106,0.3);border-radius:6px;color:var(--sc-cyan);padding:4px 12px;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes</button>
           <div style="margin-top:4px">${notePreview}</div>
         </td>`;
       tbody.appendChild(tr);
@@ -662,7 +662,7 @@ const App = {
     let html = '';
 
     // ALL checkbox
-    html += `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-bottom:4px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${allPaid ? 'var(--green)' : 'var(--silver-dim)'}">
+    html += `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-bottom:4px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${allPaid ? 'var(--green)' : 'var(--silver-dim)'}">
       <input type="checkbox" ${allPaid ? 'checked' : ''} onchange="App._togglePaidOutAllSpe(${rowId},this.checked)"
         style="accent-color:#2E8B57;cursor:pointer;width:14px;height:14px"> ALL
     </label>`;
@@ -674,15 +674,15 @@ const App = {
       html += `<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">
         <input type="checkbox" ${checked} onchange="App._togglePaidOutSpe(${rowId},'${spe.replace(/'/g, "\\'")}',this.checked)"
           style="accent-color:#2E8B57;cursor:pointer;width:13px;height:13px">
-        <span style="font-family:'Inter',sans-serif;font-size:9px;color:var(--silver-dim)" title="${spe}">${shortSpe}</span>
+        <span style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:9px;color:var(--silver-dim)" title="${spe}">${shortSpe}</span>
       </div>`;
     });
 
     // Count summary
     if (paidCount > 0 && paidCount < totalSpe) {
-      html += `<div style="font-family:'Inter',sans-serif;font-size:9px;color:var(--sc-cyan);margin-top:2px">${paidCount}/${totalSpe} paid</div>`;
+      html += `<div style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:9px;color:var(--sc-cyan);margin-top:2px">${paidCount}/${totalSpe} paid</div>`;
     } else if (allPaid) {
-      html += `<div style="font-family:'Inter',sans-serif;font-size:9px;color:var(--green);margin-top:2px">\u2713 All paid</div>`;
+      html += `<div style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:9px;color:var(--green);margin-top:2px">\u2713 All paid</div>`;
     }
 
     return html;
@@ -738,14 +738,14 @@ const App = {
 
     let html = '';
 
-    html += `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-bottom:4px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${allPaid ? 'var(--green)' : 'var(--silver-dim)'}">
+    html += `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-bottom:4px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${allPaid ? 'var(--green)' : 'var(--silver-dim)'}">
       <input type="checkbox" ${allPaid ? 'checked' : ''} onchange="App._togglePaidOutAll(${rowId},this.checked)"
         style="accent-color:#2E8B57;cursor:pointer;width:14px;height:14px"> ALL
     </label>`;
 
     products.forEach(p => {
       html += `<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">
-        <span style="font-family:'Inter',sans-serif;font-size:10px;font-weight:600;letter-spacing:0.5px;color:var(--silver-dim);min-width:32px">${p.label}</span>`;
+        <span style="font-family:'Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:600;letter-spacing:0.5px;color:var(--silver-dim);min-width:32px">${p.label}</span>`;
       for (let i = 0; i < p.qty; i++) {
         const checked = state[p.key][i] ? 'checked' : '';
         html += `<input type="checkbox" ${checked} onchange="App._togglePaidOutUnit(${rowId},'${p.key}',${i},this.checked)"
@@ -755,9 +755,9 @@ const App = {
     });
 
     if (paidCount > 0 && paidCount < totalUnits) {
-      html += `<div style="font-family:'Inter',sans-serif;font-size:9px;color:var(--sc-cyan);margin-top:2px">${paidCount}/${totalUnits} paid</div>`;
+      html += `<div style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:9px;color:var(--sc-cyan);margin-top:2px">${paidCount}/${totalUnits} paid</div>`;
     } else if (allPaid) {
-      html += `<div style="font-family:'Inter',sans-serif;font-size:9px;color:var(--green);margin-top:2px">\u2713 All paid</div>`;
+      html += `<div style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:9px;color:var(--green);margin-top:2px">\u2713 All paid</div>`;
     }
 
     return html;
@@ -948,7 +948,7 @@ const App = {
     if (team && (role === 'jd' || role === 'l1' || role === 'rep')) {
       const tag = document.createElement('div');
       tag.id = 'role-team-tag';
-      tag.style.cssText = 'font-family:"Inter",sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--sc-cyan);background:rgba(0,0,0,0.15);border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;white-space:nowrap';
+      tag.style.cssText = 'font-family:"Helvetica Neue","Inter",sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--sc-cyan);background:rgba(0,0,0,0.15);border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;white-space:nowrap';
       tag.textContent = '⬡ ' + team;
       const switcher = document.getElementById('role-switcher');
       if (switcher) switcher.appendChild(tag);
@@ -1111,7 +1111,7 @@ const App = {
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Inter\',sans-serif;font-size:14px">No members found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Cerebri Sans\',\'DM Sans\',\'Inter\',sans-serif;font-size:14px">No members found</td></tr>';
       return;
     }
 
@@ -1134,18 +1134,18 @@ const App = {
       tr.style.cssText = `border-bottom:1px solid rgba(0,0,0,0.06);${isDeactivated ? 'opacity:0.35;' : ''}`;
       tr.innerHTML = `
         <td style="padding:12px 16px">
-          <div style="font-family:'Inter',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
+          <div style="font-family:'Neue Montreal','Inter',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
             ${p.name}
             ${isDeactivated ? '<span style="font-size:10px;letter-spacing:1px;color:#E5564A;margin-left:8px;border:1px solid rgba(229,86,74,0.4);border-radius:4px;padding:1px 5px;text-transform:uppercase">Inactive</span>' : ''}
           </div>
           ${email ? `<div style="font-size:10px;color:var(--silver-dim);margin-top:2px">${email}</div>` : ''}
         </td>
         <td style="padding:12px 16px">
-          <span style="font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--silver)">${roleLabel}</span>
+          <span style="font-family:'Helvetica Neue','Inter',sans-serif;font-size:13px;font-weight:600;color:var(--silver)">${roleLabel}</span>
         </td>
         <td style="padding:12px 16px;text-align:center">
           <button onclick="App.toggleDeactivate('${safeName}')"
-            style="background:${isDeactivated ? 'rgba(46,139,87,0.1)' : 'rgba(229,86,74,0.1)'};border:1px solid ${isDeactivated ? 'rgba(46,139,87,0.3)' : 'rgba(229,86,74,0.3)'};border-radius:6px;color:${isDeactivated ? '#2E8B57' : '#E5564A'};padding:5px 14px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
+            style="background:${isDeactivated ? 'rgba(46,139,87,0.1)' : 'rgba(229,86,74,0.1)'};border:1px solid ${isDeactivated ? 'rgba(46,139,87,0.3)' : 'rgba(229,86,74,0.3)'};border-radius:6px;color:${isDeactivated ? '#2E8B57' : '#E5564A'};padding:5px 14px;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
             ${isDeactivated ? 'Reactivate' : 'Deactivate'}
           </button>
         </td>`;
@@ -1318,7 +1318,7 @@ const App = {
     picker.innerHTML = emojis.map(e =>
       `<span onclick="${selectFn}('${e}')" style="cursor:pointer;font-size:24px;padding:4px 6px;border-radius:8px;border:2px solid transparent;transition:all 0.1s" id="${pickerId === 'emoji-picker' ? 'emoji-opt-' : 'team-emoji-opt-'}${e.codePointAt(0)}">${e}</span>`
     ).join('')
-    + `<span onclick="App._rerollEmojis('${pickerId}','${displayId}','${selectFn}')" style="cursor:pointer;font-size:18px;padding:4px 8px;border-radius:8px;background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.2);color:var(--silver-dim);font-family:'Inter',sans-serif;font-weight:700;letter-spacing:1px;display:inline-flex;align-items:center;gap:4px" title="Show more emojis">🔄</span>`;
+    + `<span onclick="App._rerollEmojis('${pickerId}','${displayId}','${selectFn}')" style="cursor:pointer;font-size:18px;padding:4px 8px;border-radius:8px;background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.2);color:var(--silver-dim);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-weight:700;letter-spacing:1px;display:inline-flex;align-items:center;gap:4px" title="Show more emojis">🔄</span>`;
     if (highlightFn) highlightFn();
   },
 
@@ -1477,9 +1477,9 @@ const App = {
       container.innerHTML = `
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:120px 24px;text-align:center">
           <div style="font-size:48px;margin-bottom:16px">⚠️</div>
-          <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:8px">${msg}</div>
+          <div style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:8px">${msg}</div>
           <div style="color:var(--silver-dim);font-size:13px;max-width:500px;line-height:1.6;margin-bottom:24px">${err?.message || ''}</div>
-          <button onclick="location.reload()" style="background:var(--blue-core);border:none;border-radius:8px;padding:12px 24px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer">Retry</button>
+          <button onclick="location.reload()" style="background:var(--blue-core);border:none;border-radius:8px;padding:12px 24px;color:#fff;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:14px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer">Retry</button>
         </div>`;
     }
   },

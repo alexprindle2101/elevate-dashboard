@@ -288,8 +288,8 @@ const Render = {
     const updated = document.getElementById('last-updated-text')?.textContent || '';
     const infoHtml = info ? `
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px;margin-right:4px">
-        <div style="font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--white);letter-spacing:0.5px">${info.name}</div>
-        <div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--silver-dim);letter-spacing:0.5px">${info.sub}</div>
+        <div style="font-family:'Neue Montreal','Inter',sans-serif;font-size:14px;font-weight:700;color:var(--white);letter-spacing:0.5px">${info.name}</div>
+        <div style="font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;color:var(--silver-dim);letter-spacing:0.5px">${info.sub}</div>
       </div>` : '';
 
     // Build nav tabs based on role — grouped: Personal | Team | Office
@@ -360,7 +360,7 @@ const Render = {
               </svg>
             </button>
             ${infoHtml}
-            <button onclick="App.logout()" title="Sign out" style="background:none;border:1px solid rgba(229,86,74,0.3);border-radius:6px;padding:5px 10px;color:#E5564A;font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer">Logout</button>
+            <button onclick="App.logout()" title="Sign out" style="background:none;border:1px solid rgba(229,86,74,0.3);border-radius:6px;padding:5px 10px;color:#E5564A;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer">Logout</button>
           </div>
         </div>
         <nav style="display:flex;align-items:center;gap:4px;padding:0 0 10px;overflow-x:auto">
@@ -414,7 +414,7 @@ const Render = {
       this.openProfilePage(`
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center">
           <div style="font-size:48px;margin-bottom:16px">🔒</div>
-          <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:8px">Access Restricted</div>
+          <div style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:8px">Access Restricted</div>
           <div style="color:var(--silver-dim);font-size:14px;max-width:360px;line-height:1.6">You don't have permission to view this person's full profile. Contact your Junior Director or Admin.</div>
         </div>`, { name: name, sub: 'Profile Restricted' });
       return;
@@ -449,7 +449,7 @@ const Render = {
       <div class="profile-section-title">Sales Breakdown</div>
       <div class="breakdown-grid">
         <div class="breakdown-remark" style="background:${m.remarkColor}22;border:1px solid ${m.remarkColor}55">
-          <div style="font-size:10px;letter-spacing:0.5px;color:${m.remarkColor};text-transform:uppercase;font-family:'Inter',sans-serif;font-weight:700;margin-bottom:6px">Remarks</div>
+          <div style="font-size:10px;letter-spacing:0.5px;color:${m.remarkColor};text-transform:uppercase;font-family:'Helvetica Neue','Inter',sans-serif;font-weight:700;margin-bottom:6px">Remarks</div>
           <div style="font-size:18px;font-weight:700;color:${m.remarkColor}">${m.remark}</div>
           <div style="font-size:11px;color:var(--silver-dim);margin-top:6px">Rec Wk Avg: <b style="color:var(--silver)">${m.recentAvg}</b> &nbsp;·&nbsp; 4Wk Avg: <b style="color:var(--silver)">${m.fourWkAvg}</b></div>
         </div>
@@ -515,7 +515,7 @@ const Render = {
       this.openProfilePage(`
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center">
           <div style="font-size:48px;margin-bottom:16px">🔒</div>
-          <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:8px">Access Restricted</div>
+          <div style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:8px">Access Restricted</div>
           <div style="color:var(--silver-dim);font-size:14px;max-width:360px;line-height:1.6">You can only view your own team's dashboard.</div>
         </div>`, { name: teamName, sub: 'Team Restricted' });
       return;
@@ -579,7 +579,7 @@ const Render = {
       <div class="profile-section-title">Team Breakdown</div>
       <div class="breakdown-grid">
         <div class="breakdown-remark" style="background:${m.remarkColor}22;border:1px solid ${m.remarkColor}55">
-          <div style="font-size:10px;letter-spacing:0.5px;color:${m.remarkColor};text-transform:uppercase;font-family:'Inter',sans-serif;font-weight:700;margin-bottom:6px">Remarks</div>
+          <div style="font-size:10px;letter-spacing:0.5px;color:${m.remarkColor};text-transform:uppercase;font-family:'Helvetica Neue','Inter',sans-serif;font-weight:700;margin-bottom:6px">Remarks</div>
           <div style="font-size:18px;font-weight:700;color:${m.remarkColor}">${m.remark}</div>
           <div style="font-size:11px;color:var(--silver-dim);margin-top:6px">Rec Wk Avg: <b style="color:var(--silver)">${m.recentAvg}</b> &nbsp;·&nbsp; 4Wk Avg: <b style="color:var(--silver)">${m.fourWkAvg}</b></div>
         </div>
@@ -662,19 +662,19 @@ const Render = {
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
           <div class="profile-section-title" style="margin:0">Team Roster</div>
           <button onclick="App.openAddMemberModal('${safeTeamName}')"
-            style="margin-left:auto;background:var(--blue-core);border:none;border-radius:6px;padding:6px 16px;color:#fff;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer">+ Add Member</button>
+            style="margin-left:auto;background:var(--blue-core);border:none;border-radius:6px;padding:6px 16px;color:#fff;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer">+ Add Member</button>
         </div>
         <input type="text" id="manage-team-search" placeholder="Search by name..."
           oninput="Render._renderManageTeamRows('${safeTeamName}', this.value)"
-          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.5);border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 14px;color:var(--white);font-family:'Inter',sans-serif;font-size:14px;outline:none;margin-bottom:12px">
+          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.5);border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 14px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;outline:none;margin-bottom:12px">
         <div class="table-scroll">
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th style="padding:10px 16px;text-align:left;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim)">Name</th>
-                  <th style="padding:10px 16px;text-align:left;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim)">Role</th>
-                  <th style="padding:10px 16px;text-align:center;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim)">Status</th>
+                  <th style="padding:10px 16px;text-align:left;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim)">Name</th>
+                  <th style="padding:10px 16px;text-align:left;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim)">Role</th>
+                  <th style="padding:10px 16px;text-align:center;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim)">Status</th>
                 </tr>
               </thead>
               <tbody id="manage-team-body"></tbody>
@@ -744,7 +744,7 @@ const Render = {
     });
 
     if (teamMembers.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Inter\',sans-serif;font-size:14px">No members found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Cerebri Sans\',\'DM Sans\',\'Inter\',sans-serif;font-size:14px">No members found</td></tr>';
       return;
     }
 
@@ -759,18 +759,18 @@ const Render = {
       tr.style.cssText = `border-bottom:1px solid rgba(0,0,0,0.06);${isDeactivated ? 'opacity:0.35;' : ''}`;
       tr.innerHTML = `
         <td style="padding:12px 16px">
-          <div style="font-family:'Inter',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
+          <div style="font-family:'Neue Montreal','Inter',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
             ${p.name}
             ${isDeactivated ? '<span style="font-size:10px;letter-spacing:1px;color:#E5564A;margin-left:8px;border:1px solid rgba(229,86,74,0.4);border-radius:4px;padding:1px 5px;text-transform:uppercase">Inactive</span>' : ''}
           </div>
           ${email ? `<div style="font-size:10px;color:var(--silver-dim);margin-top:2px">${email}</div>` : ''}
         </td>
         <td style="padding:12px 16px">
-          <span style="font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--silver)">${roleLabel}</span>
+          <span style="font-family:'Helvetica Neue','Inter',sans-serif;font-size:13px;font-weight:600;color:var(--silver)">${roleLabel}</span>
         </td>
         <td style="padding:12px 16px;text-align:center">
           <button onclick="App.toggleDeactivate('${safeName}')"
-            style="background:${isDeactivated ? 'rgba(46,139,87,0.1)' : 'rgba(229,86,74,0.1)'};border:1px solid ${isDeactivated ? 'rgba(46,139,87,0.3)' : 'rgba(229,86,74,0.3)'};border-radius:6px;color:${isDeactivated ? '#2E8B57' : '#E5564A'};padding:5px 14px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
+            style="background:${isDeactivated ? 'rgba(46,139,87,0.1)' : 'rgba(229,86,74,0.1)'};border:1px solid ${isDeactivated ? 'rgba(46,139,87,0.3)' : 'rgba(229,86,74,0.3)'};border-radius:6px;color:${isDeactivated ? '#2E8B57' : '#E5564A'};padding:5px 14px;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
             ${isDeactivated ? 'Reactivate' : 'Deactivate'}
           </button>
         </td>`;
@@ -825,10 +825,10 @@ const Render = {
     const rows = childTeams.map((st, i) => {
       const memberCount = st.members ? st.members.length : 0;
       return `<tr style="border-bottom:1px solid rgba(0,0,0,0.04);cursor:pointer" onclick="App.openTeamProfile('${st.name.replace(/'/g, "\\'")}')">
-        <td style="padding:10px 8px 10px 16px;font-family:'Inter',sans-serif;font-size:13px;color:var(--silver-dim)">${i + 1}</td>
+        <td style="padding:10px 8px 10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--silver-dim)">${i + 1}</td>
         <td style="padding:10px 12px"><span class="name-text name-link">${st.emoji || '⚡'} ${st.name}</span></td>
-        <td style="text-align:center;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;color:var(--silver)">${memberCount}</td>
-        <td style="text-align:center;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--white)">${st.units}</td>
+        <td style="text-align:center;padding:10px 12px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;color:var(--silver)">${memberCount}</td>
+        <td style="text-align:center;padding:10px 12px;font-family:'Neue Montreal','Inter',sans-serif;font-size:14px;font-weight:700;color:var(--white)">${st.units}</td>
       </tr>`;
     }).join('');
 
@@ -838,9 +838,9 @@ const Render = {
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:rgba(0,0,0,0.06)">
             <th style="width:36px"></th>
-            <th style="text-align:left;padding:10px 12px;font-family:'Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Team</th>
-            <th style="text-align:center;padding:10px 12px;font-family:'Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Members</th>
-            <th style="text-align:center;padding:10px 12px;font-family:'Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Units</th>
+            <th style="text-align:left;padding:10px 12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Team</th>
+            <th style="text-align:center;padding:10px 12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Members</th>
+            <th style="text-align:center;padding:10px 12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Units</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -854,7 +854,7 @@ const Render = {
     const tip = { backgroundColor: '#242124', borderColor: 'rgba(44,110,106,0.35)', borderWidth: 1, titleColor: '#FFFFFF', bodyColor: '#FFFFFF', padding: 8 };
     const base = {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: W, font: { family: 'Inter', size: 11 }, boxWidth: 12, padding: 6 } }, tooltip: tip },
+      plugins: { legend: { labels: { color: W, font: { family: "'Cerebri Sans','DM Sans','Inter',sans-serif", size: 11 }, boxWidth: 12, padding: 6 } }, tooltip: tip },
       scales: { x: { ticks: { color: TICK, font: { size: 10 } }, grid: { color: GRID } }, y: { ticks: { color: TICK, font: { size: 10 } }, grid: { color: GRID }, beginAtZero: true } }
     };
     const DAY = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -877,7 +877,7 @@ const Render = {
 
     const PIE = ['#2C6E6A', '#1E4F46', '#2E8B57', '#6366f1', '#f97316', '#E5564A', '#f0b429', '#2C6E6A'];
     const pieOpts = { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'right', labels: { color: W, font: { family: 'Inter', size: 11 }, padding: 8, boxWidth: 12 } }, tooltip: tip } };
+      plugins: { legend: { position: 'right', labels: { color: W, font: { family: "'Cerebri Sans','DM Sans','Inter',sans-serif", size: 11 }, padding: 8, boxWidth: 12 } }, tooltip: tip } };
     this.mkChart('pr_' + id, { type: 'doughnut', data: { labels: m.prodLabels, datasets: [{ data: m.recentProds, backgroundColor: PIE.slice(0, m.prodLabels.length), borderColor: '#FFFFFF', borderWidth: 2 }] }, options: pieOpts });
     this.mkChart('p4_' + id, { type: 'doughnut', data: { labels: m.prodLabels, datasets: [{ data: m.fw4Prods, backgroundColor: PIE.slice(0, m.prodLabels.length), borderColor: '#FFFFFF', borderWidth: 2 }] }, options: pieOpts });
   },

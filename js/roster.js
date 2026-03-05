@@ -216,10 +216,10 @@ const Roster = {
         pendingSection.style.display = 'block';
         pendingList.innerHTML = pending.map(name => `
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-            <span style="color:var(--white);font-size:13px;font-family:'Inter',sans-serif;font-weight:700">${name}</span>
+            <span style="color:var(--white);font-size:13px;font-family:'Neue Montreal','Inter',sans-serif;font-weight:700">${name}</span>
             <span style="color:var(--silver-dim);font-size:11px">requested team edit access</span>
-            <button onclick="App.approveUnlock('${name}')" style="background:rgba(46,139,87,0.13);border:1px solid rgba(46,139,87,0.33);border-radius:6px;color:#2E8B57;padding:3px 10px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">Approve</button>
-            <button onclick="App.denyUnlock('${name}')" style="background:rgba(229,86,74,0.1);border:1px solid rgba(229,86,74,0.3);border-radius:6px;color:#E5564A;padding:3px 10px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">Deny</button>
+            <button onclick="App.approveUnlock('${name}')" style="background:rgba(46,139,87,0.13);border:1px solid rgba(46,139,87,0.33);border-radius:6px;color:#2E8B57;padding:3px 10px;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">Approve</button>
+            <button onclick="App.denyUnlock('${name}')" style="background:rgba(229,86,74,0.1);border:1px solid rgba(229,86,74,0.3);border-radius:6px;color:#E5564A;padding:3px 10px;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">Deny</button>
           </div>`).join('');
       } else {
         pendingSection.style.display = 'none';
@@ -308,7 +308,7 @@ const Roster = {
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Inter\',sans-serif;font-size:14px">No people match the current filters</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Cerebri Sans\',\'DM Sans\',\'Inter\',sans-serif;font-size:14px">No people match the current filters</td></tr>';
       return;
     }
 
@@ -342,7 +342,7 @@ const Roster = {
         <td style="padding:12px 16px">
           <div id="roster-display-${safeEmail}" style="display:flex;align-items:center;gap:8px">
             <div style="flex:1">
-              <div style="font-family:'Inter',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
+              <div style="font-family:'Neue Montreal','Inter',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
                 ${p.name}
                 ${isDeactivated ? '<span style="font-size:10px;letter-spacing:1px;color:#E5564A;margin-left:8px;border:1px solid rgba(229,86,74,0.4);border-radius:4px;padding:1px 5px;text-transform:uppercase">Inactive</span>' : ''}
               </div>
@@ -353,32 +353,32 @@ const Roster = {
           </div>
           <div id="roster-edit-${safeEmail}" style="display:none">
             <input id="roster-edit-name-${safeEmail}" type="text" value="${p.name.replace(/"/g, '&quot;')}"
-              style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.6);border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:5px 8px;color:var(--white);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;outline:none;margin-bottom:4px">
+              style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.6);border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:5px 8px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;font-weight:700;outline:none;margin-bottom:4px">
             <input id="roster-edit-email-${safeEmail}" type="email" value="${email}"
-              style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.6);border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 8px;color:var(--white);font-family:'Inter',sans-serif;font-size:11px;outline:none;margin-bottom:6px">
+              style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.6);border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 8px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:11px;outline:none;margin-bottom:6px">
             <div style="display:flex;gap:6px">
               <button onclick="App.savePersonInfo('${safeEmail}')"
-                style="background:var(--blue-core);border:none;border-radius:5px;padding:3px 10px;color:#fff;font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Save</button>
+                style="background:var(--blue-core);border:none;border-radius:5px;padding:3px 10px;color:#fff;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Save</button>
               <button onclick="Roster.cancelEditPerson('${safeEmail}')"
-                style="background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.2);border-radius:5px;padding:3px 10px;color:var(--silver);font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Cancel</button>
+                style="background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.2);border-radius:5px;padding:3px 10px;color:var(--silver);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Cancel</button>
             </div>
           </div>
         </td>
         <td style="padding:12px 16px">
           <select onchange="App.setPersonRole('${safeName}',this.value)"
-            style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.25);border-radius:6px;color:var(--white);padding:5px 8px;font-family:'Inter',sans-serif;font-size:12px;cursor:pointer;outline:none">
+            style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.25);border-radius:6px;color:var(--white);padding:5px 8px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:12px;cursor:pointer;outline:none">
             ${roleSelect}
           </select>
         </td>
         <td style="padding:12px 16px">
           <select onchange="App.setPersonTeam('${safeName}',this.value)"
-            style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.25);border-radius:6px;color:var(--white);padding:5px 8px;font-family:'Inter',sans-serif;font-size:12px;cursor:pointer;outline:none">
+            style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.25);border-radius:6px;color:var(--white);padding:5px 8px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:12px;cursor:pointer;outline:none">
             ${teamSelect}
           </select>
         </td>
         <td style="padding:12px 16px;text-align:center">
           <button onclick="App.toggleDeactivate('${safeName}')"
-            style="background:${isDeactivated ? 'rgba(46,139,87,0.1)' : 'rgba(229,86,74,0.1)'};border:1px solid ${isDeactivated ? 'rgba(46,139,87,0.3)' : 'rgba(229,86,74,0.3)'};border-radius:6px;color:${isDeactivated ? '#2E8B57' : '#E5564A'};padding:5px 14px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
+            style="background:${isDeactivated ? 'rgba(46,139,87,0.1)' : 'rgba(229,86,74,0.1)'};border:1px solid ${isDeactivated ? 'rgba(46,139,87,0.3)' : 'rgba(229,86,74,0.3)'};border-radius:6px;color:${isDeactivated ? '#2E8B57' : '#E5564A'};padding:5px 14px;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
             ${isDeactivated ? 'Reactivate' : 'Deactivate'}
           </button>
         </td>`;

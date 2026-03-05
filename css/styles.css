@@ -46,6 +46,12 @@
   /* Cards */
   --card-bg:     #FFFFFF;
   --card-border: rgba(0,0,0,0.08);
+
+  /* ── Aptel Brand Typography ── */
+  --font-heading:    'Neue Montreal', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-subheading: 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body:       'Cerebri Sans', 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-button:     'Neue Haas Grotesk', 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -53,7 +59,7 @@
 body {
   background: #FEFAF3;
   color: var(--white);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-body);
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -110,7 +116,7 @@ header {
 }
 
 .week-label {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 3px;
@@ -171,7 +177,7 @@ header {
 .section-icon { font-size: 20px; }
 
 .section-title {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-heading);
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 3px;
@@ -186,7 +192,7 @@ header {
 }
 
 .section-count {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -208,7 +214,7 @@ thead tr {
 }
 
 th {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -238,7 +244,7 @@ tbody tr:hover { background: rgba(0,0,0,0.07); }
 
 /* Rank */
 .rank {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 700;
   color: var(--silver-dim);
@@ -260,7 +266,7 @@ tbody tr:hover { background: rgba(0,0,0,0.07); }
 }
 
 .name-text {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -270,7 +276,7 @@ tbody tr:hover { background: rgba(0,0,0,0.07); }
 /* Value cells */
 td.val {
   text-align: center;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
   padding: 4px 4px;
@@ -324,7 +330,7 @@ tr.total-row {
   border-top: 1px solid rgba(0,0,0,0.3);
 }
 tr.total-row td {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 1px;
@@ -372,7 +378,7 @@ tr.total-row .name-text {
 }
 
 .team-rank {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -381,7 +387,7 @@ tr.total-row .name-text {
 }
 
 .team-name {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-heading);
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -390,7 +396,7 @@ tr.total-row .name-text {
 }
 
 .team-score {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-heading);
   font-size: 36px;
   font-weight: 700;
   color: var(--sc-cyan);
@@ -435,7 +441,7 @@ tr.total-row .name-text {
 }
 
 .hero-stat-label {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 3px;
@@ -444,7 +450,7 @@ tr.total-row .name-text {
 }
 
 .hero-stat-value {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-heading);
   font-size: 56px;
   font-weight: 700;
   line-height: 1;
@@ -500,7 +506,7 @@ tr.total-row .name-text {
 .podium-position { font-size: 28px; line-height: 1; }
 
 .podium-name {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-heading);
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -509,7 +515,7 @@ tr.total-row .name-text {
 }
 
 .podium-role {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -524,7 +530,7 @@ tr.total-row .name-text {
 .podium-stats { display: flex; gap: 20px; margin-top: 8px; }
 .podium-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .podium-stat-val {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-heading);
   font-size: 32px;
   font-weight: 700;
   line-height: 1;
@@ -546,7 +552,7 @@ tr.total-row .name-text {
 
 /* ── Separator / group total rows ── */
 tr.group-total-row td {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.5px;
@@ -598,7 +604,7 @@ td.week-start, th.week-start { border-left: 3px solid rgba(0,0,0,0.2) !important
 }
 .view-toggle {
   padding: 6px 16px;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -641,7 +647,7 @@ th.week-col { color: var(--silver); }
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--silver-dim);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-button);
   font-size: 13px; font-weight: 700; letter-spacing: 0.5px;
   text-transform: uppercase; cursor: pointer;
   transition: all 0.15s; white-space: nowrap;
@@ -673,7 +679,7 @@ th.week-col { color: var(--silver); }
   border-radius: 10px;
 }
 .role-switcher-label {
-  font-family: 'Inter', sans-serif; font-size: 11px;
+  font-family: var(--font-subheading); font-size: 11px;
   font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
   color: var(--silver-dim); white-space: nowrap;
 }
@@ -681,7 +687,7 @@ th.week-col { color: var(--silver); }
 .role-pill {
   padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(0,0,0,0.3);
   background: transparent; color: var(--silver-dim); cursor: pointer;
-  font-family: 'Inter', sans-serif; font-size: 12px;
+  font-family: var(--font-subheading); font-size: 12px;
   font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
   transition: all 0.15s;
 }
@@ -691,7 +697,7 @@ th.week-col { color: var(--silver); }
 #role-persona {
   background: rgba(255,255,255,0.4); border: 1px solid rgba(0,0,0,0.3);
   border-radius: 8px; color: var(--white); padding: 5px 10px;
-  font-family: 'Inter', sans-serif; font-size: 13px;
+  font-family: var(--font-body); font-size: 13px;
   cursor: pointer; min-width: 160px;
 }
 #role-persona option { background: rgba(255,255,255,0.4); }
@@ -738,7 +744,7 @@ th.week-col { color: var(--silver); }
   display: flex; align-items: center; gap: 8px;
   background: rgba(44,110,106,0.12); border: 1px solid rgba(44,110,106,0.30);
   border-radius: 8px; padding: 8px 16px; cursor: pointer;
-  color: var(--sc-cyan); font-family: 'Inter', sans-serif;
+  color: var(--sc-cyan); font-family: var(--font-button);
   font-size: 14px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
   transition: background 0.15s;
 }
@@ -746,7 +752,7 @@ th.week-col { color: var(--silver); }
 .profile-back-arrow { font-size: 18px; line-height: 1; }
 
 .profile-heading { text-align: right; }
-.profile-page-name { font-family: 'Inter', sans-serif; font-size: 36px; font-weight: 700; color: var(--white); letter-spacing: 0.5px; line-height: 1; }
+.profile-page-name { font-family: var(--font-heading); font-size: 36px; font-weight: 700; color: var(--white); letter-spacing: 0.5px; line-height: 1; }
 .profile-page-sub { font-size: 13px; color: var(--silver-dim); margin-top: 4px; }
 .profile-page-sub span { color: var(--sc-cyan); }
 
@@ -769,25 +775,25 @@ th.week-col { color: var(--silver); }
 }
 .issue-badge {
   display: inline-block;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 11px; font-weight: 700;
   letter-spacing: 0.5px; text-transform: uppercase;
   padding: 3px 10px; border-radius: 6px;
 }
 .order-field-label {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 9px; letter-spacing: 0.5px;
   text-transform: uppercase; color: var(--silver-dim);
   margin-bottom: 2px;
 }
 .order-field-val {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px; font-weight: 700; color: var(--white);
 }
 .order-num { color: var(--sc-cyan); letter-spacing: 1px; }
 
 .profile-section-title {
-  font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700;
+  font-family: var(--font-subheading); font-size: 11px; font-weight: 700;
   letter-spacing: 3px; text-transform: uppercase; color: var(--silver-dim);
   margin: 28px 0 12px; border-bottom: 1px solid rgba(0,0,0,0.15); padding-bottom: 8px;
 }
@@ -795,7 +801,7 @@ th.week-col { color: var(--silver); }
 .profile-stats-bar { display: flex; background: rgba(255,255,255,0.5); border-radius: 12px; border: 1px solid rgba(0,0,0,0.2); overflow: hidden; margin-bottom: 4px; }
 .profile-stat { flex: 1; padding: 20px 12px; text-align: center; border-right: 1px solid rgba(0,0,0,0.15); }
 .profile-stat:last-child { border-right: none; }
-.profile-stat-val { font-family: 'Inter', sans-serif; font-size: 34px; font-weight: 700; color: var(--white); line-height: 1; }
+.profile-stat-val { font-family: var(--font-heading); font-size: 34px; font-weight: 700; color: var(--white); line-height: 1; }
 .profile-stat-val.units-val { color: var(--sc-cyan); }
 .profile-stat-lbl { font-size: 10px; color: var(--silver-dim); letter-spacing: 0.5px; text-transform: uppercase; margin-top: 4px; }
 
@@ -807,20 +813,20 @@ th.week-col { color: var(--silver); }
 }
 .breakdown-remark { border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: center; }
 .breakdown-stat { background: rgba(255,255,255,0.4); border: 1px solid rgba(0,0,0,0.15); border-radius: 8px; padding: 10px 8px; text-align: center; }
-.breakdown-val { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; color: var(--white); }
+.breakdown-val { font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--white); }
 .breakdown-lbl { font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--silver-dim); margin-top: 2px; }
 
 /* ── CHURN BUCKETS ── */
 .churn-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 4px; }
 .churn-bucket { background: rgba(255,255,255,0.4); border: 1px solid rgba(0,0,0,0.15); border-radius: 8px; padding: 12px 8px; text-align: center; }
-.churn-label { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--silver-dim); text-transform: uppercase; margin-bottom: 6px; }
-.churn-fraction { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 700; color: var(--white); }
+.churn-label { font-family: var(--font-subheading); font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--silver-dim); text-transform: uppercase; margin-bottom: 6px; }
+.churn-fraction { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--white); }
 .churn-pct { font-size: 11px; font-weight: 600; margin-top: 2px; }
 
 /* ── CHARTS ── */
 .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
 .chart-box { background: rgba(255,255,255,0.4); border: 1px solid rgba(0,0,0,0.15); border-radius: 10px; padding: 14px 12px; }
-.chart-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--sc-cyan); margin-bottom: 10px; }
+.chart-title { font-family: var(--font-subheading); font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--sc-cyan); margin-bottom: 10px; }
 .chart-wrap { position: relative; width: 100%; }
 .chart-wrap canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
 
@@ -864,7 +870,7 @@ th.week-col { color: var(--silver); }
 }
 
 .login-step-title {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-heading);
   font-size: 22px;
   font-weight: 700;
   color: #242124;
@@ -872,7 +878,7 @@ th.week-col { color: var(--silver); }
 }
 
 .login-step-subtitle {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   color: #708090;
   margin-bottom: 28px;
@@ -885,7 +891,7 @@ th.week-col { color: var(--silver); }
   border: 1px solid rgba(0,0,0,0.10);
   border-radius: 10px;
   padding: 14px 18px;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.2px;
@@ -922,7 +928,7 @@ th.week-col { color: var(--silver); }
 
 #login-back-link {
   margin-top: 14px;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 500;
   color: #43B3AE;
@@ -937,7 +943,7 @@ th.week-col { color: var(--silver); }
   border-radius: 10px;
   padding: 14px;
   color: #fff;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-button);
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -950,7 +956,7 @@ th.week-col { color: var(--silver); }
 
 .login-error {
   color: #E5564A;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
   margin-top: 12px;
@@ -981,7 +987,7 @@ th.week-col { color: var(--silver); }
 }
 
 .loading-text {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 3px;
@@ -991,7 +997,7 @@ th.week-col { color: var(--silver); }
 
 /* ── LAST UPDATED INDICATOR ── */
 .last-updated {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 11px;
   letter-spacing: 1px;
   color: var(--silver-dim);
@@ -1006,7 +1012,7 @@ th.week-col { color: var(--silver); }
   border-radius: 6px;
   color: var(--sc-cyan);
   padding: 3px 10px;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-button);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -1025,7 +1031,7 @@ th.week-col { color: var(--silver); }
   border: 1px solid rgba(0,0,0,0.3);
   border-radius: 10px;
   padding: 12px 20px;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 700;
   color: var(--white);
@@ -1053,7 +1059,7 @@ th.week-col { color: var(--silver); }
 }
 
 .team-parent-badge {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-subheading);
   font-size: 9px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -1071,7 +1077,7 @@ th.week-col { color: var(--silver); }
 
 .teams-tree-row td {
   padding: 12px 16px;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   color: var(--white);
   border-bottom: 1px solid rgba(0,0,0,0.12);
@@ -1089,7 +1095,7 @@ th.week-col { color: var(--silver); }
 
 #all-orders-body td,
 #my-orders-body td {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   color: var(--silver);
   border-bottom: 1px solid rgba(0,0,0,0.06);

@@ -524,7 +524,6 @@ const Orders = {
           <div style="font-size:13px;color:var(--white);font-weight:700;font-family:'Barlow Condensed',sans-serif">${this._escapeHtml(t.id)} <span style="font-weight:400;color:var(--silver)">\u2014 ${this._escapeHtml(t.text || '')}</span></div>
           <div style="font-size:11px;color:var(--silver-dim);margin-top:2px">${this._escapeHtml(t.date || '')} \u2014 ${this._escapeHtml(t.author || '')}</div>
         </div>
-        <button onclick="Orders.deleteTicket('${escapedId}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0;line-height:1" title="Delete ticket">\u00D7</button>
       </div>`;
     }).join('');
   },
@@ -603,34 +602,6 @@ const Orders = {
 
       this._renderTicketsList(order);
       this.applyFilters(this._mode);
-    } catch (err) {
-      App.showToast('Failed: ' + err.message);
-    }
-  },
-
-  // ── Delete ticket ──
-  async deleteTicket(ticketId) {
-    if (!this._activeRowIndex) return;
-
-    try {
-      const result = await SheetsAPI.post(OFFICE_CONFIG, 'deleteTicket', {
-        rowIndex: this._activeRowIndex,
-        ticketId: ticketId
-      });
-
-      if (result.data?.error) {
-        App.showToast(result.data.error);
-        return;
-      }
-
-      const order = this._orders.find(o => o.rowIndex === this._activeRowIndex);
-      if (order && result.data?.tickets) {
-        order.tickets = result.data.tickets;
-      }
-
-      this._renderTicketsList(order);
-      this.applyFilters(this._mode);
-      App.showToast('Ticket removed');
     } catch (err) {
       App.showToast('Failed: ' + err.message);
     }

@@ -923,7 +923,6 @@ function doPost(e) {
       // Ticket management
       case 'addTicket':            result = writeAddTicket(body); break;
       case 'toggleTicket':         result = writeToggleTicket(body); break;
-      case 'deleteTicket':         result = writeDeleteTicket(body); break;
       default: result = { error: 'unknown action: ' + body.action };
     }
     return jsonResponse(result);
@@ -1334,28 +1333,6 @@ function writeToggleTicket(body) {
   sheet.getRange(rowIndex, OL.TICKETS + 1).setValue(JSON.stringify(tickets));
   return { ok: true, tickets: tickets };
 }
-
-function writeDeleteTicket(body) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(ORDER_LOG_TAB);
-  if (!sheet) return { error: 'Order Log not found' };
-
-  var rowIndex = Number(body.rowIndex);
-  if (!rowIndex || rowIndex < 2) return { error: 'Invalid row' };
-
-  var ticketId = String(body.ticketId || '').trim();
-  if (!ticketId) return { error: 'Ticket ID required' };
-
-  var existing = String(sheet.getRange(rowIndex, OL.TICKETS + 1).getValue() || '').trim();
-  var tickets;
-  try { tickets = JSON.parse(existing || '[]'); } catch(e) { tickets = []; }
-
-  tickets = tickets.filter(function(t) { return t.id !== ticketId; });
-
-  sheet.getRange(rowIndex, OL.TICKETS + 1).setValue(JSON.stringify(tickets));
-  return { ok: true, tickets: tickets };
-}
-
 
 function writeSetOrderStatus(body) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();

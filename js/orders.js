@@ -115,7 +115,7 @@ const Orders = {
       'Shipped': 'var(--sc-cyan)', 'Scheduled': 'var(--sc-cyan)',
       'Open': 'var(--yellow)', 'Pending': 'var(--yellow)',
       'Port Approved': 'var(--blue-core)', 'Porting Issue': '#cc6600', 'Pending Install': 'var(--sc-teal)', 'BYOD': 'var(--blue-core)', 'Backordered': 'var(--orange)',
-      'Canceled': '#e53535', 'Cancelled': '#e53535', 'Disconnected': '#8b1a1a'
+      'Canceled': '#E5564A', 'Cancelled': '#E5564A', 'Disconnected': '#9B3030'
     };
     return map[status] || 'var(--silver-dim)';
   },
@@ -315,9 +315,9 @@ const Orders = {
         <td style="padding:10px 12px;text-align:center">${statusHtml}</td>
         <td style="padding:10px 12px;font-size:11px;color:var(--silver-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._escapeHtml(notePreview)}${noteCount > 1 ? ` <span style="color:var(--blue-core)">(${noteCount})</span>` : ''}</td>
         <td style="padding:10px 8px;text-align:right;white-space:nowrap">
-          ${canEdit ? `<button onclick="Orders.openEditModal(${o.rowIndex})" style="background:none;border:1px solid rgba(26,92,229,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-right:4px">Edit</button>` : ''}
+          ${canEdit ? `<button onclick="Orders.openEditModal(${o.rowIndex})" style="background:none;border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-right:4px">Edit</button>` : ''}
           <button onclick="Orders.openNoteModal(${o.rowIndex},'${escapedDsi}')"
-            style="background:none;border:1px solid rgba(26,92,229,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes${noteCount > 0 ? ' (' + noteCount + ')' : ''}</button>${openTickets > 0 ? `<span style="display:inline-flex;align-items:center;gap:2px;margin-left:6px;font-size:11px;font-weight:700;color:var(--orange);background:rgba(249,115,22,0.12);border:1px solid rgba(249,115,22,0.3);border-radius:6px;padding:3px 8px;font-family:'Barlow Condensed',sans-serif">\uD83C\uDFAB ${openTickets}</span>` : ''}
+            style="background:none;border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;color:var(--blue-core);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes${noteCount > 0 ? ' (' + noteCount + ')' : ''}</button>${openTickets > 0 ? `<span style="display:inline-flex;align-items:center;gap:2px;margin-left:6px;font-size:11px;font-weight:700;color:var(--orange);background:rgba(249,115,22,0.12);border:1px solid rgba(249,115,22,0.3);border-radius:6px;padding:3px 8px;font-family:'Barlow Condensed',sans-serif">\uD83C\uDFAB ${openTickets}</span>` : ''}
         </td>`;
       tbody.appendChild(tr);
 
@@ -347,7 +347,7 @@ const Orders = {
   _renderDrillDownRow(tbody, dsi, colSpan) {
     const tr = document.createElement('tr');
     tr.className = 'drill-down-row';
-    tr.style.background = 'rgba(0,200,255,0.04)';
+    tr.style.background = 'rgba(44,110,106,0.04)';
 
     const devices = this._detailCache[dsi];
     if (!devices || devices.length === 0) {
@@ -362,7 +362,7 @@ const Orders = {
     const escapedDsi = dsi.replace(/'/g, "\\'");
     let html = `<td colspan="${colSpan}" style="padding:8px 16px">
       <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
-        <button onclick="Orders._openSaraPlus('${escapedDsi}')" style="background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.3);border-radius:6px;padding:4px 12px;color:var(--sc-cyan);font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:4px">
+        <button onclick="Orders._openSaraPlus('${escapedDsi}')" style="background:rgba(44,110,106,0.1);border:1px solid rgba(44,110,106,0.3);border-radius:6px;padding:4px 12px;color:var(--sc-cyan);font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:4px">
           <span style="font-size:12px">&#x1F50D;</span> SARA+
         </button>
       </div>
@@ -402,7 +402,7 @@ const Orders = {
         displayStatus = 'Pending Install';
       }
       const statusColor = this._dtrStatusColor(displayStatus);
-      html += `<tr style="border-top:1px solid rgba(26,92,229,0.1)">
+      html += `<tr style="border-top:1px solid rgba(0,0,0,0.1)">
         <td style="padding:4px 8px;color:var(--silver)">${this._escapeHtml(d.spe)}</td>
         <td style="padding:4px 8px;color:var(--white)">${this._escapeHtml(d.productType)}</td>
         <td style="padding:4px 8px;text-align:center;color:var(--silver)">${this._escapeHtml(d.cruIru)}</td>
@@ -444,7 +444,7 @@ const Orders = {
     if (!toast) {
       toast = document.createElement('div');
       toast.id = 'sc-toast';
-      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d2035;color:#f0f4f8;padding:10px 20px;border-radius:8px;font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:600;letter-spacing:0.5px;z-index:99999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#242124;color:#FEFAF3;padding:10px 20px;border-radius:8px;font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:600;letter-spacing:0.5px;z-index:99999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
       document.body.appendChild(toast);
     }
     toast.textContent = msg;
@@ -470,7 +470,7 @@ const Orders = {
     if (notesDisplay) {
       if (order && order.notes) {
         notesDisplay.innerHTML = order.notes.split('\n').map(line =>
-          `<div style="padding:6px 0;border-bottom:1px solid rgba(26,92,229,0.1);font-size:12px;color:var(--silver);line-height:1.5">${this._escapeHtml(line)}</div>`
+          `<div style="padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.1);font-size:12px;color:var(--silver);line-height:1.5">${this._escapeHtml(line)}</div>`
         ).join('');
       } else {
         notesDisplay.innerHTML = '<div style="color:var(--silver-dim);font-size:12px;padding:12px 0">No notes yet</div>';
@@ -518,7 +518,7 @@ const Orders = {
     container.innerHTML = tickets.map(t => {
       const escapedId = this._escapeHtml(t.id).replace(/'/g, "\\'");
       const resolvedStyle = t.resolved ? 'text-decoration:line-through;opacity:0.6' : '';
-      return `<div style="padding:8px 0;border-bottom:1px solid rgba(26,92,229,0.1);display:flex;align-items:flex-start;gap:8px">
+      return `<div style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.1);display:flex;align-items:flex-start;gap:8px">
         <input type="checkbox" ${t.resolved ? 'checked' : ''} onchange="Orders.toggleTicket('${escapedId}')" style="cursor:pointer;margin-top:2px;flex-shrink:0">
         <div style="flex:1;min-width:0;${resolvedStyle}">
           <div style="font-size:13px;color:var(--white);font-weight:700;font-family:'Barlow Condensed',sans-serif">${this._escapeHtml(t.id)} <span style="font-weight:400;color:var(--silver)">\u2014 ${this._escapeHtml(t.text || '')}</span></div>

@@ -340,7 +340,7 @@ const Render = {
     }).join('');
 
     return `
-    <header style="position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#c8dff0 0%,#daeaf5 40%,#c2daea 70%,#b8d4e8 100%);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:12px 0 0;margin:0;border-bottom:1px solid rgba(0,200,255,0.25);box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+    <header style="position:sticky;top:0;z-index:10;background:#FFFFFF;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:12px 0 0;margin:0;border-bottom:1px solid rgba(44,110,106,0.25);box-shadow:0 2px 12px rgba(0,0,0,0.06)">
       <div style="max-width:1300px;margin:0 auto;padding:0 24px">
         <div class="header-top">
           <div class="logo-area">
@@ -360,7 +360,7 @@ const Render = {
               </svg>
             </button>
             ${infoHtml}
-            <button onclick="App.logout()" title="Sign out" style="background:none;border:1px solid rgba(229,53,53,0.3);border-radius:6px;padding:5px 10px;color:#e53535;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer">Logout</button>
+            <button onclick="App.logout()" title="Sign out" style="background:none;border:1px solid rgba(229,86,74,0.3);border-radius:6px;padding:5px 10px;color:#E5564A;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer">Logout</button>
           </div>
         </div>
         <nav style="display:flex;align-items:center;gap:4px;padding:0 0 10px;overflow-x:auto">
@@ -427,7 +427,7 @@ const Render = {
     const twU = this.twUnits(p), twY = this.twYeses(p);
     const total = Math.max(m.totalActs, 1);
     const id = 'p' + name.replace(/[^a-zA-Z0-9]/g, '');
-    const vsColor = m.vsPct >= 0 ? '#22c55e' : '#e53535';
+    const vsColor = m.vsPct >= 0 ? '#2E8B57' : '#E5564A';
     const vsArrow = m.vsPct >= 0 ? '↑' : '↓';
 
     const churnHTML = m.churnBuckets.map(b => `
@@ -455,17 +455,17 @@ const Render = {
         </div>
         <div class="breakdown-stat"><div class="breakdown-val">${m.recentAvg}</div><div class="breakdown-lbl">Rec. Wk Avg</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${vsColor}">${vsArrow}${Math.abs(m.vsPct)}%</div><div class="breakdown-lbl">vs 4Wk Avg</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.active, total)) >= 75 ? '#22c55e' : '#f0b429'}">${this.pct(m.active, total)}%</div><div class="breakdown-lbl">Active</div></div>
+        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.active, total)) >= 75 ? '#2E8B57' : '#f0b429'}">${this.pct(m.active, total)}%</div><div class="breakdown-lbl">Active</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:#f0b429">${this.pct(m.pending, total)}%</div><div class="breakdown-lbl">Pending</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.cancel, total)) > 10 ? '#e53535' : 'var(--silver)'}">${this.pct(m.cancel, total)}%</div><div class="breakdown-lbl">Cancel</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.projDisco, total)) > 5 ? '#f97316' : '#22c55e'}">${this.pct(m.projDisco, total)}%</div><div class="breakdown-lbl">Proj. Disco</div></div>
+        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.cancel, total)) > 10 ? '#E5564A' : 'var(--silver)'}">${this.pct(m.cancel, total)}%</div><div class="breakdown-lbl">Cancel</div></div>
+        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.projDisco, total)) > 5 ? '#f97316' : '#2E8B57'}">${this.pct(m.projDisco, total)}%</div><div class="breakdown-lbl">Proj. Disco</div></div>
       </div>
 
       ${m.totalDevices > 0 ? `
       <div class="profile-section-title">Activation Summary</div>
       <div class="breakdown-grid">
         <div class="breakdown-stat"><div class="breakdown-val">${m.totalDevices}</div><div class="breakdown-lbl">Total Devices</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.activationRate >= 75 ? '#22c55e' : m.activationRate >= 50 ? '#f0b429' : '#e53535'}">${m.activationRate}%</div><div class="breakdown-lbl">Activation Rate</div></div>
+        <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.activationRate >= 75 ? '#2E8B57' : m.activationRate >= 50 ? '#f0b429' : '#E5564A'}">${m.activationRate}%</div><div class="breakdown-lbl">Activation Rate</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--green)">${m.active}</div><div class="breakdown-lbl">Active</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--yellow)">${m.pending}</div><div class="breakdown-lbl">Pending</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--red)">${m.cancel + m.projDisco}</div><div class="breakdown-lbl">Disco + Cancel</div></div>
@@ -537,7 +537,7 @@ const Render = {
     const tw = { u: members.reduce((s, p) => s + this.twUnits(p), 0), y: members.reduce((s, p) => s + this.twYeses(p), 0) };
     const id = 't' + teamName.replace(/[^a-zA-Z0-9]/g, '');
     const tableId = 'team-lb-' + id;
-    const vsColor = m.vsPct >= 0 ? '#22c55e' : '#e53535';
+    const vsColor = m.vsPct >= 0 ? '#2E8B57' : '#E5564A';
     const vsArrow = m.vsPct >= 0 ? '↑' : '↓';
     const total = Math.max(m.totalActs, 1);
 
@@ -585,17 +585,17 @@ const Render = {
         </div>
         <div class="breakdown-stat"><div class="breakdown-val">${m.recentAvg}</div><div class="breakdown-lbl">Rec. Wk Avg</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${vsColor}">${vsArrow}${Math.abs(m.vsPct)}%</div><div class="breakdown-lbl">vs 4Wk Avg</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.active, total)) >= 75 ? '#22c55e' : '#f0b429'}">${this.pct(m.active, total)}%</div><div class="breakdown-lbl">Active</div></div>
+        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.active, total)) >= 75 ? '#2E8B57' : '#f0b429'}">${this.pct(m.active, total)}%</div><div class="breakdown-lbl">Active</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:#f0b429">${this.pct(m.pending, total)}%</div><div class="breakdown-lbl">Pending</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.cancel, total)) > 10 ? '#e53535' : 'var(--silver)'}">${this.pct(m.cancel, total)}%</div><div class="breakdown-lbl">Cancel</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.projDisco, total)) > 5 ? '#f97316' : '#22c55e'}">${this.pct(m.projDisco, total)}%</div><div class="breakdown-lbl">Proj. Disco</div></div>
+        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.cancel, total)) > 10 ? '#E5564A' : 'var(--silver)'}">${this.pct(m.cancel, total)}%</div><div class="breakdown-lbl">Cancel</div></div>
+        <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.projDisco, total)) > 5 ? '#f97316' : '#2E8B57'}">${this.pct(m.projDisco, total)}%</div><div class="breakdown-lbl">Proj. Disco</div></div>
       </div>
 
       ${m.totalDevices > 0 ? `
       <div class="profile-section-title">Activation Summary</div>
       <div class="breakdown-grid">
         <div class="breakdown-stat"><div class="breakdown-val">${m.totalDevices}</div><div class="breakdown-lbl">Total Devices</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.activationRate >= 75 ? '#22c55e' : m.activationRate >= 50 ? '#f0b429' : '#e53535'}">${m.activationRate}%</div><div class="breakdown-lbl">Activation Rate</div></div>
+        <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.activationRate >= 75 ? '#2E8B57' : m.activationRate >= 50 ? '#f0b429' : '#E5564A'}">${m.activationRate}%</div><div class="breakdown-lbl">Activation Rate</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--green)">${m.active}</div><div class="breakdown-lbl">Active</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--yellow)">${m.pending}</div><div class="breakdown-lbl">Pending</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--red)">${m.cancel + m.projDisco}</div><div class="breakdown-lbl">Disco + Cancel</div></div>
@@ -666,7 +666,7 @@ const Render = {
         </div>
         <input type="text" id="manage-team-search" placeholder="Search by name..."
           oninput="Render._renderManageTeamRows('${safeTeamName}', this.value)"
-          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.5);border:1px solid rgba(26,92,229,0.2);border-radius:8px;padding:8px 14px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:14px;outline:none;margin-bottom:12px">
+          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.5);border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 14px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:14px;outline:none;margin-bottom:12px">
         <div class="table-scroll">
           <div class="table-wrap">
             <table>
@@ -761,7 +761,7 @@ const Render = {
         <td style="padding:12px 16px">
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
             ${p.name}
-            ${isDeactivated ? '<span style="font-size:10px;letter-spacing:1px;color:#e53535;margin-left:8px;border:1px solid rgba(229,53,53,0.4);border-radius:4px;padding:1px 5px;text-transform:uppercase">Inactive</span>' : ''}
+            ${isDeactivated ? '<span style="font-size:10px;letter-spacing:1px;color:#E5564A;margin-left:8px;border:1px solid rgba(229,86,74,0.4);border-radius:4px;padding:1px 5px;text-transform:uppercase">Inactive</span>' : ''}
           </div>
           ${email ? `<div style="font-size:10px;color:var(--silver-dim);margin-top:2px">${email}</div>` : ''}
         </td>
@@ -770,7 +770,7 @@ const Render = {
         </td>
         <td style="padding:12px 16px;text-align:center">
           <button onclick="App.toggleDeactivate('${safeName}')"
-            style="background:${isDeactivated ? 'rgba(34,197,94,0.1)' : 'rgba(229,53,53,0.1)'};border:1px solid ${isDeactivated ? 'rgba(34,197,94,0.3)' : 'rgba(229,53,53,0.3)'};border-radius:6px;color:${isDeactivated ? '#22c55e' : '#e53535'};padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
+            style="background:${isDeactivated ? 'rgba(46,139,87,0.1)' : 'rgba(229,86,74,0.1)'};border:1px solid ${isDeactivated ? 'rgba(46,139,87,0.3)' : 'rgba(229,86,74,0.3)'};border-radius:6px;color:${isDeactivated ? '#2E8B57' : '#E5564A'};padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
             ${isDeactivated ? 'Reactivate' : 'Deactivate'}
           </button>
         </td>`;
@@ -834,7 +834,7 @@ const Render = {
 
     return `
       <div class="profile-section-title">Sub-Team Breakdown</div>
-      <div style="background:rgba(255,255,255,0.5);border:1px solid rgba(26,92,229,0.2);border-radius:12px;overflow:hidden;margin-bottom:24px">
+      <div style="background:rgba(255,255,255,0.5);border:1px solid rgba(0,0,0,0.2);border-radius:12px;overflow:hidden;margin-bottom:24px">
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:rgba(0,0,0,0.06)">
             <th style="width:36px"></th>
@@ -850,8 +850,8 @@ const Render = {
 
   // ── CHARTS ──
   drawCharts(id, m) {
-    const W = '#1a3a52', GRID = 'rgba(26,92,229,0.10)', TICK = '#4a7090', BLUE = '#0099cc';
-    const tip = { backgroundColor: '#0d2035', borderColor: 'rgba(0,200,255,0.35)', borderWidth: 1, titleColor: '#e8f0f7', bodyColor: '#e8f0f7', padding: 8 };
+    const W = '#4A5568', GRID = 'rgba(0,0,0,0.10)', TICK = '#708090', BLUE = '#2C6E6A';
+    const tip = { backgroundColor: '#242124', borderColor: 'rgba(44,110,106,0.35)', borderWidth: 1, titleColor: '#FFFFFF', bodyColor: '#FFFFFF', padding: 8 };
     const base = {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: W, font: { family: 'Barlow Condensed', size: 11 }, boxWidth: 12, padding: 6 } }, tooltip: tip },
@@ -861,12 +861,12 @@ const Render = {
 
     this.mkChart('spd_' + id, { type: 'bar', data: { labels: DAY, datasets: [
       { label: 'Recent', data: m.salesPerDay, backgroundColor: BLUE + '99', borderColor: BLUE, borderWidth: 1, borderRadius: 3 },
-      { label: '4Wk Avg', data: m.fourWkDaily, type: 'line', borderColor: '#4a7090', borderWidth: 2, pointBackgroundColor: '#4a7090', pointRadius: 3, fill: false, tension: 0.3 }
+      { label: '4Wk Avg', data: m.fourWkDaily, type: 'line', borderColor: '#708090', borderWidth: 2, pointBackgroundColor: '#708090', pointRadius: 3, fill: false, tension: 0.3 }
     ] }, options: { ...base, plugins: { ...base.plugins, legend: { ...base.plugins.legend, position: 'top' } } } });
 
     this.mkChart('alpha_' + id, { type: 'bar', data: { labels: DAY, datasets: [
       { label: 'Pos', data: m.alpha.map(v => v > 0 ? v : 0), backgroundColor: BLUE + 'cc', borderRadius: 2 },
-      { label: 'Neg', data: m.alpha.map(v => v < 0 ? v : 0), backgroundColor: '#334155', borderRadius: 2 }
+      { label: 'Neg', data: m.alpha.map(v => v < 0 ? v : 0), backgroundColor: '#9AA5B1', borderRadius: 2 }
     ] }, options: { ...base, plugins: { ...base.plugins, legend: { ...base.plugins.legend, position: 'top' } },
       scales: { x: { ...base.scales.x, stacked: true }, y: { ...base.scales.y, stacked: true } } } });
 
@@ -875,11 +875,11 @@ const Render = {
     this.mkChart('tsr_' + id, { type: 'bar', data: { labels: m.timeSlots, datasets: [{ data: m.recentTime, backgroundColor: BLUE + 'bb', borderRadius: 3 }] }, options: timeOpts });
     this.mkChart('ts4_' + id, { type: 'bar', data: { labels: m.timeSlots, datasets: [{ data: m.fw4Time, backgroundColor: BLUE + 'bb', borderRadius: 3 }] }, options: timeOpts });
 
-    const PIE = ['#2f7dff', '#1e4db7', '#22c55e', '#6366f1', '#f97316', '#e53535', '#f0b429', '#0099cc'];
+    const PIE = ['#2C6E6A', '#1E4F46', '#2E8B57', '#6366f1', '#f97316', '#E5564A', '#f0b429', '#2C6E6A'];
     const pieOpts = { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { position: 'right', labels: { color: W, font: { family: 'Barlow Condensed', size: 11 }, padding: 8, boxWidth: 12 } }, tooltip: tip } };
-    this.mkChart('pr_' + id, { type: 'doughnut', data: { labels: m.prodLabels, datasets: [{ data: m.recentProds, backgroundColor: PIE.slice(0, m.prodLabels.length), borderColor: '#e8f0f7', borderWidth: 2 }] }, options: pieOpts });
-    this.mkChart('p4_' + id, { type: 'doughnut', data: { labels: m.prodLabels, datasets: [{ data: m.fw4Prods, backgroundColor: PIE.slice(0, m.prodLabels.length), borderColor: '#e8f0f7', borderWidth: 2 }] }, options: pieOpts });
+    this.mkChart('pr_' + id, { type: 'doughnut', data: { labels: m.prodLabels, datasets: [{ data: m.recentProds, backgroundColor: PIE.slice(0, m.prodLabels.length), borderColor: '#FFFFFF', borderWidth: 2 }] }, options: pieOpts });
+    this.mkChart('p4_' + id, { type: 'doughnut', data: { labels: m.prodLabels, datasets: [{ data: m.fw4Prods, backgroundColor: PIE.slice(0, m.prodLabels.length), borderColor: '#FFFFFF', borderWidth: 2 }] }, options: pieOpts });
   },
 
   // Roles that don't make sales (excluded from leaderboards/podium/stats)

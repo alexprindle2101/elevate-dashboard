@@ -606,7 +606,7 @@ const App = {
       const noteLines = o.notes ? o.notes.split('\n').filter(l => l.trim()) : [];
       const notePreview = noteLines.length > 0
         ? `<span style="font-size:11px;color:var(--silver-dim)">${noteLines[noteLines.length - 1].substring(0, 40)}${noteLines[noteLines.length - 1].length > 40 ? '...' : ''}</span>
-           ${noteLines.length > 1 ? `<span style="background:rgba(26,92,229,0.15);color:var(--blue-core);font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px;margin-left:4px">${noteLines.length}</span>` : ''}`
+           ${noteLines.length > 1 ? `<span style="background:rgba(0,0,0,0.15);color:var(--blue-core);font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px;margin-left:4px">${noteLines.length}</span>` : ''}`
         : '<span style="font-size:11px;color:var(--silver-dim)">—</span>';
 
       const escapedDsi = (o.dsi || '').replace(/'/g, "\\'");
@@ -625,7 +625,7 @@ const App = {
         <td style="padding:10px 16px">${paidOutHtml}</td>
         <td style="padding:10px 16px;text-align:center">
           <button onclick="Orders.openNoteModal(${o.rowIndex},'${escapedDsi}')"
-            style="background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.3);border-radius:6px;color:var(--sc-cyan);padding:4px 12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes</button>
+            style="background:rgba(44,110,106,0.1);border:1px solid rgba(44,110,106,0.3);border-radius:6px;color:var(--sc-cyan);padding:4px 12px;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Notes</button>
           <div style="margin-top:4px">${notePreview}</div>
         </td>`;
       tbody.appendChild(tr);
@@ -664,7 +664,7 @@ const App = {
     // ALL checkbox
     html += `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-bottom:4px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${allPaid ? 'var(--green)' : 'var(--silver-dim)'}">
       <input type="checkbox" ${allPaid ? 'checked' : ''} onchange="App._togglePaidOutAllSpe(${rowId},this.checked)"
-        style="accent-color:#22c55e;cursor:pointer;width:14px;height:14px"> ALL
+        style="accent-color:#2E8B57;cursor:pointer;width:14px;height:14px"> ALL
     </label>`;
 
     // Per-SPE checkboxes
@@ -673,7 +673,7 @@ const App = {
       const shortSpe = spe.length > 16 ? '...' + spe.slice(-10) : spe;
       html += `<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">
         <input type="checkbox" ${checked} onchange="App._togglePaidOutSpe(${rowId},'${spe.replace(/'/g, "\\'")}',this.checked)"
-          style="accent-color:#22c55e;cursor:pointer;width:13px;height:13px">
+          style="accent-color:#2E8B57;cursor:pointer;width:13px;height:13px">
         <span style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:var(--silver-dim)" title="${spe}">${shortSpe}</span>
       </div>`;
     });
@@ -740,7 +740,7 @@ const App = {
 
     html += `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-bottom:4px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${allPaid ? 'var(--green)' : 'var(--silver-dim)'}">
       <input type="checkbox" ${allPaid ? 'checked' : ''} onchange="App._togglePaidOutAll(${rowId},this.checked)"
-        style="accent-color:#22c55e;cursor:pointer;width:14px;height:14px"> ALL
+        style="accent-color:#2E8B57;cursor:pointer;width:14px;height:14px"> ALL
     </label>`;
 
     products.forEach(p => {
@@ -749,7 +749,7 @@ const App = {
       for (let i = 0; i < p.qty; i++) {
         const checked = state[p.key][i] ? 'checked' : '';
         html += `<input type="checkbox" ${checked} onchange="App._togglePaidOutUnit(${rowId},'${p.key}',${i},this.checked)"
-          style="accent-color:#22c55e;cursor:pointer;width:13px;height:13px">`;
+          style="accent-color:#2E8B57;cursor:pointer;width:13px;height:13px">`;
       }
       html += `</div>`;
     });
@@ -948,7 +948,7 @@ const App = {
     if (team && (role === 'jd' || role === 'l1' || role === 'rep')) {
       const tag = document.createElement('div');
       tag.id = 'role-team-tag';
-      tag.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sc-cyan);background:rgba(26,92,229,0.15);border:1px solid rgba(26,92,229,0.3);border-radius:6px;padding:4px 10px;white-space:nowrap';
+      tag.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sc-cyan);background:rgba(0,0,0,0.15);border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;white-space:nowrap';
       tag.textContent = '⬡ ' + team;
       const switcher = document.getElementById('role-switcher');
       if (switcher) switcher.appendChild(tag);
@@ -1136,7 +1136,7 @@ const App = {
         <td style="padding:12px 16px">
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
             ${p.name}
-            ${isDeactivated ? '<span style="font-size:10px;letter-spacing:1px;color:#e53535;margin-left:8px;border:1px solid rgba(229,53,53,0.4);border-radius:4px;padding:1px 5px;text-transform:uppercase">Inactive</span>' : ''}
+            ${isDeactivated ? '<span style="font-size:10px;letter-spacing:1px;color:#E5564A;margin-left:8px;border:1px solid rgba(229,86,74,0.4);border-radius:4px;padding:1px 5px;text-transform:uppercase">Inactive</span>' : ''}
           </div>
           ${email ? `<div style="font-size:10px;color:var(--silver-dim);margin-top:2px">${email}</div>` : ''}
         </td>
@@ -1145,7 +1145,7 @@ const App = {
         </td>
         <td style="padding:12px 16px;text-align:center">
           <button onclick="App.toggleDeactivate('${safeName}')"
-            style="background:${isDeactivated ? 'rgba(34,197,94,0.1)' : 'rgba(229,53,53,0.1)'};border:1px solid ${isDeactivated ? 'rgba(34,197,94,0.3)' : 'rgba(229,53,53,0.3)'};border-radius:6px;color:${isDeactivated ? '#22c55e' : '#e53535'};padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
+            style="background:${isDeactivated ? 'rgba(46,139,87,0.1)' : 'rgba(229,86,74,0.1)'};border:1px solid ${isDeactivated ? 'rgba(46,139,87,0.3)' : 'rgba(229,86,74,0.3)'};border-radius:6px;color:${isDeactivated ? '#2E8B57' : '#E5564A'};padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
             ${isDeactivated ? 'Reactivate' : 'Deactivate'}
           </button>
         </td>`;
@@ -1289,7 +1289,7 @@ const App = {
     Roster.sendUnlockRequest(this.state.currentPersona, OFFICE_CONFIG);
     const status = document.getElementById('unlock-request-status');
     const btn = document.getElementById('unlock-send-btn');
-    if (status) status.innerHTML = `<div style="color:#22c55e;font-size:13px;margin-bottom:16px">✓ Request sent!</div>`;
+    if (status) status.innerHTML = `<div style="color:#2E8B57;font-size:13px;margin-bottom:16px">✓ Request sent!</div>`;
     if (btn) btn.style.display = 'none';
     this.updateNav();
   },
@@ -1318,7 +1318,7 @@ const App = {
     picker.innerHTML = emojis.map(e =>
       `<span onclick="${selectFn}('${e}')" style="cursor:pointer;font-size:24px;padding:4px 6px;border-radius:8px;border:2px solid transparent;transition:all 0.1s" id="${pickerId === 'emoji-picker' ? 'emoji-opt-' : 'team-emoji-opt-'}${e.codePointAt(0)}">${e}</span>`
     ).join('')
-    + `<span onclick="App._rerollEmojis('${pickerId}','${displayId}','${selectFn}')" style="cursor:pointer;font-size:18px;padding:4px 8px;border-radius:8px;background:rgba(0,0,0,0.06);border:1px solid rgba(26,92,229,0.2);color:var(--silver-dim);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:1px;display:inline-flex;align-items:center;gap:4px" title="Show more emojis">🔄</span>`;
+    + `<span onclick="App._rerollEmojis('${pickerId}','${displayId}','${selectFn}')" style="cursor:pointer;font-size:18px;padding:4px 8px;border-radius:8px;background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.2);color:var(--silver-dim);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:1px;display:inline-flex;align-items:center;gap:4px" title="Show more emojis">🔄</span>`;
     if (highlightFn) highlightFn();
   },
 
@@ -1357,7 +1357,7 @@ const App = {
       s.style.borderColor = 'transparent'; s.style.background = 'transparent';
     });
     const el = document.getElementById('emoji-opt-' + this._selectedEmoji.codePointAt(0));
-    if (el) { el.style.borderColor = 'var(--sc-cyan)'; el.style.background = 'rgba(26,92,229,0.2)'; }
+    if (el) { el.style.borderColor = 'var(--sc-cyan)'; el.style.background = 'rgba(0,0,0,0.2)'; }
   },
 
   saveTeamCustomize() {

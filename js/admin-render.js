@@ -44,8 +44,8 @@ const AdminRender = {
               <span>${this._esc(office.ownerName || office.ownerEmail || '—')}</span>
             </div>
             <div class="office-card-detail">
-              <span class="label">Sheet</span>
-              <span>${office.sheetId ? this._truncate(office.sheetId, 20) : '—'}</span>
+              <span class="label">Role</span>
+              <span>${this._ownerLevelLabel(office.ownerLevel)}</span>
             </div>
           </div>
           <div class="office-card-actions" onclick="event.stopPropagation()">
@@ -173,6 +173,7 @@ const AdminRender = {
     const apiKeyInput = document.getElementById('office-api-key');
     const ownerEmailInput = document.getElementById('office-owner-email');
     const ownerNameInput = document.getElementById('office-owner-name');
+    const ownerLevelSelect = document.getElementById('office-owner-level');
     const logoUrlInput = document.getElementById('office-logo-url');
     const logoIconUrlInput = document.getElementById('office-logo-icon-url');
     const statusSelect = document.getElementById('office-status');
@@ -201,6 +202,16 @@ const AdminRender = {
     if (apiKeyInput) apiKeyInput.value = office ? office.apiKey : '';
     if (ownerEmailInput) ownerEmailInput.value = office ? office.ownerEmail : '';
     if (ownerNameInput) ownerNameInput.value = office ? office.ownerName : '';
+    if (ownerLevelSelect) {
+      ownerLevelSelect.innerHTML = '';
+      Object.entries(ADMIN_CONFIG.ownerLevels).forEach(([key, lvl]) => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = lvl.label;
+        if (office && office.ownerLevel === key) opt.selected = true;
+        ownerLevelSelect.appendChild(opt);
+      });
+    }
     if (logoUrlInput) logoUrlInput.value = office ? office.logoUrl : '';
     if (logoIconUrlInput) logoIconUrlInput.value = office ? office.logoIconUrl : '';
     if (statusSelect) statusSelect.value = office ? office.status : 'setup';
@@ -234,6 +245,11 @@ const AdminRender = {
   // ═══════════════════════════════════════════════════════
   // HELPERS
   // ═══════════════════════════════════════════════════════
+
+  _ownerLevelLabel(level) {
+    const cfg = ADMIN_CONFIG.ownerLevels[level];
+    return cfg ? cfg.label : 'Owner';
+  },
 
   _esc(str) {
     const el = document.createElement('span');

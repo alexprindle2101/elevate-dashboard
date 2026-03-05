@@ -23,6 +23,14 @@ const ADMIN_CONFIG = {
     'alex': 'alex.aspirehr@gmail.com'
   },
 
+  // Owner levels — hierarchy for office owners
+  ownerLevels: {
+    'lvl1': { label: 'Owner',                rank: 1 },
+    'lvl2': { label: 'Promoting Owner',      rank: 2 },
+    'lvl3': { label: 'Regional Consultant',  rank: 3 },
+    'lvl4': { label: 'National Consultant',  rank: 4 }
+  },
+
   // Template types available for offices
   templates: {
     'att-b2b': {

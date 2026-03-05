@@ -39,8 +39,8 @@ function getOrCreateSheet(name) {
       case OFFICES_TAB:
         sheet.appendRow([
           'officeId', 'name', 'templateType', 'sheetId', 'appsScriptUrl',
-          'apiKey', 'status', 'ownerEmail', 'ownerName', 'logoUrl',
-          'logoIconUrl', 'brandColors', 'createdDate'
+          'apiKey', 'status', 'ownerEmail', 'ownerName', 'ownerLevel',
+          'logoUrl', 'logoIconUrl', 'brandColors', 'createdDate'
         ]);
         break;
     }
@@ -190,6 +190,7 @@ function doPost(e) {
           body.status || 'setup',
           body.ownerEmail || '',
           body.ownerName || '',
+          body.ownerLevel || 'lvl1',
           body.logoUrl || '',
           body.logoIconUrl || '',
           body.brandColors || '',
@@ -212,9 +213,10 @@ function doPost(e) {
         if (body.status !== undefined) sheet.getRange(row, 7).setValue(body.status);
         if (body.ownerEmail !== undefined) sheet.getRange(row, 8).setValue(body.ownerEmail);
         if (body.ownerName !== undefined) sheet.getRange(row, 9).setValue(body.ownerName);
-        if (body.logoUrl !== undefined) sheet.getRange(row, 10).setValue(body.logoUrl);
-        if (body.logoIconUrl !== undefined) sheet.getRange(row, 11).setValue(body.logoIconUrl);
-        if (body.brandColors !== undefined) sheet.getRange(row, 12).setValue(body.brandColors);
+        if (body.ownerLevel !== undefined) sheet.getRange(row, 10).setValue(body.ownerLevel);
+        if (body.logoUrl !== undefined) sheet.getRange(row, 11).setValue(body.logoUrl);
+        if (body.logoIconUrl !== undefined) sheet.getRange(row, 12).setValue(body.logoIconUrl);
+        if (body.brandColors !== undefined) sheet.getRange(row, 13).setValue(body.brandColors);
         return jsonResponse({ success: true });
       }
 
@@ -305,10 +307,11 @@ function readOffices() {
       status: (data[i][6] || 'setup').toString().trim(),
       ownerEmail: (data[i][7] || '').toString().trim(),
       ownerName: (data[i][8] || '').toString().trim(),
-      logoUrl: (data[i][9] || '').toString().trim(),
-      logoIconUrl: (data[i][10] || '').toString().trim(),
-      brandColors: (data[i][11] || '').toString().trim(),
-      createdDate: (data[i][12] || '').toString()
+      ownerLevel: (data[i][9] || 'lvl1').toString().trim(),
+      logoUrl: (data[i][10] || '').toString().trim(),
+      logoIconUrl: (data[i][11] || '').toString().trim(),
+      brandColors: (data[i][12] || '').toString().trim(),
+      createdDate: (data[i][13] || '').toString()
     });
   }
   return offices;

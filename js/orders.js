@@ -245,10 +245,14 @@ const Orders = {
           if (!m) return false;
           const mi = MONTHS[m[1]];
           if (mi === undefined) return false;
-          // Check if author is an admin-level role
+          // Check if author is an admin-level role (use _roleKey, not .role which is the display label)
           const author = m[3].trim();
+          const adminRoles = ['admin', 'owner', 'superadmin', 'manager'];
           const person = (App.state.people || []).find(p => p.name === author);
-          if (!person || !['admin', 'owner', 'superadmin', 'manager'].includes(person.role)) return false;
+          // Also check roster in case admin has no sales data and isn't in people array
+          const rosterEntry = !person ? Object.values(App.state.roster || {}).find(r => r.name === author) : null;
+          const roleKey = person ? person._roleKey : (rosterEntry ? rosterEntry.rank : null);
+          if (!roleKey || !adminRoles.includes(roleKey)) return false;
           const noteDate = new Date(now.getFullYear(), mi, parseInt(m[2]));
           if (noteDate > now) noteDate.setFullYear(noteDate.getFullYear() - 1);
           return noteDate >= cutoff;

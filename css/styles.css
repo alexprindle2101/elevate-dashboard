@@ -857,20 +857,16 @@ th.week-col { color: var(--silver); }
   box-shadow: 0 4px 32px rgba(0,0,0,0.06);
 }
 
-/* Logo centering — clip the off-center canvas and show only the symbol */
+/* Logo centering */
 .login-logo-wrap {
-  width: 72px;
-  height: 52px;
-  margin: 0 auto 28px;
-  overflow: hidden;
+  margin: 0 auto 24px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .login-logo-wrap img {
-  width: 90px;
-  height: 90px;
-  object-fit: contain;
+  height: 56px;
+  width: auto;
   display: block;
 }
 

@@ -401,7 +401,7 @@ const AdminApp = {
         AdminRender.renderOffices(this.state.offices);
         break;
       case 'owners':
-        AdminRender.renderOwners(this.state.owners, this.state.offices, this.buildOwnerTree());
+        AdminRender.renderOwners(this.buildOwnerTree(), Object.keys(this.state.owners).length);
         break;
       case 'people':
         AdminRender.renderPeople(this.state.adminRoster);

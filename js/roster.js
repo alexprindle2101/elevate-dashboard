@@ -7,6 +7,7 @@ const Roster = {
   // State
   deactivated: new Set(),    // Set of person names
   emailMap: {},              // name → email (for write-back lookups)
+  phoneMap: {},              // name → phone
   unlockRequests: {},        // { name: 'pending'|'approved' }
   teamCustomizations: {},    // { persona: { emoji, name } }
 
@@ -14,12 +15,14 @@ const Roster = {
   // rosterMap: email-keyed from API
   init(rosterMap) {
     this.emailMap = {};
+    this.phoneMap = {};
     this.deactivated.clear();
 
     Object.entries(rosterMap).forEach(([key, r]) => {
       const name = r.name || key;
       const email = r.email || key;
       if (email.includes('@')) this.emailMap[name] = email;
+      if (r.phone) this.phoneMap[name] = r.phone;
       if (r.deactivated || r.active === false) this.deactivated.add(name);
     });
   },
@@ -37,6 +40,10 @@ const Roster = {
   // ── Email lookup ──
   getEmail(name) {
     return this.emailMap[name] || '';
+  },
+
+  getPhone(name) {
+    return this.phoneMap[name] || '';
   },
 
   // ── Get effective role ──
@@ -74,6 +81,15 @@ const Roster = {
     }
   },
 
+  // ── Set phone (local + write-back) ──
+  async setPhone(name, phone, config) {
+    this.phoneMap[name] = phone;
+    const email = this.getEmail(name);
+    if (email) {
+      await SheetsAPI.post(config, 'updateRosterEntry', { email, phone });
+    }
+  },
+
   // ── Toggle deactivate (local + write-back) ──
   async toggleDeactivate(name, config) {
     const wasDeactivated = this.deactivated.has(name);
@@ -90,10 +106,11 @@ const Roster = {
   },
 
   // ── Add new person (JD+ creates roster entry) ──
-  async addNewPerson(email, name, team, rank, config) {
-    await SheetsAPI.post(config, 'addRosterEntry', { email, name, team, rank });
+  async addNewPerson(email, name, team, rank, phone, config) {
+    await SheetsAPI.post(config, 'addRosterEntry', { email, name, team, rank, phone: phone || '' });
     this.emailMap[name] = email;
-    return { email, name, role: rank, team, active: true };
+    if (phone) this.phoneMap[name] = phone;
+    return { email, name, role: rank, team, phone: phone || '', active: true };
   },
 
   // ── Unlock request system (JD team edit) ──
@@ -308,7 +325,7 @@ const Roster = {
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Cerebri Sans\',\'DM Sans\',\'Inter\',sans-serif;font-size:14px">No people match the current filters</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Cerebri Sans\',\'DM Sans\',\'Inter\',sans-serif;font-size:14px">No people match the current filters</td></tr>';
       return;
     }
 
@@ -327,6 +344,7 @@ const Roster = {
       const email = p.email || this.getEmail(p.name) || '';
       const safeEmail = email.replace(/'/g, "\\'");
       const safeName = p.name.replace(/'/g, "\\'");
+      const phone = Roster.getPhone(p.name);
 
       const roleSelect = roleOptions.map(r =>
         `<option value="${r.key}"${effRole === r.key ? ' selected' : ''}>${r.label}</option>`
@@ -376,6 +394,24 @@ const Roster = {
             ${teamSelect}
           </select>
         </td>
+        <td style="padding:12px 16px">
+          <div id="roster-phone-display-${safeEmail}" style="display:flex;align-items:center;gap:6px">
+            <span style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--silver-dim)">${phone || '—'}</span>
+            <button onclick="Roster.startEditPhone('${safeEmail}')" title="Edit phone"
+              style="background:none;border:none;padding:2px;cursor:pointer;font-size:11px;color:var(--silver-dim);line-height:1;opacity:0.5">✏️</button>
+          </div>
+          <div id="roster-phone-edit-${safeEmail}" style="display:none">
+            <div style="display:flex;gap:4px;align-items:center">
+              <input id="roster-edit-phone-${safeEmail}" type="tel" value="${(phone || '').replace(/"/g, '&quot;')}"
+                placeholder="(555) 123-4567"
+                style="width:130px;box-sizing:border-box;background:rgba(255,255,255,0.6);border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 8px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:12px;outline:none">
+              <button onclick="App.savePersonPhone('${safeEmail}')"
+                style="background:var(--blue-core);border:none;border-radius:5px;padding:3px 8px;color:#fff;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:700;cursor:pointer">✓</button>
+              <button onclick="Roster.cancelEditPhone('${safeEmail}')"
+                style="background:rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.2);border-radius:5px;padding:3px 8px;color:var(--silver);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:700;cursor:pointer">✕</button>
+            </div>
+          </div>
+        </td>
         <td style="padding:12px 16px;text-align:center">
           <button onclick="App.toggleDeactivate('${safeName}')"
             style="background:${isDeactivated ? 'rgba(46,139,87,0.1)' : 'rgba(229,86,74,0.1)'};border:1px solid ${isDeactivated ? 'rgba(46,139,87,0.3)' : 'rgba(229,86,74,0.3)'};border-radius:6px;color:${isDeactivated ? '#2E8B57' : '#E5564A'};padding:5px 14px;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
@@ -397,6 +433,20 @@ const Roster = {
   cancelEditPerson(email) {
     const display = document.getElementById('roster-display-' + email);
     const edit = document.getElementById('roster-edit-' + email);
+    if (display) display.style.display = 'flex';
+    if (edit) edit.style.display = 'none';
+  },
+
+  startEditPhone(email) {
+    const display = document.getElementById('roster-phone-display-' + email);
+    const edit = document.getElementById('roster-phone-edit-' + email);
+    if (display) display.style.display = 'none';
+    if (edit) edit.style.display = 'block';
+  },
+
+  cancelEditPhone(email) {
+    const display = document.getElementById('roster-phone-display-' + email);
+    const edit = document.getElementById('roster-phone-edit-' + email);
     if (display) display.style.display = 'flex';
     if (edit) edit.style.display = 'none';
   }

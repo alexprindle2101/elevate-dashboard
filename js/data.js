@@ -33,7 +33,8 @@ const DataPipeline = {
           team: info.team || 'Unassigned',
           active: !info.deactivated,
           deactivated: info.deactivated || false,
-          dateAdded: info.dateAdded || ''
+          dateAdded: info.dateAdded || '',
+          phone: info.phone || ''
         };
       });
     }

@@ -95,7 +95,7 @@ function getOrCreateSheet(name) {
     sheet = ss.insertSheet(name);
     switch (name) {
       case ROSTER_TAB:
-        sheet.appendRow(['email', 'name', 'team', 'rank', 'deactivated', 'dateAdded', 'pinHash']);
+        sheet.appendRow(['email', 'name', 'team', 'rank', 'deactivated', 'dateAdded', 'pinHash', 'phone']);
         break;
       case ORDER_OVERRIDES_TAB:
         sheet.appendRow(['key', 'product', 'status', 'date', 'order', 'notes_json']);
@@ -269,7 +269,8 @@ function readRoster(ss) {
       rank: String(data[i][3] || 'rep').trim(),
       deactivated: data[i][4] === true || String(data[i][4]).toUpperCase() === 'TRUE',
       dateAdded: data[i][5] || '',
-      hasPin: pinVal.length > 0 && pinVal !== 'undefined'
+      hasPin: pinVal.length > 0 && pinVal !== 'undefined',
+      phone: String(data[i][7] || '').trim()
     };
   }
   return result;
@@ -949,7 +950,8 @@ function writeAddRosterEntry(body) {
     body.rank || 'rep',
     false,
     new Date().toISOString().split('T')[0],
-    ''  // pinHash — empty until first login
+    '',  // pinHash — empty until first login
+    body.phone || ''  // phone
   ]);
   return { ok: true };
 }
@@ -969,7 +971,7 @@ function writeUpdateRosterEntry(body) {
     if (conflict > 0) return { error: 'new email already exists in roster' };
   }
 
-  const cur = sheet.getRange(rowIdx, 1, 1, 7).getValues()[0];
+  const cur = sheet.getRange(rowIdx, 1, 1, 8).getValues()[0];
   const rowData = [
     newEmail || email,
     body.name !== undefined ? body.name : cur[1],
@@ -977,9 +979,10 @@ function writeUpdateRosterEntry(body) {
     body.rank !== undefined ? body.rank : cur[3],
     body.deactivated !== undefined ? body.deactivated : cur[4],
     cur[5], // preserve dateAdded
-    cur[6]  // preserve pinHash
+    cur[6], // preserve pinHash
+    body.phone !== undefined ? body.phone : (cur[7] || '')  // phone
   ];
-  sheet.getRange(rowIdx, 1, 1, 7).setValues([rowData]);
+  sheet.getRange(rowIdx, 1, 1, 8).setValues([rowData]);
   return { ok: true };
 }
 

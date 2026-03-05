@@ -1026,6 +1026,22 @@ const App = {
     }
   },
 
+  async savePersonPhone(email) {
+    const phoneInput = document.getElementById('roster-edit-phone-' + email);
+    if (!phoneInput) return;
+    const phone = phoneInput.value.trim();
+    const name = Object.keys(Roster.emailMap).find(n => Roster.emailMap[n] === email);
+    if (!name) { this.showToast('Could not find person'); return; }
+    try {
+      await Roster.setPhone(name, phone, OFFICE_CONFIG);
+      if (this.state.roster[email]) this.state.roster[email].phone = phone;
+      this.showToast(phone ? 'Phone updated' : 'Phone removed');
+      Roster.renderRoster(this.state.people, this.state.currentRole, OFFICE_CONFIG);
+    } catch (err) {
+      this.showToast('Failed to update phone: ' + err.message);
+    }
+  },
+
   async toggleDeactivate(name) {
     await Roster.toggleDeactivate(name, OFFICE_CONFIG);
     Roster.renderRoster(this.state.people, this.state.currentRole, OFFICE_CONFIG);
@@ -1180,7 +1196,7 @@ const App = {
     if (!modal) return;
     modal.style.display = 'flex';
     // Clear form
-    const fields = ['add-member-email', 'add-member-name', 'add-member-error'];
+    const fields = ['add-member-email', 'add-member-name', 'add-member-phone', 'add-member-error'];
     fields.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.tagName === 'INPUT' ? el.value = '' : el.textContent = '';
@@ -1216,6 +1232,7 @@ const App = {
 
     const email = document.getElementById('add-member-email')?.value?.trim().toLowerCase();
     const name = document.getElementById('add-member-name')?.value?.trim();
+    const phone = document.getElementById('add-member-phone')?.value?.trim() || '';
     const team = document.getElementById('add-member-team')?.value;
     const rank = document.getElementById('add-member-rank')?.value;
     const errorEl = document.getElementById('add-member-error');
@@ -1241,12 +1258,13 @@ const App = {
     if (submitBtn) { submitBtn.textContent = 'Adding...'; submitBtn.style.opacity = '0.5'; }
 
     try {
-      await Roster.addNewPerson(email, name, team || 'Unassigned', rank || 'rep', OFFICE_CONFIG);
+      await Roster.addNewPerson(email, name, team || 'Unassigned', rank || 'rep', phone, OFFICE_CONFIG);
       // Update local state
       this.state.roster[email] = {
         name,
         team: team || 'Unassigned',
         rank: rank || 'rep',
+        phone: phone || '',
         deactivated: false,
         dateAdded: new Date().toISOString().split('T')[0]
       };

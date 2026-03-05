@@ -865,8 +865,8 @@ th.week-col { color: var(--silver); }
   justify-content: center;
 }
 .login-logo-wrap img {
-  height: 80px;
-  width: auto;
+  width: min(240px, 70%);
+  height: auto;
   display: block;
 }
 

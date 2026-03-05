@@ -443,7 +443,7 @@ const Roster = {
         </td>
         <td style="padding:12px 16px">
           <div id="roster-phone-display-${safeEmail}" style="display:flex;align-items:center;gap:6px">
-            <span style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--silver-dim)">${phone || '—'}</span>
+            ${phone ? `<a href="tel:${phone.replace(/[^+\\d]/g, '')}" style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--sc-cyan);text-decoration:none" title="Call ${phone}">${phone}</a>` : `<span style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--silver-dim)">—</span>`}
             <button onclick="Roster.startEditPhone('${safeEmail}')" title="Edit phone"
               style="background:none;border:none;padding:2px;cursor:pointer;font-size:11px;color:var(--silver-dim);line-height:1;opacity:0.5">✏️</button>
           </div>

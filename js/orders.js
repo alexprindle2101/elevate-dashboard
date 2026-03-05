@@ -183,8 +183,10 @@ const Orders = {
     const dateFilter = document.getElementById(prefix + '-filter-date')?.value || '';
     const productFilter = document.getElementById(prefix + '-filter-product')?.value || '';
     const hideCompleted = document.getElementById(prefix + '-hide-completed')?.checked || false;
+    const hideNoted = document.getElementById(prefix + '-hide-noted')?.checked || false;
 
     const COMPLETED_STATUSES = ['active', 'canceled', 'disconnected'];
+    const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
 
     let filtered = this._orders.filter(o => {
       if (search) {
@@ -231,6 +233,24 @@ const Orders = {
         } else if (o.status) {
           if (COMPLETED_STATUSES.includes((o.status || '').toLowerCase())) return false;
         }
+      }
+      // Hide recently noted — orders that have any note dated within the past 3 days
+      if (hideNoted && o.notes) {
+        const lines = o.notes.split('\n');
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const cutoff = new Date(now.getTime() - 3 * 86400000);
+        const hasRecentNote = lines.some(line => {
+          const m = line.match(/^\[(\w{3})\s+(\d{1,2})/);
+          if (!m) return false;
+          const mi = MONTHS[m[1]];
+          if (mi === undefined) return false;
+          const noteDate = new Date(now.getFullYear(), mi, parseInt(m[2]));
+          // Handle year boundary (note in Dec, now in Jan → use previous year)
+          if (noteDate > now) noteDate.setFullYear(noteDate.getFullYear() - 1);
+          return noteDate >= cutoff;
+        });
+        if (hasRecentNote) return false;
       }
       return true;
     });

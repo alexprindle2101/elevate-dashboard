@@ -344,7 +344,7 @@ const Render = {
       <div style="max-width:1300px;margin:0 auto;padding:0 24px">
         <div class="header-top">
           <div class="logo-area">
-            <img src="references/logos/elevate-logo-full-standard-blue.png" alt="Elevate" style="height:44px;width:auto;">
+            <img src="references/logos/aptel-full-black.png" alt="Aptel" style="height:44px;width:auto;">
             <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
               <span class="week-label">Weekly Leaderboard</span>
               <div class="live-badge"><span class="live-dot"></span>Live</div>

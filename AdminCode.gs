@@ -40,7 +40,7 @@ function getOrCreateSheet(name) {
         sheet.appendRow([
           'officeId', 'name', 'templateType', 'sheetId', 'appsScriptUrl',
           'apiKey', 'status', 'ownerEmail', 'ownerName', 'logoUrl',
-          'brandColors', 'createdDate'
+          'logoIconUrl', 'brandColors', 'createdDate'
         ]);
         break;
     }
@@ -191,6 +191,7 @@ function doPost(e) {
           body.ownerEmail || '',
           body.ownerName || '',
           body.logoUrl || '',
+          body.logoIconUrl || '',
           body.brandColors || '',
           new Date().toISOString()
         ]);
@@ -212,7 +213,8 @@ function doPost(e) {
         if (body.ownerEmail !== undefined) sheet.getRange(row, 8).setValue(body.ownerEmail);
         if (body.ownerName !== undefined) sheet.getRange(row, 9).setValue(body.ownerName);
         if (body.logoUrl !== undefined) sheet.getRange(row, 10).setValue(body.logoUrl);
-        if (body.brandColors !== undefined) sheet.getRange(row, 11).setValue(body.brandColors);
+        if (body.logoIconUrl !== undefined) sheet.getRange(row, 11).setValue(body.logoIconUrl);
+        if (body.brandColors !== undefined) sheet.getRange(row, 12).setValue(body.brandColors);
         return jsonResponse({ success: true });
       }
 
@@ -304,8 +306,9 @@ function readOffices() {
       ownerEmail: (data[i][7] || '').toString().trim(),
       ownerName: (data[i][8] || '').toString().trim(),
       logoUrl: (data[i][9] || '').toString().trim(),
-      brandColors: (data[i][10] || '').toString().trim(),
-      createdDate: (data[i][11] || '').toString()
+      logoIconUrl: (data[i][10] || '').toString().trim(),
+      brandColors: (data[i][11] || '').toString().trim(),
+      createdDate: (data[i][12] || '').toString()
     });
   }
   return offices;

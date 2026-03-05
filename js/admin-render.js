@@ -21,7 +21,7 @@ const AdminRender = {
       const statusClass = office.status || 'setup';
       const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
 
-      const logoSrc = office.logoUrl || 'references/logos/aptel-symbol-black.png';
+      const logoSrc = office.logoIconUrl || office.logoUrl || 'references/logos/aptel-symbol-black.png';
 
       html += `
         <div class="office-card" onclick="AdminApp.openOffice('${office.officeId}')">
@@ -173,6 +173,8 @@ const AdminRender = {
     const apiKeyInput = document.getElementById('office-api-key');
     const ownerEmailInput = document.getElementById('office-owner-email');
     const ownerNameInput = document.getElementById('office-owner-name');
+    const logoUrlInput = document.getElementById('office-logo-url');
+    const logoIconUrlInput = document.getElementById('office-logo-icon-url');
     const statusSelect = document.getElementById('office-status');
     const error = document.getElementById('office-modal-error');
 
@@ -199,6 +201,8 @@ const AdminRender = {
     if (apiKeyInput) apiKeyInput.value = office ? office.apiKey : '';
     if (ownerEmailInput) ownerEmailInput.value = office ? office.ownerEmail : '';
     if (ownerNameInput) ownerNameInput.value = office ? office.ownerName : '';
+    if (logoUrlInput) logoUrlInput.value = office ? office.logoUrl : '';
+    if (logoIconUrlInput) logoIconUrlInput.value = office ? office.logoIconUrl : '';
     if (statusSelect) statusSelect.value = office ? office.status : 'setup';
   },
 

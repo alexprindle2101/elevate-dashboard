@@ -426,6 +426,8 @@ const AdminApp = {
     const apiKey = document.getElementById('office-api-key')?.value?.trim();
     const ownerEmail = document.getElementById('office-owner-email')?.value?.trim();
     const ownerName = document.getElementById('office-owner-name')?.value?.trim();
+    const logoUrl = document.getElementById('office-logo-url')?.value?.trim();
+    const logoIconUrl = document.getElementById('office-logo-icon-url')?.value?.trim();
     const status = document.getElementById('office-status')?.value;
     const error = document.getElementById('office-modal-error');
 
@@ -435,7 +437,7 @@ const AdminApp = {
     if (saveBtn) { saveBtn.textContent = 'Saving...'; saveBtn.disabled = true; }
 
     try {
-      const payload = { name, templateType, sheetId, appsScriptUrl, apiKey, ownerEmail, ownerName, status };
+      const payload = { name, templateType, sheetId, appsScriptUrl, apiKey, ownerEmail, ownerName, logoUrl, logoIconUrl, status };
 
       if (this.state.editingOfficeId) {
         payload.officeId = this.state.editingOfficeId;

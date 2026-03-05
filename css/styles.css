@@ -659,6 +659,17 @@ th.week-col { color: var(--silver); }
 .nav-tab-edit { padding: 8px 12px; font-size: 14px; }
 #nav-team-edit { display: none; }
 
+/* ── NAV SEPARATORS ── */
+.nav-separator {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: rgba(0, 200, 255, 0.25);
+  margin: 0 6px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
 /* ── ROLE SWITCHER (superadmin View-As) ── */
 #role-switcher {
   display: none;  /* hidden by default, shown for superadmin */

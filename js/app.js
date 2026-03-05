@@ -324,31 +324,55 @@ const App = {
   // ══════════════════════════════════════════════
   updateNav() {
     const role = this.state.currentRole;
+    const isSA = (role === 'superadmin');
+
+    // ── PERSONAL GROUP ──
     const showProfile = true;
-    const isSuperAdmin = (role === 'superadmin');
-    const showTeam = isSuperAdmin || (role === 'rep' || role === 'l1' || role === 'jd' || role === 'manager');
-    const showEdit = isSuperAdmin || (role === 'jd');
-    const showRoster = isSuperAdmin || (role === 'owner' || role === 'manager' || role === 'admin' || role === 'jd');
-    const showTeams = isSuperAdmin || (role === 'owner' || role === 'manager' || role === 'admin');
-    const showAllOrders = isSuperAdmin || (role === 'owner' || role === 'manager' || role === 'admin');
-    const showMyOrders = isSuperAdmin || (role === 'rep' || role === 'l1' || role === 'jd' || role === 'manager');
-    const showOffice = isSuperAdmin || (role === 'owner');
+    const showMyOrders = isSA || ['rep', 'l1', 'jd', 'manager', 'owner'].includes(role);
+
+    // ── TEAM GROUP ──
+    const showTeam = isSA || ['jd', 'manager'].includes(role);
+    const showEdit = isSA || (role === 'jd');
+    const showTeamRoster = isSA || ['jd', 'manager'].includes(role);
+
+    // ── OFFICE GROUP ──
+    const showAllOrders = isSA || ['owner', 'admin'].includes(role);
+    const showPeople = isSA || ['owner', 'admin'].includes(role);
+    const showTeams = isSA || ['owner', 'admin'].includes(role);
+    const showLeaderboard = true;
+    const showOffice = isSA || (role === 'owner');
     const curEmail = (this.state.currentEmail || '').toLowerCase();
     const payrollMgr = (this.state.settings.payrollManager || '').toLowerCase();
-    const showPayroll = isSuperAdmin || (role === 'owner') || (payrollMgr && curEmail === payrollMgr);
+    const showPayroll = isSA || (role === 'owner') || (payrollMgr && curEmail === payrollMgr);
+
+    // ── Separator visibility ──
+    const hasTeamGroup = showTeam || showEdit || showTeamRoster;
+    const showSep1 = hasTeamGroup;
+    const showSep2 = true; // always separates last group from Office
 
     const setDisplay = (id, show) => {
       const el = document.getElementById(id);
       if (el) el.style.display = show ? '' : 'none';
     };
 
+    // Personal
     setDisplay('nav-profile', showProfile);
+    setDisplay('nav-my-orders', showMyOrders);
+
+    // Separators
+    setDisplay('nav-sep-1', showSep1);
+    setDisplay('nav-sep-2', showSep2);
+
+    // Team
     setDisplay('nav-team', showTeam);
     setDisplay('nav-team-edit', showEdit);
-    setDisplay('nav-roster', showRoster);
-    setDisplay('nav-teams', showTeams);
+    setDisplay('nav-team-roster', showTeamRoster);
+
+    // Office
     setDisplay('nav-all-orders', showAllOrders);
-    setDisplay('nav-my-orders', showMyOrders);
+    setDisplay('nav-people', showPeople);
+    setDisplay('nav-teams', showTeams);
+    setDisplay('nav-leaderboard', showLeaderboard);
     setDisplay('nav-office', showOffice);
     setDisplay('nav-payroll', showPayroll);
 
@@ -368,8 +392,8 @@ const App = {
       if (badge) badge.style.display = Roster.getUnlockStatus(this.state.currentPersona) === 'pending' ? 'block' : 'none';
     }
 
-    // Roster notification badge
-    if (showRoster) {
+    // People notification badge (pending unlock requests)
+    if (showPeople) {
       const pending = Roster.getPendingRequests().length;
       const badge = document.getElementById('roster-notif-badge');
       if (badge) {
@@ -379,7 +403,7 @@ const App = {
     }
 
     // Active tab highlight
-    const navIdMap = { allOrders: 'nav-all-orders', myOrders: 'nav-my-orders' };
+    const navIdMap = { allOrders: 'nav-all-orders', myOrders: 'nav-my-orders', roster: 'nav-people', teamRoster: 'nav-team-roster' };
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     const activeTab = document.getElementById(navIdMap[this.state.currentNav] || ('nav-' + this.state.currentNav));
     if (activeTab) activeTab.classList.add('active');
@@ -387,7 +411,7 @@ const App = {
 
   navTo(tab) {
     // Hide overlay pages when navigating away
-    const overlays = { roster: 'roster-page', teams: 'teams-page', allOrders: 'all-orders-page', myOrders: 'my-orders-page', office: 'office-page', payroll: 'payroll-page' };
+    const overlays = { roster: 'roster-page', teams: 'teams-page', allOrders: 'all-orders-page', myOrders: 'my-orders-page', office: 'office-page', payroll: 'payroll-page', teamRoster: 'team-roster-page' };
     Object.entries(overlays).forEach(([key, id]) => {
       if (tab !== key) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
     });
@@ -405,6 +429,11 @@ const App = {
     if (tab === 'roster') {
       Render.closeProfile();
       Roster.renderRoster(this.state.people, this.state.currentRole, OFFICE_CONFIG);
+      return;
+    }
+    if (tab === 'teamRoster') {
+      Render.closeProfile();
+      this._renderTeamRoster();
       return;
     }
     if (tab === 'teams') {
@@ -985,6 +1014,131 @@ const App = {
     Render.renderTeamGrid(this.state.teams);
     // Refresh manage team tab if visible
     Render._refreshManageTeam();
+    // Refresh team roster page if visible
+    this._refreshTeamRoster();
+  },
+
+  // ══════════════════════════════════════════════
+  // TEAM ROSTER (Scoped roster for Manager/JD)
+  // ══════════════════════════════════════════════
+  _teamRosterTeamName: null,
+
+  _renderTeamRoster() {
+    const page = document.getElementById('team-roster-page');
+    if (!page) return;
+    page.style.display = 'block';
+
+    const persona = this.state.currentPersona;
+    const myTeamName = Roster.getEffectiveTeam(persona, this.state.people);
+    this._teamRosterTeamName = myTeamName;
+
+    const team = this.state.teams.find(t => t.name === myTeamName);
+    const subtitle = document.getElementById('team-roster-subtitle');
+    const title = document.getElementById('team-roster-title');
+
+    if (!team) {
+      if (title) title.textContent = 'Roster';
+      if (subtitle) subtitle.textContent = 'No team assigned';
+      return;
+    }
+
+    // Title with emoji + name
+    const display = Roster.getTeamDisplay(myTeamName, this.state.people, this.state.teams);
+    if (title) title.textContent = (display.emoji || '') + ' ' + display.name + ' — Roster';
+
+    const members = team.members || [];
+    const deactCount = members.filter(p => Roster.deactivated.has(p.name)).length;
+    if (subtitle) subtitle.textContent = `${members.length} member${members.length !== 1 ? 's' : ''} · ${deactCount} deactivated`;
+
+    // Clear filters
+    const search = document.getElementById('team-roster-search');
+    if (search) search.value = '';
+    const statusFilter = document.getElementById('team-roster-filter-status');
+    if (statusFilter) statusFilter.value = '';
+
+    this._renderTeamRosterRows(members);
+  },
+
+  filterTeamRoster() {
+    const myTeamName = this._teamRosterTeamName;
+    if (!myTeamName) return;
+    const team = this.state.teams.find(t => t.name === myTeamName);
+    if (!team) return;
+
+    const members = team.members || [];
+    const search = (document.getElementById('team-roster-search')?.value || '').toLowerCase().trim();
+    const statusFilter = document.getElementById('team-roster-filter-status')?.value || '';
+
+    let filtered = members.filter(p => {
+      if (search && !p.name.toLowerCase().includes(search)) return false;
+      if (statusFilter === 'active' && Roster.deactivated.has(p.name)) return false;
+      if (statusFilter === 'inactive' && !Roster.deactivated.has(p.name)) return false;
+      return true;
+    });
+
+    const countEl = document.getElementById('team-roster-count');
+    if (countEl) {
+      countEl.textContent = filtered.length === members.length
+        ? `Showing all ${members.length}`
+        : `Showing ${filtered.length} of ${members.length}`;
+    }
+
+    this._renderTeamRosterRows(filtered);
+  },
+
+  _renderTeamRosterRows(filtered) {
+    const tbody = document.getElementById('team-roster-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Barlow Condensed\',sans-serif;font-size:14px">No members found</td></tr>';
+      return;
+    }
+
+    // Sort: active first, then alphabetical
+    const sorted = [...filtered].sort((a, b) => {
+      const aDeact = Roster.deactivated.has(a.name) ? 1 : 0;
+      const bDeact = Roster.deactivated.has(b.name) ? 1 : 0;
+      if (aDeact !== bDeact) return aDeact - bDeact;
+      return a.name.localeCompare(b.name);
+    });
+
+    sorted.forEach(p => {
+      const isDeactivated = Roster.deactivated.has(p.name);
+      const safeName = p.name.replace(/'/g, "\\'");
+      const email = p.email || Roster.getEmail(p.name) || '';
+      const roleKey = p._roleKey || 'rep';
+      const roleLabel = OFFICE_CONFIG.roles[roleKey]?.label || roleKey;
+
+      const tr = document.createElement('tr');
+      tr.style.cssText = `border-bottom:1px solid rgba(0,0,0,0.06);${isDeactivated ? 'opacity:0.35;' : ''}`;
+      tr.innerHTML = `
+        <td style="padding:12px 16px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:${isDeactivated ? 'var(--silver-dim)' : 'var(--white)'}">
+            ${p.name}
+            ${isDeactivated ? '<span style="font-size:10px;letter-spacing:1px;color:#e53535;margin-left:8px;border:1px solid rgba(229,53,53,0.4);border-radius:4px;padding:1px 5px;text-transform:uppercase">Inactive</span>' : ''}
+          </div>
+          ${email ? `<div style="font-size:10px;color:var(--silver-dim);margin-top:2px">${email}</div>` : ''}
+        </td>
+        <td style="padding:12px 16px">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;color:var(--silver)">${roleLabel}</span>
+        </td>
+        <td style="padding:12px 16px;text-align:center">
+          <button onclick="App.toggleDeactivate('${safeName}')"
+            style="background:${isDeactivated ? 'rgba(34,197,94,0.1)' : 'rgba(229,53,53,0.1)'};border:1px solid ${isDeactivated ? 'rgba(34,197,94,0.3)' : 'rgba(229,53,53,0.3)'};border-radius:6px;color:${isDeactivated ? '#22c55e' : '#e53535'};padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase">
+            ${isDeactivated ? 'Reactivate' : 'Deactivate'}
+          </button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  },
+
+  _refreshTeamRoster() {
+    const page = document.getElementById('team-roster-page');
+    if (page && page.style.display !== 'none' && this._teamRosterTeamName) {
+      this.filterTeamRoster();
+    }
   },
 
   async approveUnlock(name) {

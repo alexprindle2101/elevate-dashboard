@@ -292,13 +292,20 @@ const Render = {
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--silver-dim);letter-spacing:0.5px">${info.sub}</div>
       </div>` : '';
 
-    // Build nav tabs based on role (mirrors App.updateNav logic)
+    // Build nav tabs based on role — grouped: Personal | Team | Office
     const role = App.state.currentRole;
     const isSA = role === 'superadmin';
     const tabs = [];
-    tabs.push({ label: 'Leaderboard', action: "App.navTo('leaderboard')" });
+
+    // ── PERSONAL GROUP ──
     tabs.push({ label: 'My Profile', action: null, active: true });
-    if (isSA || ['rep','l1','jd','manager'].includes(role)) {
+    if (isSA || ['rep','l1','jd','manager','owner'].includes(role))
+      tabs.push({ label: 'My Orders', action: "App.navTo('myOrders')" });
+
+    // ── SEPARATOR 1 (if Team group visible) ──
+    const hasTeamGroup = isSA || ['jd','manager'].includes(role);
+    if (hasTeamGroup) {
+      tabs.push({ separator: true });
       const myTeam = Roster.getEffectiveTeam(App.state.currentPersona, App.state.people);
       let teamLabel = 'My Team';
       if (myTeam) {
@@ -306,15 +313,20 @@ const Render = {
         teamLabel = (d.emoji || '') + ' ' + d.name;
       }
       tabs.push({ label: teamLabel, action: "App.navTo('team')" });
+      tabs.push({ label: 'Roster', action: "App.navTo('teamRoster')" });
     }
-    if (isSA || ['owner','manager','admin','jd'].includes(role))
-      tabs.push({ label: 'People', action: "App.navTo('roster')" });
-    if (isSA || ['owner','manager','admin'].includes(role))
-      tabs.push({ label: 'Teams', action: "App.navTo('teams')" });
-    if (isSA || ['owner','manager','admin'].includes(role))
+
+    // ── SEPARATOR 2 ──
+    tabs.push({ separator: true });
+
+    // ── OFFICE GROUP ──
+    if (isSA || ['owner','admin'].includes(role))
       tabs.push({ label: 'All Orders', action: "App.navTo('allOrders')" });
-    if (isSA || ['rep','l1','jd','manager'].includes(role))
-      tabs.push({ label: 'My Orders', action: "App.navTo('myOrders')" });
+    if (isSA || ['owner','admin'].includes(role))
+      tabs.push({ label: 'People', action: "App.navTo('roster')" });
+    if (isSA || ['owner','admin'].includes(role))
+      tabs.push({ label: 'Teams', action: "App.navTo('teams')" });
+    tabs.push({ label: 'Leaderboard', action: "App.navTo('leaderboard')" });
     const curEmail = (App.state.currentEmail || '').toLowerCase();
     const payrollMgr = (App.state.settings?.payrollManager || '').toLowerCase();
     if (isSA || role === 'owner' || (payrollMgr && curEmail === payrollMgr))
@@ -322,9 +334,10 @@ const Render = {
     if (isSA || role === 'owner')
       tabs.push({ label: 'Office', action: "App.navTo('office')" });
 
-    const navHtml = tabs.map(t =>
-      `<button class="nav-tab${t.active ? ' active' : ''}" ${t.action ? `onclick="${t.action}"` : ''}>${t.label}</button>`
-    ).join('');
+    const navHtml = tabs.map(t => {
+      if (t.separator) return '<span class="nav-separator"></span>';
+      return `<button class="nav-tab${t.active ? ' active' : ''}" ${t.action ? `onclick="${t.action}"` : ''}>${t.label}</button>`;
+    }).join('');
 
     return `
     <header style="position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#c8dff0 0%,#daeaf5 40%,#c2daea 70%,#b8d4e8 100%);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:12px 0 0;margin:0;border-bottom:1px solid rgba(0,200,255,0.25);box-shadow:0 2px 12px rgba(0,0,0,0.06)">

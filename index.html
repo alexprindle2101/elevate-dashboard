@@ -91,21 +91,33 @@
       </div>
     </div>
 
-    <!-- NAV TABS -->
+    <!-- NAV TABS — grouped: Personal | Team | Office -->
     <nav id="main-nav">
-      <button class="nav-tab active" id="nav-leaderboard" onclick="App.navTo('leaderboard')">Leaderboard</button>
+      <!-- PERSONAL GROUP -->
       <button class="nav-tab" id="nav-profile" onclick="App.navTo('profile')">My Profile</button>
-      <button class="nav-tab" id="nav-team" onclick="App.navTo('team')"><span id="nav-team-label">My Team</span></button>
+      <button class="nav-tab" id="nav-my-orders" onclick="App.navTo('myOrders')" style="display:none">My Orders</button>
+
+      <!-- SEPARATOR 1: Personal | Team -->
+      <span class="nav-separator" id="nav-sep-1" style="display:none"></span>
+
+      <!-- TEAM GROUP -->
+      <button class="nav-tab" id="nav-team" onclick="App.navTo('team')" style="display:none"><span id="nav-team-label">My Team</span></button>
       <button class="nav-tab nav-tab-edit" id="nav-team-edit" onclick="App.handleTeamEditClick()" title="Customize team" style="position:relative;display:none">
         <span id="edit-unlock-badge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;background:#f97316;border-radius:50%;border:2px solid var(--black)"></span>
       </button>
-      <button class="nav-tab" id="nav-roster" onclick="App.navTo('roster')" style="position:relative;display:none">
+      <button class="nav-tab" id="nav-team-roster" onclick="App.navTo('teamRoster')" style="display:none">Roster</button>
+
+      <!-- SEPARATOR 2: Team | Office (or Personal | Office) -->
+      <span class="nav-separator" id="nav-sep-2" style="display:none"></span>
+
+      <!-- OFFICE GROUP -->
+      <button class="nav-tab" id="nav-all-orders" onclick="App.navTo('allOrders')" style="display:none">All Orders</button>
+      <button class="nav-tab" id="nav-people" onclick="App.navTo('roster')" style="position:relative;display:none">
         People
         <span id="roster-notif-badge" style="display:none;position:absolute;top:4px;right:4px;min-width:16px;height:16px;background:#f97316;border-radius:8px;border:2px solid var(--black);font-size:9px;font-weight:900;color:#fff;align-items:center;justify-content:center;padding:0 3px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0">0</span>
       </button>
       <button class="nav-tab" id="nav-teams" onclick="App.navTo('teams')" style="display:none">Teams</button>
-      <button class="nav-tab" id="nav-all-orders" onclick="App.navTo('allOrders')" style="display:none">All Orders</button>
-      <button class="nav-tab" id="nav-my-orders" onclick="App.navTo('myOrders')" style="display:none">My Orders</button>
+      <button class="nav-tab active" id="nav-leaderboard" onclick="App.navTo('leaderboard')">Leaderboard</button>
       <button class="nav-tab" id="nav-payroll" onclick="App.navTo('payroll')" style="display:none">Payroll</button>
       <button class="nav-tab" id="nav-office" onclick="App.navTo('office')" style="display:none">Office</button>
     </nav>
@@ -215,6 +227,57 @@
             </tr>
           </thead>
           <tbody id="roster-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       TEAM ROSTER PAGE (Scoped Team Management)
+       ════════════════════════════════════════════════ -->
+  <div id="team-roster-page" style="display:none;position:fixed;inset:0;z-index:999;background:linear-gradient(135deg,#c8dff0 0%,#daeaf5 40%,#c2daea 70%,#b8d4e8 100%);overflow-y:auto">
+    <div style="max-width:1100px;margin:0 auto;padding:24px 24px 80px">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:20px;border-bottom:1px solid rgba(26,92,229,0.3);margin-bottom:28px">
+        <div>
+          <button class="profile-back" onclick="App.navTo('leaderboard')" style="margin-bottom:8px"><span>&larr;</span> Back</button>
+          <div style="display:flex;align-items:center;gap:16px">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;color:var(--white);letter-spacing:2px" id="team-roster-title">Roster</div>
+            <button id="team-roster-add-btn" onclick="App.openAddMemberModal(App._teamRosterTeamName)"
+              style="background:var(--blue-core);border:none;border-radius:8px;padding:8px 16px;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer">+ Add Member</button>
+          </div>
+          <div style="font-size:12px;color:var(--silver-dim);margin-top:4px" id="team-roster-subtitle"></div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px">
+        <input id="team-roster-search" type="text" placeholder="Search by name..."
+          oninput="App.filterTeamRoster()"
+          style="flex:1;min-width:160px;background:rgba(255,255,255,0.6);border:1px solid rgba(26,92,229,0.2);border-radius:8px;padding:8px 12px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:13px;outline:none">
+        <select id="team-roster-filter-status" onchange="App.filterTeamRoster()"
+          style="background:rgba(255,255,255,0.6);border:1px solid rgba(26,92,229,0.2);border-radius:8px;padding:8px 12px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:12px;cursor:pointer;outline:none">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+
+      <!-- Count -->
+      <div id="team-roster-count" style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver-dim);margin-bottom:8px"></div>
+
+      <!-- Table -->
+      <div style="background:rgba(255,255,255,0.5);border:1px solid rgba(26,92,229,0.2);border-radius:12px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:rgba(0,0,0,0.06)">
+              <th style="text-align:left;padding:12px 16px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--silver-dim);text-transform:uppercase">Name</th>
+              <th style="text-align:left;padding:12px 16px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--silver-dim);text-transform:uppercase">Role</th>
+              <th style="text-align:center;padding:12px 16px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--silver-dim);text-transform:uppercase">Status</th>
+            </tr>
+          </thead>
+          <tbody id="team-roster-body"></tbody>
         </table>
       </div>
     </div>

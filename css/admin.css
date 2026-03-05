@@ -318,6 +318,20 @@ body {
   margin-bottom: 16px;
 }
 
+.office-card-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.office-card-logo {
+  height: 32px;
+  width: auto;
+  max-width: 80px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .office-card-name {
   font-size: 17px;
   font-weight: 700;

@@ -21,10 +21,15 @@ const AdminRender = {
       const statusClass = office.status || 'setup';
       const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
 
+      const logoSrc = office.logoUrl || 'references/logos/aptel-symbol-black.png';
+
       html += `
         <div class="office-card" onclick="AdminApp.openOffice('${office.officeId}')">
           <div class="office-card-header">
-            <div class="office-card-name">${this._esc(office.name || 'Unnamed Office')}</div>
+            <div class="office-card-identity">
+              <img class="office-card-logo" src="${this._esc(logoSrc)}" alt="">
+              <div class="office-card-name">${this._esc(office.name || 'Unnamed Office')}</div>
+            </div>
             <span class="office-card-template">${this._esc(templateLabel)}</span>
           </div>
           <div class="office-card-details">

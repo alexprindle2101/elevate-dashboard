@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aptel Admin</title>
+
+  <!-- Favicon (swaps to white on dark tab bars) -->
+  <link rel="icon" type="image/png" href="references/logos/aptel-symbol-black.png" media="(prefers-color-scheme: light)">
+  <link rel="icon" type="image/png" href="references/logos/aptel-symbol-white.png" media="(prefers-color-scheme: dark)">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     LOGIN SCREEN
+     ═══════════════════════════════════════════════════════ -->
+<div id="login-screen" class="login-screen" style="display:none">
+  <div class="login-card">
+    <div class="login-logo-wrap"><img src="references/logos/aptel-symbol-black.png" alt="Aptel"></div>
+    <div class="login-step-title">Admin Sign In</div>
+    <div class="login-step-subtitle">Enter your admin email to continue</div>
+
+    <div id="login-email-wrap">
+      <input id="login-email" class="login-input" type="email" placeholder="Enter your email" autocomplete="email">
+    </div>
+
+    <div id="login-pin-wrap" style="display:none">
+      <input id="login-pin" class="login-input login-pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Enter your PIN" autocomplete="off">
+    </div>
+
+    <div id="login-pin-create-wrap" style="display:none">
+      <input id="login-pin-new" class="login-input login-pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Create a 4-6 digit PIN" autocomplete="off">
+      <input id="login-pin-confirm" class="login-input login-pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Confirm your PIN" autocomplete="off">
+    </div>
+
+    <button id="login-btn" class="login-btn">Continue</button>
+    <div id="login-error" class="login-error"></div>
+
+    <div id="login-back-link" style="display:none">&larr; Use a different email</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     LOADING SCREEN
+     ═══════════════════════════════════════════════════════ -->
+<div id="loading-screen" style="display:none">
+  <img src="references/logos/aptel-full-black.png" alt="Aptel" style="height:40px;width:auto;opacity:0.85">
+  <div class="loading-spinner"></div>
+  <div id="loading-text" style="font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#708090">Loading...</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     ADMIN DASHBOARD
+     ═══════════════════════════════════════════════════════ -->
+<div id="admin-dashboard" class="admin-layout" style="display:none">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-logo">
+      <img src="references/logos/aptel-full-black.png" alt="Aptel">
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="sidebar-link active" data-page="offices" onclick="AdminApp.navTo('offices')">
+        <span class="icon">📊</span> Offices
+      </button>
+      <button class="sidebar-link" data-page="people" onclick="AdminApp.navTo('people')">
+        <span class="icon">👥</span> People
+      </button>
+      <button class="sidebar-link" data-page="settings" onclick="AdminApp.navTo('settings')">
+        <span class="icon">⚙️</span> Settings
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <strong id="sidebar-user-name">—</strong>
+        <span id="sidebar-user-role">Super Admin</span>
+      </div>
+      <button class="btn-logout" onclick="AdminApp.logout()">↩ Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="admin-main">
+    <!-- Offices Page -->
+    <div id="page-offices">
+      <div class="page-header">
+        <h1>Offices</h1>
+        <p>Manage your office deployments</p>
+      </div>
+      <div id="offices-grid" class="cards-grid"></div>
+    </div>
+
+    <!-- People Page -->
+    <div id="page-people" style="display:none">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <h1>People</h1>
+          <p>Manage admins and owners across offices</p>
+        </div>
+        <button class="btn btn-primary" onclick="AdminApp.showAddAdminModal()">+ Add Admin</button>
+      </div>
+      <div id="people-table-wrap"></div>
+    </div>
+
+    <!-- Settings Page -->
+    <div id="page-settings" style="display:none">
+      <div class="page-header">
+        <h1>Settings</h1>
+        <p>Global configuration and deployment settings</p>
+      </div>
+      <div id="settings-content">
+        <div style="background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius);padding:24px">
+          <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Platform Info</h3>
+          <div style="font-size:14px;color:var(--gray-700);line-height:1.8">
+            <div><strong>Dashboard URL:</strong> <a href="https://aptel-ai.github.io/dashboard/" target="_blank" style="color:var(--teal)">aptel-ai.github.io/dashboard/</a></div>
+            <div><strong>Admin URL:</strong> <a href="https://aptel-ai.github.io/dashboard/admin.html" target="_blank" style="color:var(--teal)">aptel-ai.github.io/dashboard/admin.html</a></div>
+            <div id="settings-office-count"><strong>Active Offices:</strong> —</div>
+            <div id="settings-admin-count"><strong>Admin Users:</strong> —</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     OFFICE MODAL
+     ═══════════════════════════════════════════════════════ -->
+<div id="office-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="office-modal-title">Add Office</div>
+
+    <div class="form-group">
+      <label for="office-name">Office Name</label>
+      <input id="office-name" type="text" placeholder="e.g. Dallas AT&T B2B">
+    </div>
+
+    <div class="form-group">
+      <label for="office-template">Dashboard Template</label>
+      <select id="office-template"></select>
+    </div>
+
+    <div class="form-group">
+      <label for="office-sheet-id">Google Sheet ID</label>
+      <input id="office-sheet-id" type="text" placeholder="Paste the sheet ID from the URL">
+      <div class="hint">Found in the Google Sheet URL: docs.google.com/spreadsheets/d/<strong>[THIS PART]</strong>/edit</div>
+    </div>
+
+    <div class="form-group">
+      <label for="office-script-url">Apps Script URL</label>
+      <input id="office-script-url" type="text" placeholder="Deployed Code.gs web app URL">
+      <div class="hint">Deploy the office's Code.gs as a web app and paste the URL here</div>
+    </div>
+
+    <div class="form-group">
+      <label for="office-api-key">API Key</label>
+      <input id="office-api-key" type="text" placeholder="API key matching Script Properties">
+    </div>
+
+    <div class="form-group">
+      <label for="office-owner-email">Owner Email</label>
+      <input id="office-owner-email" type="email" placeholder="owner@company.com">
+    </div>
+
+    <div class="form-group">
+      <label for="office-owner-name">Owner Name</label>
+      <input id="office-owner-name" type="text" placeholder="Owner's display name">
+    </div>
+
+    <div class="form-group">
+      <label for="office-status">Status</label>
+      <select id="office-status">
+        <option value="setup">Setup</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+
+    <div id="office-modal-error" class="login-error" style="text-align:left"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="AdminApp.closeOfficeModal()">Cancel</button>
+      <button class="btn btn-primary" id="office-modal-save" onclick="AdminApp.saveOffice()">Save Office</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     ADMIN MODAL (Add/Edit Admin User)
+     ═══════════════════════════════════════════════════════ -->
+<div id="admin-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="admin-modal-title">Add Admin</div>
+
+    <div class="form-group">
+      <label for="admin-email">Email</label>
+      <input id="admin-email" type="email" placeholder="admin@company.com">
+    </div>
+
+    <div class="form-group">
+      <label for="admin-name">Name</label>
+      <input id="admin-name" type="text" placeholder="Full name">
+    </div>
+
+    <div class="form-group">
+      <label for="admin-role">Role</label>
+      <select id="admin-role">
+        <option value="superadmin">Super Admin</option>
+      </select>
+    </div>
+
+    <div id="admin-modal-error" class="login-error" style="text-align:left"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="AdminApp.closeAdminModal()">Cancel</button>
+      <button class="btn btn-primary" id="admin-modal-save" onclick="AdminApp.saveAdmin()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SCRIPTS
+     ═══════════════════════════════════════════════════════ -->
+<script src="js/admin-config.js"></script>
+<script src="js/sheets-api.js"></script>
+<script src="js/admin-render.js"></script>
+<script src="js/admin-app.js"></script>
+
+</body>
+</html>

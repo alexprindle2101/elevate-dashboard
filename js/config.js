@@ -99,3 +99,28 @@ const PERIOD_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN', 'THIS WK
 
 // Indices that are weekly summaries (not individual days)
 const WEEK_PERIODS = new Set([7, 8, 9, 10, 11]);
+
+// ═══════════════════════════════════════════════════════
+// Multi-Office Config Override
+// ═══════════════════════════════════════════════════════
+// When opened from the admin dashboard, the URL will contain
+// ?office=BASE64_ENCODED_CONFIG which overrides the defaults above.
+// If no ?office= param is present, the hardcoded config above is used
+// (backwards compatible — existing users are unaffected).
+
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const officeParam = params.get('office');
+  if (officeParam) {
+    try {
+      const cfg = JSON.parse(atob(officeParam));
+      if (cfg.sheetId) OFFICE_CONFIG.sheetId = cfg.sheetId;
+      if (cfg.appsScriptUrl) OFFICE_CONFIG.appsScriptUrl = cfg.appsScriptUrl;
+      if (cfg.apiKey) OFFICE_CONFIG.apiKey = cfg.apiKey;
+      if (cfg.officeName) OFFICE_CONFIG.officeName = cfg.officeName;
+      console.log('[Multi-Office] Config overridden for:', cfg.officeName || 'Unknown office');
+    } catch(e) {
+      console.warn('[Multi-Office] Invalid office param, using defaults');
+    }
+  }
+})();

@@ -355,9 +355,9 @@ const Roster = {
       return;
     }
 
-    const roleOptions = Object.entries(OFFICE_CONFIG.roles)
-      .filter(([key]) => key !== 'superadmin')
-      .map(([key, val]) => ({ key, label: val.label }));
+    // Role permission: current user's rank determines what they can assign
+    const myRole = this._rosterRole || App.state.currentRole || 'rep';
+    const myRank = OFFICE_CONFIG.roles[myRole]?.rank || 0;
 
     const teamNames = (App.state.teams && App.state.teams.length > 0)
       ? App.state.teams.filter(t => t.teamId !== '_unassigned').map(t => t.name)
@@ -372,9 +372,34 @@ const Roster = {
       const safeName = p.name.replace(/'/g, "\\'");
       const phone = Roster.getPhone(p.name);
 
-      const roleSelect = roleOptions.map(r =>
-        `<option value="${r.key}"${effRole === r.key ? ' selected' : ''}>${r.label}</option>`
-      ).join('');
+      // Build per-row role options based on permission hierarchy
+      const targetRank = OFFICE_CONFIG.roles[effRole]?.rank || 0;
+      const canChangeRole = myRank > targetRank || myRole === 'superadmin';
+
+      let roleCell;
+      if (!canChangeRole) {
+        // Current user can't change this person's role — show read-only label
+        const roleLabel = OFFICE_CONFIG.roles[effRole]?.label || effRole;
+        roleCell = `<span style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:12px;color:var(--silver-dim);padding:5px 0">${roleLabel}</span>`;
+      } else {
+        // Filter roles: only those with rank < current user's rank
+        // Special rules: owner never assignable, admin only by owner/admin/superadmin
+        const roleOptions = Object.entries(OFFICE_CONFIG.roles)
+          .filter(([key, val]) => {
+            if (key === 'superadmin') return false;  // never assignable
+            if (key === 'owner') return false;        // sourced from admin portal
+            if (key === 'admin') return myRole === 'owner' || myRole === 'admin' || myRole === 'superadmin';
+            return val.rank < myRank || myRole === 'superadmin';
+          })
+          .map(([key, val]) => ({ key, label: val.label }));
+        const roleSelect = roleOptions.map(r =>
+          `<option value="${r.key}"${effRole === r.key ? ' selected' : ''}>${r.label}</option>`
+        ).join('');
+        roleCell = `<select onchange="App.setPersonRole('${safeName}',this.value)"
+            style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.25);border-radius:6px;color:var(--white);padding:5px 8px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:12px;cursor:pointer;outline:none">
+            ${roleSelect}
+          </select>`;
+      }
 
       const teamSelect = teamNames.map(t =>
         `<option value="${t}"${effTeam === t ? ' selected' : ''}>${t}</option>`
@@ -408,10 +433,7 @@ const Roster = {
           </div>
         </td>
         <td style="padding:12px 16px">
-          <select onchange="App.setPersonRole('${safeName}',this.value)"
-            style="background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.25);border-radius:6px;color:var(--white);padding:5px 8px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:12px;cursor:pointer;outline:none">
-            ${roleSelect}
-          </select>
+          ${roleCell}
         </td>
         <td style="padding:12px 16px">
           <select onchange="App.setPersonTeam('${safeName}',this.value)"

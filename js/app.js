@@ -959,6 +959,18 @@ const App = {
   // ROSTER ACTIONS (called from onclick)
   // ══════════════════════════════════════════════
   async setPersonRole(name, role) {
+    // Permission validation: prevent assigning roles above current user's rank
+    const myRole = this.state.currentRole || 'rep';
+    const myRank = OFFICE_CONFIG.roles[myRole]?.rank || 0;
+    const targetRank = OFFICE_CONFIG.roles[role]?.rank || 0;
+
+    // Never allow assigning owner or superadmin
+    if (role === 'owner' || role === 'superadmin') return;
+    // Admin can only be assigned by owner, admin, or superadmin
+    if (role === 'admin' && myRole !== 'owner' && myRole !== 'admin' && myRole !== 'superadmin') return;
+    // Can't assign role at or above own rank (unless superadmin)
+    if (myRole !== 'superadmin' && targetRank >= myRank) return;
+
     await Roster.setRole(name, role, OFFICE_CONFIG);
     // Update local person object
     const p = this.state.people.find(x => x.name === name);

@@ -179,7 +179,7 @@ const Render = {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const active = people.filter(p => !Roster.deactivated.has(p.name) && !this.NON_SALES_ROLES.has(p._roleKey));
+    const active = people.filter(p => !Roster.deactivated.has(p.name) && !this._isExcludedFromLeaderboard(p));
 
     // Split by role: leaders (manager, jd, l1) and reps
     const leaderRoles = new Set(['manager', 'jd', 'l1']);
@@ -657,7 +657,7 @@ const Render = {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const active = members.filter(p => !Roster.deactivated.has(p.name) && !this.NON_SALES_ROLES.has(p._roleKey));
+    const active = members.filter(p => !Roster.deactivated.has(p.name) && !this._isExcludedFromLeaderboard(p));
     const sorted = [...active].sort((a, b) => this.twUnits(b) - this.twUnits(a));
 
     sorted.forEach((p, i) => {
@@ -741,12 +741,19 @@ const Render = {
     this.mkChart('p4_' + id, { type: 'doughnut', data: { labels: m.prodLabels, datasets: [{ data: m.fw4Prods, backgroundColor: PIE.slice(0, m.prodLabels.length), borderColor: '#FFFFFF', borderWidth: 2 }] }, options: pieOpts });
   },
 
-  // Roles that don't make sales (excluded from leaderboards/podium/stats)
-  NON_SALES_ROLES: new Set(['superadmin', 'admin', 'owner']),
+  // Roles that never appear on leaderboards/podium/stats
+  NON_SALES_ROLES: new Set(['superadmin', 'admin']),
+
+  // Owners only appear on leaderboard if actively selling
+  _isExcludedFromLeaderboard(p) {
+    if (this.NON_SALES_ROLES.has(p._roleKey)) return true;
+    if (p._roleKey === 'owner') return this.twUnits(p) === 0;
+    return false;
+  },
 
   // ── FULL RENDER ──
   renderAll(people, teams) {
-    const salesPeople = people.filter(p => !Roster.deactivated.has(p.name) && !this.NON_SALES_ROLES.has(p._roleKey));
+    const salesPeople = people.filter(p => !Roster.deactivated.has(p.name) && !this._isExcludedFromLeaderboard(p));
     this.renderHeroStats(salesPeople);
     this.makePodium('podium', salesPeople, p => this.twUnits(p), p => this.twYeses(p), p => p.role);
     this.makePodium('team-podium', teams, t => t.units, t => t.y, t => t.emoji || '⚡');

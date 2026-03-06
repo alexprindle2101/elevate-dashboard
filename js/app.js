@@ -420,10 +420,13 @@ const App = {
       if (el) el.style.display = show ? '' : 'none';
     };
 
+    // Post Sale (pinned left, own category)
+    setDisplay('nav-post-sale', showPostSale);
+    setDisplay('nav-sep-0', showPostSale);
+
     // Personal
     setDisplay('nav-profile', showProfile);
     setDisplay('nav-my-orders', showMyOrders);
-    setDisplay('nav-post-sale', showPostSale);
 
     // Separators
     setDisplay('nav-sep-1', showSep1);

@@ -95,12 +95,15 @@
       </div>
     </div>
 
-    <!-- NAV TABS — grouped: Personal | Team | Office -->
+    <!-- NAV TABS — grouped: Post Sale | Personal | Team | Office -->
     <nav id="main-nav">
+      <!-- POST SALE (pinned left, own category) -->
+      <button class="nav-tab" id="nav-post-sale" onclick="App.navTo('postSale')" style="display:none">+ Post Sale</button>
+      <span class="nav-separator" id="nav-sep-0" style="display:none"></span>
+
       <!-- PERSONAL GROUP -->
       <button class="nav-tab" id="nav-profile" onclick="App.navTo('profile')">My Profile</button>
       <button class="nav-tab" id="nav-my-orders" onclick="App.navTo('myOrders')" style="display:none">My Orders</button>
-      <button class="nav-tab" id="nav-post-sale" onclick="App.navTo('postSale')" style="display:none">Post Sale</button>
 
       <!-- SEPARATOR 1: Personal | Team -->
       <span class="nav-separator" id="nav-sep-1" style="display:none"></span>

@@ -156,6 +156,60 @@ const DataPipeline = {
     return diff >= 0 && diff < 7 ? diff : -1;
   },
 
+  // Rolling averages from per-day arrays.
+  // Rec Wk Avg = units from past 14 days (excluding today) ÷ 2
+  // 4Wk Avg    = units from days 15–42 before today ÷ 4
+  // Accepts flat array of day objects (oldest first, 42 entries = 6 weeks)
+  _rollingAvgs(allDays) {
+    const todayDow = (new Date().getDay() + 6) % 7; // Mon=0 .. Sun=6
+    const todayIdx = 35 + todayDow; // position of today in the 42-entry array
+
+    // Rec Wk Avg: days [todayIdx-14 .. todayIdx-1]
+    let recentUnits = 0;
+    for (let i = todayIdx - 14; i <= todayIdx - 1; i++) {
+      if (i >= 0 && i < allDays.length) recentUnits += (allDays[i].units || 0);
+    }
+    const recentAvg = parseFloat((recentUnits / 2).toFixed(2));
+
+    // 4Wk Avg: days [todayIdx-42 .. todayIdx-15]
+    let fw4Units = 0;
+    for (let i = todayIdx - 42; i <= todayIdx - 15; i++) {
+      if (i >= 0 && i < allDays.length) fw4Units += (allDays[i].units || 0);
+    }
+    const fourWkAvg = parseFloat((fw4Units / 4).toFixed(2));
+
+    const vsPct = fourWkAvg > 0
+      ? parseFloat(((recentAvg - fourWkAvg) / fourWkAvg * 100).toFixed(1))
+      : 0;
+
+    return { recentAvg, fourWkAvg, vsPct };
+  },
+
+  // Build flat chronological day array from 6-week per-day arrays (oldest first)
+  _flattenDays(dayArrays) {
+    // dayArrays = { w5Days, w4Days, w3Days, w2Days, lwDays, days }
+    return [
+      ...(dayArrays.w5Days || []),
+      ...(dayArrays.w4Days || []),
+      ...(dayArrays.w3Days || []),
+      ...(dayArrays.w2Days || []),
+      ...(dayArrays.lwDays || []),
+      ...(dayArrays.days || [])
+    ];
+  },
+
+  // Aggregate team members' per-day arrays into a single flat 42-entry array
+  _buildTeamDayArray(members, config) {
+    const result = Array.from({ length: 42 }, () => ({ units: 0 }));
+    members.forEach(p => {
+      const flat = this._flattenDays(p);
+      for (let i = 0; i < 42 && i < flat.length; i++) {
+        result[i].units += (flat[i].units || 0);
+      }
+    });
+    return result;
+  },
+
   getWeekOffset(date, currentWeekStart) {
     const saleWeekStart = this.getWeekStart(date);
     const diff = Math.floor((currentWeekStart - saleWeekStart) / (7 * 24 * 60 * 60 * 1000));
@@ -373,20 +427,13 @@ const DataPipeline = {
     const twUnits = twPeriod.units;
     const twYeses = twPeriod.y;
 
-    // Recent = tw + lw (past ~14 days)
-    const recentPeriod = this.sumPeriods([...days, lw], config);
-    // 4Wk running = w2 + w3 + w4 + w5 (days 15–42)
-    const fw4Period = this.sumPeriods([w2, w3, w4, w5], config);
     // All-time total for this window
     const totalPeriod = this.sumPeriods([...days, lw, w2, w3, w4, w5], config);
     const totalActs = Math.max(totalPeriod.units, 1);
 
-    // Averages and trends (recent = 2wk avg, fourWk = 4wk avg from w2-w5)
-    const recentAvg = parseFloat((recentPeriod.units / 2).toFixed(2));
-    const fourWkAvg = parseFloat((fw4Period.units / 4).toFixed(2));
-    const vsPct = fourWkAvg > 0
-      ? parseFloat(((recentAvg - fourWkAvg) / fourWkAvg * 100).toFixed(1))
-      : 0;
+    // Rolling averages from per-day data (14-day recent, 28-day prior)
+    const allDays = this._flattenDays(accum);
+    const { recentAvg, fourWkAvg, vsPct } = this._rollingAvgs(allDays);
 
     // Remarks
     let remark, remarkColor;
@@ -522,17 +569,12 @@ const DataPipeline = {
       const w4 = sumMemberPeriod(p => p.w4 || this.emptyPeriod(config));
       const w5 = sumMemberPeriod(p => p.w5 || this.emptyPeriod(config));
 
-      // Recent = tw + lw, 4Wk running = w2+w3+w4+w5
-      const recentPeriod = this.sumPeriods([tw, lw], config);
-      const fw4Period = this.sumPeriods([w2, w3, w4, w5], config);
       const total = this.sumPeriods([tw, lw, w2, w3, w4, w5], config);
       const totalActs = Math.max(total.units, 1);
 
-      const recentAvg = parseFloat((recentPeriod.units / 2).toFixed(2));
-      const fourWkAvg = parseFloat((fw4Period.units / 4).toFixed(2));
-      const vsPct = fourWkAvg > 0
-        ? parseFloat(((recentAvg - fourWkAvg) / fourWkAvg * 100).toFixed(1))
-        : 0;
+      // Build team-level per-day arrays for rolling avg calc
+      const teamAllDays = this._buildTeamDayArray(team.members, config);
+      const { recentAvg, fourWkAvg, vsPct } = this._rollingAvgs(teamAllDays);
 
       let remark, remarkColor;
       if (vsPct >= 20)      { remark = 'Strong upward trend'; remarkColor = '#22c55e'; }
@@ -728,17 +770,12 @@ const DataPipeline = {
     const w4 = sumMemberPeriod(p => p.w4 || this.emptyPeriod(config));
     const w5 = sumMemberPeriod(p => p.w5 || this.emptyPeriod(config));
 
-    // Recent = tw + lw, 4Wk running = w2+w3+w4+w5
-    const recentPeriod = this.sumPeriods([tw, lw], config);
-    const fw4Period = this.sumPeriods([w2, w3, w4, w5], config);
     const total = this.sumPeriods([tw, lw, w2, w3, w4, w5], config);
     const totalActs = Math.max(total.units, 1);
 
-    const recentAvg = parseFloat((recentPeriod.units / 2).toFixed(2));
-    const fourWkAvg = parseFloat((fw4Period.units / 4).toFixed(2));
-    const vsPct = fourWkAvg > 0
-      ? parseFloat(((recentAvg - fourWkAvg) / fourWkAvg * 100).toFixed(1))
-      : 0;
+    // Build team-level per-day arrays for rolling avg calc
+    const teamAllDays = this._buildTeamDayArray(team.members, config);
+    const { recentAvg, fourWkAvg, vsPct } = this._rollingAvgs(teamAllDays);
 
     let remark, remarkColor;
     if (vsPct >= 20)      { remark = 'Strong upward trend'; remarkColor = '#22c55e'; }

@@ -473,14 +473,6 @@ const Render = {
     const showCharts = isViewingOther && (viewerRole === 'owner' || viewerRole === 'superadmin');
 
     this.openProfilePage(`
-      <div class="profile-stats-bar">
-        <div class="profile-stat"><div class="profile-stat-val units-val">${twU}</div><div class="profile-stat-lbl">This Wk Units</div></div>
-        <div class="profile-stat"><div class="profile-stat-val">${twY}</div><div class="profile-stat-lbl">This Wk Yeses</div></div>
-        <div class="profile-stat"><div class="profile-stat-val units-val">${tw4.units}</div><div class="profile-stat-lbl">4W Units</div></div>
-        <div class="profile-stat"><div class="profile-stat-val">${tw4.y}</div><div class="profile-stat-lbl">4W Yeses</div></div>
-        <div class="profile-stat"><div class="profile-stat-val" style="color:${vsColor}">${vsArrow}${Math.abs(m.vsPct)}%</div><div class="profile-stat-lbl">vs 4Wk Avg</div></div>
-      </div>
-
       <div class="profile-section-title">Sales Breakdown</div>
       <div class="breakdown-grid">
         <div class="breakdown-remark" style="background:${m.remarkColor}22;border:1px solid ${m.remarkColor}55">
@@ -495,19 +487,6 @@ const Render = {
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.monthTotalSPEs > 0 ? (m.cancelPct <= 5 ? '#22c55e' : m.cancelPct > 10 ? '#e53535' : '#f0b429') : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.cancelPct + '%' : '---'}</div><div class="breakdown-lbl">Cancel</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.monthApprovedSPEs > 0 ? (m.projDiscoPct <= 2.5 ? '#22c55e' : m.projDiscoPct >= 5 ? '#e53535' : '#f0b429') : 'var(--silver-dim)'}">${m.monthApprovedSPEs > 0 ? m.projDiscoPct + '%' : '---'}</div><div class="breakdown-lbl">Proj. Disco</div></div>
       </div>
-
-      ${m.totalDevices > 0 ? `
-      <div class="profile-section-title">Activation Summary</div>
-      <div class="breakdown-grid">
-        <div class="breakdown-stat"><div class="breakdown-val">${m.totalDevices}</div><div class="breakdown-lbl">Total Devices</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.activationRate >= 75 ? '#2E8B57' : m.activationRate >= 50 ? '#f0b429' : '#E5564A'}">${m.activationRate}%</div><div class="breakdown-lbl">Activation Rate</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--green)">${m.active}</div><div class="breakdown-lbl">Active</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--yellow)">${m.pending}</div><div class="breakdown-lbl">Pending</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--red)">${m.cancel + m.projDisco}</div><div class="breakdown-lbl">Disco + Cancel</div></div>
-        ${Object.entries(m.productBreakdown || {}).map(([pt, count]) =>
-          `<div class="breakdown-stat"><div class="breakdown-val">${count}</div><div class="breakdown-lbl">${pt}</div></div>`
-        ).join('')}
-      </div>` : ''}
 
       <div class="profile-section-title">Churn Buckets</div>
       <div class="churn-grid">${churnHTML}</div>
@@ -570,7 +549,6 @@ const Render = {
       return;
     }
 
-    const tw = { u: members.reduce((s, p) => s + this.twUnits(p), 0), y: members.reduce((s, p) => s + this.twYeses(p), 0) };
     const id = 't' + teamName.replace(/[^a-zA-Z0-9]/g, '');
     const tableId = 'team-lb-' + id;
     const vsColor = m.vsPct >= 0 ? '#2E8B57' : '#E5564A';
@@ -588,14 +566,6 @@ const Render = {
     }).join('');
 
     this.openProfilePage(`
-      <div class="profile-stats-bar">
-        <div class="profile-stat"><div class="profile-stat-val units-val">${tw.u}</div><div class="profile-stat-lbl">This Wk Units</div></div>
-        <div class="profile-stat"><div class="profile-stat-val">${tw.y}</div><div class="profile-stat-lbl">This Wk Yeses</div></div>
-        <div class="profile-stat"><div class="profile-stat-val units-val">${Math.round(m.fourWkAvg * 4)}</div><div class="profile-stat-lbl">4W Units</div></div>
-        <div class="profile-stat"><div class="profile-stat-val">${members.length}</div><div class="profile-stat-lbl">Members</div></div>
-        <div class="profile-stat"><div class="profile-stat-val" style="color:${vsColor}">${vsArrow}${Math.abs(m.vsPct)}%</div><div class="profile-stat-lbl">vs 4Wk Avg</div></div>
-      </div>
-
       <div class="profile-section-title">Team Breakdown</div>
       <div class="breakdown-grid">
         <div class="breakdown-remark" style="background:${m.remarkColor}22;border:1px solid ${m.remarkColor}55">
@@ -610,19 +580,6 @@ const Render = {
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.cancel, total)) > 10 ? '#E5564A' : 'var(--silver)'}">${this.pct(m.cancel, total)}%</div><div class="breakdown-lbl">Cancel</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${parseFloat(this.pct(m.projDisco, total)) > 5 ? '#f97316' : '#2E8B57'}">${this.pct(m.projDisco, total)}%</div><div class="breakdown-lbl">Proj. Disco</div></div>
       </div>
-
-      ${m.totalDevices > 0 ? `
-      <div class="profile-section-title">Activation Summary</div>
-      <div class="breakdown-grid">
-        <div class="breakdown-stat"><div class="breakdown-val">${m.totalDevices}</div><div class="breakdown-lbl">Total Devices</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.activationRate >= 75 ? '#2E8B57' : m.activationRate >= 50 ? '#f0b429' : '#E5564A'}">${m.activationRate}%</div><div class="breakdown-lbl">Activation Rate</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--green)">${m.active}</div><div class="breakdown-lbl">Active</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--yellow)">${m.pending}</div><div class="breakdown-lbl">Pending</div></div>
-        <div class="breakdown-stat"><div class="breakdown-val" style="color:var(--red)">${m.cancel + m.projDisco}</div><div class="breakdown-lbl">Disco + Cancel</div></div>
-        ${Object.entries(m.productBreakdown || {}).map(([pt, count]) =>
-          `<div class="breakdown-stat"><div class="breakdown-val">${count}</div><div class="breakdown-lbl">${pt}</div></div>`
-        ).join('')}
-      </div>` : ''}
 
       <div class="profile-section-title">Churn Buckets</div>
       <div class="churn-grid">${churnHTML}</div>

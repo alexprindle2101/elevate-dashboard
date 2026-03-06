@@ -22,7 +22,7 @@ const PostSale = {
   open() {
     const page = document.getElementById('post-sale-page');
     if (page) page.style.display = 'block';
-    this._restoreDraft();
+    this._resetForm();
     this._render();
   },
 
@@ -260,10 +260,11 @@ const PostSale = {
         inner = `
           <div class="wizard-field">
             <label class="wizard-label">Booked for Activation Support?</label>
-            <div class="toggle-group">
+            <div class="toggle-group" id="ps-activation-toggle">
               <button class="toggle-btn ${d.activationSupport ? 'active' : ''}" onclick="PostSale.setField('activationSupport',true)">Yes</button>
               <button class="toggle-btn ${!d.activationSupport ? 'active' : ''}" onclick="PostSale.setField('activationSupport',false)">No</button>
             </div>
+            <div class="wizard-error" id="ps-activation-error">You must book the activation support appointment to proceed</div>
           </div>`;
         break;
       case 'wireless':
@@ -271,18 +272,19 @@ const PostSale = {
           <div style="display:flex;gap:12px">
             <div class="wizard-field" style="flex:1">
               <label class="wizard-label">New Phones</label>
-              <input type="number" class="wizard-input" id="ps-new-phones" value="${d.newPhones}" min="0" onchange="PostSale._saveDraft()">
+              <input type="number" class="wizard-input" id="ps-new-phones" value="${d.newPhones}" min="0" oninput="PostSale._updateCellTotal()">
             </div>
             <div class="wizard-field" style="flex:1">
               <label class="wizard-label">BYODs</label>
-              <input type="number" class="wizard-input" id="ps-byods" value="${d.byods}" min="0" onchange="PostSale._saveDraft()">
+              <input type="number" class="wizard-input" id="ps-byods" value="${d.byods}" min="0" oninput="PostSale._updateCellTotal()">
             </div>
           </div>
-          <div class="wizard-hint">Total lines: <b id="ps-cell-total">${d.newPhones + d.byods}</b></div>`;
+          <div class="wizard-hint">Total lines: <b id="ps-cell-total">${d.newPhones + d.byods}</b></div>
+          <div class="wizard-error" id="ps-wireless-error">Enter at least 1 phone or BYOD</div>`;
         break;
       case 'fiber':
         inner = `
-          <div class="wizard-field">
+          <div class="wizard-field" id="ps-fiber-pkg-field">
             <label class="wizard-label">Package</label>
             <select class="wizard-input" id="ps-fiber-pkg" onchange="PostSale._saveDraft()">
               <option value="" ${!d.fiberPackage ? 'selected' : ''}>Select package...</option>
@@ -292,22 +294,25 @@ const PostSale = {
               <option value="Fiber 2 GIG" ${d.fiberPackage === 'Fiber 2 GIG' ? 'selected' : ''}>Fiber 2 GIG</option>
               <option value="Fiber 5 GIG" ${d.fiberPackage === 'Fiber 5 GIG' ? 'selected' : ''}>Fiber 5 GIG</option>
             </select>
+            <div class="wizard-error">Select a Fiber package</div>
           </div>
-          <div class="wizard-field">
+          <div class="wizard-field" id="ps-install-date-field">
             <label class="wizard-label">Install Date</label>
             <input type="date" class="wizard-input" id="ps-install-date" value="${d.installDate}" onchange="PostSale._saveDraft()">
+            <div class="wizard-error">Install date is required</div>
           </div>`;
         break;
       case 'voip':
         inner = `
-          <div class="wizard-field">
+          <div class="wizard-field" id="ps-voip-qty-field">
             <label class="wizard-label">Quantity of Lines</label>
-            <input type="number" class="wizard-input" id="ps-voip-qty" value="${d.voipQty}" min="1" onchange="PostSale._saveDraft()">
+            <input type="number" class="wizard-input" id="ps-voip-qty" value="${d.voipQty}" min="1" oninput="PostSale._saveDraft()">
+            <div class="wizard-error">Enter at least 1 VoIP line</div>
           </div>`;
         break;
       case 'dtv':
         inner = `
-          <div class="wizard-field">
+          <div class="wizard-field" id="ps-dtv-pkg-field">
             <label class="wizard-label">DIRECTV Package</label>
             <select class="wizard-input" id="ps-dtv-pkg" onchange="PostSale._saveDraft()">
               <option value="" ${!d.dtvPackage ? 'selected' : ''}>Select package...</option>
@@ -315,9 +320,8 @@ const PostSale = {
               <option value="Choice" ${d.dtvPackage === 'Choice' ? 'selected' : ''}>Choice</option>
               <option value="Ultimate" ${d.dtvPackage === 'Ultimate' ? 'selected' : ''}>Ultimate</option>
               <option value="Premier" ${d.dtvPackage === 'Premier' ? 'selected' : ''}>Premier</option>
-              <option value="U-verse U200" ${d.dtvPackage === 'U-verse U200' ? 'selected' : ''}>U-verse U200</option>
-              <option value="U-verse U300" ${d.dtvPackage === 'U-verse U300' ? 'selected' : ''}>U-verse U300</option>
             </select>
+            <div class="wizard-error">Select a DIRECTV package</div>
           </div>`;
         break;
     }
@@ -471,7 +475,6 @@ const PostSale = {
 
     if (!d.dateOfSale) {
       valid = false;
-      // highlight date field
     }
 
     if (this._campaign === 'attb2b') {
@@ -499,7 +502,12 @@ const PostSale = {
   },
 
   _validateStep2() {
-    const anyOn = Object.values(this._products).some(p => p.on);
+    let valid = true;
+    const prods = this._products;
+    const d = this._formData;
+
+    // At least one product selected
+    const anyOn = Object.values(prods).some(p => p.on);
     const errEl = document.getElementById('ps-products-error');
     if (!anyOn) {
       if (errEl) errEl.style.display = 'block';
@@ -507,19 +515,54 @@ const PostSale = {
     }
     if (errEl) errEl.style.display = 'none';
 
-    // Validate wireless: if on, at least 1 phone or byod
-    if (this._products.wireless.on) {
-      const total = (this._formData.newPhones || 0) + (this._formData.byods || 0);
-      if (total < 1) {
-        this._formData.newPhones = 1; // auto-fix to 1
-      }
-    }
-    // Validate voip: if on, at least 1
-    if (this._products.voip.on && (this._formData.voipQty || 0) < 1) {
-      this._formData.voipQty = 1;
+    // Air: activation support must be Yes
+    if (prods.air.on && !d.activationSupport) {
+      valid = false;
+      const actErr = document.getElementById('ps-activation-error');
+      if (actErr) actErr.style.display = 'block';
+      alert('You must book the activation support appointment before submitting.');
+      return false;
     }
 
-    return true;
+    // Wireless: at least 1 phone or byod
+    if (prods.wireless.on) {
+      const total = (d.newPhones || 0) + (d.byods || 0);
+      if (total < 1) {
+        valid = false;
+        const wErr = document.getElementById('ps-wireless-error');
+        if (wErr) wErr.style.display = 'block';
+      }
+    }
+
+    // Fiber: package and install date required
+    if (prods.fiber.on) {
+      if (!d.fiberPackage) {
+        valid = false;
+        const f = document.getElementById('ps-fiber-pkg-field');
+        if (f) f.classList.add('has-error');
+      }
+      if (!d.installDate) {
+        valid = false;
+        const f = document.getElementById('ps-install-date-field');
+        if (f) f.classList.add('has-error');
+      }
+    }
+
+    // VoIP: at least 1 line
+    if (prods.voip.on && (d.voipQty || 0) < 1) {
+      valid = false;
+      const f = document.getElementById('ps-voip-qty-field');
+      if (f) f.classList.add('has-error');
+    }
+
+    // DTV: package required
+    if (prods.dtv.on && !d.dtvPackage) {
+      valid = false;
+      const f = document.getElementById('ps-dtv-pkg-field');
+      if (f) f.classList.add('has-error');
+    }
+
+    return valid;
   },
 
   // ── Submission ──
@@ -635,6 +678,11 @@ const PostSale = {
       subEl.querySelectorAll('.toggle-btn').forEach(btn => {
         btn.classList.toggle('active', (btn.textContent.trim() === 'Yes') === val);
       });
+      // Clear activation error when Yes is selected
+      if (key === 'activationSupport' && val) {
+        const actErr = document.getElementById('ps-activation-error');
+        if (actErr) actErr.style.display = 'none';
+      }
     }
   },
 
@@ -650,6 +698,18 @@ const PostSale = {
     // Re-render step 2
     const body = document.getElementById('post-sale-body');
     if (body) body.innerHTML = this._step2HTML();
+  },
+
+  // ── Live update helpers ──
+  _updateCellTotal() {
+    const phones = parseInt(document.getElementById('ps-new-phones')?.value) || 0;
+    const byods = parseInt(document.getElementById('ps-byods')?.value) || 0;
+    const totalEl = document.getElementById('ps-cell-total');
+    if (totalEl) totalEl.textContent = phones + byods;
+    // Also update formData live
+    this._formData.newPhones = phones;
+    this._formData.byods = byods;
+    this._saveDraft();
   },
 
   _updateDSIHint() {

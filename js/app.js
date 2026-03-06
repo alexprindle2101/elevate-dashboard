@@ -496,6 +496,11 @@ const App = {
       if (el) el.style.display = 'none';
     });
 
+    // Reset Post Sale form when navigating away
+    if (this.state.currentNav === 'postSale' && tab !== 'postSale') {
+      PostSale._resetForm();
+    }
+
     this.state.currentNav = tab;
     this.updateNav();
 

@@ -310,7 +310,7 @@ const Render = {
 
     // ── POST SALE (pinned left) ──
     if (isSA || ['rep','l1','jd','manager','owner'].includes(role)) {
-      tabs.push({ label: '+ Post Sale', action: "App.navTo('postSale')", active: curNav === 'postSale' });
+      tabs.push({ label: 'Post Sale', action: "App.navTo('postSale')", active: curNav === 'postSale' });
       tabs.push({ separator: true });
     }
 

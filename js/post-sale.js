@@ -643,12 +643,20 @@ const PostSale = {
       const emoji = this._getTeamEmoji();
       if (emoji && units > 0) msg += emoji.repeat(Math.min(units, 20));
 
-      fetch(this._WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg.trim() })
-      }).catch(() => { /* silent fail — Discord post is optional */ });
-    } catch (e) { /* silent fail */ }
+      const webhookBody = JSON.stringify({ message: msg.trim() });
+      const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: webhookBody };
+      fetch(this._WEBHOOK_URL, opts)
+        .then(r => { if (!r.ok) console.warn('[PostSale] Discord webhook HTTP', r.status); })
+        .catch(err => {
+          console.warn('[PostSale] Discord webhook failed, retrying…', err.message);
+          // Retry once after 2s
+          setTimeout(() => {
+            fetch(this._WEBHOOK_URL, opts)
+              .then(r => { if (!r.ok) console.warn('[PostSale] Retry HTTP', r.status); })
+              .catch(e2 => console.warn('[PostSale] Retry failed:', e2.message));
+          }, 2000);
+        });
+    } catch (e) { console.warn('[PostSale] Webhook build error:', e.message); }
   },
 
   _buildPayload() {

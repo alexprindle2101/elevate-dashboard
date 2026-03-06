@@ -1710,16 +1710,9 @@ const App = {
     }
   },
 
-  _renderOfficeSwitcher() {
-    const container = document.getElementById('office-switcher');
-    const nameEl = document.getElementById('office-switcher-name');
-    const menu = document.getElementById('office-switcher-menu');
-    if (!container || !nameEl || !menu) return;
-
-    nameEl.textContent = OFFICE_CONFIG.officeName || 'Office';
+  _buildSwitcherMenuHTML() {
     const currentUrl = (OFFICE_CONFIG.appsScriptUrl || '').trim();
-
-    menu.innerHTML = this.state.offices.map(office => {
+    return this.state.offices.map(office => {
       const isCurrent = office.appsScriptUrl === currentUrl;
       return `
         <button onclick="App.switchOffice('${office.officeId}')"
@@ -1730,8 +1723,36 @@ const App = {
           ${isCurrent ? '<span style="margin-left:auto;font-size:10px;color:var(--silver-dim)">Current</span>' : ''}
         </button>`;
     }).join('');
+  },
 
-    container.style.display = '';
+  _renderOfficeSwitcher() {
+    const officeName = OFFICE_CONFIG.officeName || 'Office';
+    const menuHTML = this._buildSwitcherMenuHTML();
+
+    // Main header switcher
+    const container = document.getElementById('office-switcher');
+    const nameEl = document.getElementById('office-switcher-name');
+    const menu = document.getElementById('office-switcher-menu');
+    if (container && nameEl && menu) {
+      nameEl.textContent = officeName;
+      menu.innerHTML = menuHTML;
+      container.style.display = '';
+    }
+
+    // Profile header switcher (populated via JS to avoid template escaping issues)
+    const profileContainer = document.getElementById('profile-office-switcher');
+    if (profileContainer) {
+      profileContainer.innerHTML = `
+        <button onclick="App.toggleOfficeSwitcher('profile-')"
+          style="display:flex;align-items:center;gap:6px;background:none;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:5px 12px;color:var(--white);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;cursor:pointer">
+          <span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${officeName}</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div id="profile-office-switcher-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;min-width:180px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.15);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:100;overflow:hidden">
+          ${menuHTML}
+        </div>`;
+      profileContainer.style.display = '';
+    }
   },
 
   toggleOfficeSwitcher(prefix) {

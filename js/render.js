@@ -368,24 +368,7 @@ const Render = {
             </div>
           </div>
           <div class="header-right">
-            ${App.state.offices.length > 1 ? `
-            <div id="profile-office-switcher" style="position:relative">
-              <button onclick="App.toggleOfficeSwitcher('profile-')"
-                style="display:flex;align-items:center;gap:6px;background:none;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:5px 12px;color:var(--white);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;cursor:pointer">
-                <span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${OFFICE_CONFIG.officeName || 'Office'}</span>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-              </button>
-              <div id="profile-office-switcher-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;min-width:180px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.15);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:100;overflow:hidden">
-                ${App.state.offices.map(o => {
-                  const cur = o.appsScriptUrl === (OFFICE_CONFIG.appsScriptUrl || '').trim();
-                  return '<button onclick="App.switchOffice(\\''+o.officeId+'\\')\" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border:none;background:'+(cur?'rgba(0,153,204,0.08)':'transparent')+';cursor:'+(cur?'default':'pointer')+';text-align:left;font-family:\\'Neue Haas Grotesk\\',\\'Helvetica Neue\\',\\'Inter\\',sans-serif;font-size:12px;font-weight:'+(cur?'700':'500')+';color:'+(cur?'var(--blue-core)':'var(--white)')+';letter-spacing:0.3px;border-bottom:1px solid rgba(0,0,0,0.06)"'+(cur?' disabled':'')+'>'+
-                    (o.logoIconUrl ? '<img src="'+o.logoIconUrl+'" style="width:20px;height:20px;object-fit:contain;border-radius:4px" onerror="this.style.display=\\'none\\'">' : '')+
-                    '<span>'+o.name+'</span>'+
-                    (cur ? '<span style="margin-left:auto;font-size:10px;color:var(--silver-dim)">Current</span>' : '')+
-                  '</button>';
-                }).join('')}
-              </div>
-            </div>` : ''}
+            <div id="profile-office-switcher" style="display:none;position:relative"></div>
             <span class="last-updated">${updated}</span>
             <button class="refresh-btn" onclick="App.manualRefresh()" title="Refresh data">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

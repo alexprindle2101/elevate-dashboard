@@ -1211,12 +1211,10 @@ body.has-role-switcher header { top: 44px; }
   border-color: var(--sc-cyan);
   background: rgba(0,200,255,0.06);
 }
-.campaign-card .campaign-icon { font-size: 24px; margin-bottom: 6px; }
-.campaign-card .campaign-label {
-  font-family: var(--font-subheading);
-  font-size: 13px; font-weight: 700;
-  color: var(--white);
-  letter-spacing: 0.5px;
+.campaign-card .campaign-logo {
+  max-height: 40px;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 /* Form fields */

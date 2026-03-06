@@ -157,12 +157,10 @@ const PostSale = {
       <div class="wizard-label" style="margin-bottom:8px">Campaign</div>
       <div class="campaign-cards">
         <div class="campaign-card ${this._campaign === 'attb2b' ? 'selected' : ''}" onclick="PostSale.setCampaign('attb2b')">
-          <div class="campaign-icon">📶</div>
-          <div class="campaign-label">AT&T B2B</div>
+          <img src="references/logos/Logo ATT.png" alt="AT&T B2B" class="campaign-logo">
         </div>
         <div class="campaign-card ${this._campaign === 'ooma' ? 'selected' : ''}" onclick="PostSale.setCampaign('ooma')">
-          <div class="campaign-icon">☎️</div>
-          <div class="campaign-label">Ooma</div>
+          <img src="references/logos/Logo Ooma.png" alt="Ooma" class="campaign-logo">
         </div>
       </div>
 

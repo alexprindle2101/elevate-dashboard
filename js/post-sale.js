@@ -392,7 +392,7 @@ const PostSale = {
       if (this._products.fiber.on) soldItems.push('Fiber');
       if (this._products.voip.on) soldItems.push('VoIP x' + (d.voipQty || 1));
       if (this._products.dtv.on) soldItems.push('DTV');
-      summary = 'DSI ' + d.dsi + ' — ' + soldItems.join(', ');
+      summary = d.dsi + ' — ' + soldItems.join(', ');
     } else {
       summary = d.clientName + ' — ' + d.oomaPackage;
     }

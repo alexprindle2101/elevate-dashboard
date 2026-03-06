@@ -943,8 +943,9 @@ const App = {
     const toggleBtn = document.getElementById('view-as-toggle');
     const controls = document.getElementById('view-as-controls');
     const personaWrap = document.getElementById('role-persona-wrap');
-    // Show switcher globally
+    // Show switcher globally as fixed top bar
     if (switcher) switcher.style.display = 'flex';
+    document.body.classList.add('has-role-switcher');
     if (toggleBtn) toggleBtn.style.display = '';
     // Start collapsed — view as admin
     this.state.viewAsActive = false;
@@ -1009,7 +1010,7 @@ const App = {
     if (team && (role === 'jd' || role === 'l1' || role === 'rep')) {
       const tag = document.createElement('div');
       tag.id = 'role-team-tag';
-      tag.style.cssText = 'font-family:"Helvetica Neue","Inter",sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--sc-cyan);background:rgba(0,0,0,0.15);border:1px solid rgba(0,0,0,0.3);border-radius:6px;padding:4px 10px;white-space:nowrap';
+      tag.style.cssText = 'font-family:"Helvetica Neue","Inter",sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--sc-cyan);background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.3);border-radius:6px;padding:4px 10px;white-space:nowrap';
       tag.textContent = '⬡ ' + team;
       const switcher = document.getElementById('role-switcher');
       if (switcher) switcher.appendChild(tag);

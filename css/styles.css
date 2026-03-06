@@ -671,36 +671,40 @@ th.week-col { color: var(--silver); }
 /* ── ROLE SWITCHER (superadmin View-As) ── */
 #role-switcher {
   display: none;  /* hidden by default, shown for superadmin */
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 9999;
   align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 10px 24px; margin: 0 auto 8px;
-  max-width: 1100px;
-  background: rgba(0,0,0,0.06);
-  border: 1px solid rgba(0,0,0,0.2);
-  border-radius: 10px;
+  padding: 8px 24px;
+  background: #1a1a2e;
+  border-bottom: 2px solid var(--sc-cyan);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
 }
+body.has-role-switcher .container { padding-top: 44px; }
+body.has-role-switcher #profile-page { padding-top: 44px; }
+body.has-role-switcher header { top: 44px; }
 .role-switcher-label {
   font-family: var(--font-subheading); font-size: 11px;
   font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
-  color: var(--silver-dim); white-space: nowrap;
+  color: rgba(255,255,255,0.5); white-space: nowrap;
 }
 .role-switcher-pills { display: flex; gap: 6px; flex-wrap: wrap; }
 .role-pill {
-  padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(0,0,0,0.3);
-  background: transparent; color: var(--silver-dim); cursor: pointer;
+  padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
+  background: transparent; color: rgba(255,255,255,0.6); cursor: pointer;
   font-family: var(--font-subheading); font-size: 12px;
   font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
   transition: all 0.15s;
 }
-.role-pill:hover { border-color: var(--sc-cyan); color: var(--white); }
-.role-pill.active { background: rgba(44,110,106,0.35); border-color: var(--sc-cyan); color: var(--sc-cyan); }
+.role-pill:hover { border-color: var(--sc-cyan); color: #fff; }
+.role-pill.active { background: rgba(0,200,255,0.2); border-color: var(--sc-cyan); color: var(--sc-cyan); }
 #role-persona-wrap { margin-left: auto; }
 #role-persona {
-  background: rgba(255,255,255,0.4); border: 1px solid rgba(0,0,0,0.3);
-  border-radius: 8px; color: var(--white); padding: 5px 10px;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px; color: #fff; padding: 5px 10px;
   font-family: var(--font-body); font-size: 13px;
   cursor: pointer; min-width: 160px;
 }
-#role-persona option { background: rgba(255,255,255,0.4); }
+#role-persona option { background: #1a1a2e; color: #fff; }
 
 /* ── LOCKED / RESTRICTED STATES ── */
 .row-locked td { opacity: 0.4; }

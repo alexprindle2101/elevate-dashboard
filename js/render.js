@@ -368,7 +368,6 @@ const Render = {
             </div>
           </div>
           <div class="header-right">
-            <div id="profile-office-switcher" style="display:none;position:relative"></div>
             <span class="last-updated">${updated}</span>
             <button class="refresh-btn" onclick="App.manualRefresh()" title="Refresh data">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -377,6 +376,7 @@ const Render = {
                 <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
               </svg>
             </button>
+            <div id="profile-office-switcher" style="display:none;position:relative"></div>
             ${infoHtml}
             <button onclick="App.logout()" title="Sign out" style="background:none;border:1px solid rgba(229,86,74,0.3);border-radius:6px;padding:5px 10px;color:#E5564A;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer">Logout</button>
           </div>

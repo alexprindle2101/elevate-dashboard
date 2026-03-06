@@ -303,12 +303,7 @@ const Orders = {
           // Append package detail from new schema fields
           if (prod.key === 'fiber' && o.fiberPackage) label += ` (${o.fiberPackage})`;
           if (prod.key === 'voip' && o.oomaPackage) label += ` (${o.oomaPackage})`;
-          if (prod.key === 'cell' && (o.newPhones || o.byods)) {
-            const parts = [];
-            if (o.newPhones > 0) parts.push(`${o.newPhones} new`);
-            if (o.byods > 0) parts.push(`${o.byods} BYOD`);
-            if (parts.length > 0) label += ` (${parts.join(', ')})`;
-          }
+          // Cell new/BYOD breakdown removed — just show "Cell xN"
           soldParts.push(label);
         }
       });

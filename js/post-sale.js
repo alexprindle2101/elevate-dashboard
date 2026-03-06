@@ -566,6 +566,8 @@ const PostSale = {
   },
 
   // ── Submission ──
+  _WEBHOOK_URL: 'https://hook.us2.make.com/rqxy9beu6ybplh8axdq4p6euuv4mc8jj',
+
   async submit() {
     this._collectCurrentStep();
     if (this._submitting) return;
@@ -578,6 +580,8 @@ const PostSale = {
       this._submitting = false;
       if (result.ok || (result.data && result.data.ok)) {
         this._clearDraft();
+        // Fire Discord webhook (fire-and-forget — don't block success)
+        this._fireDiscordWebhook(payload);
         // Advance to success step
         const total = this._campaign === 'ooma' ? 3 : 4;
         this._step = total;
@@ -592,6 +596,44 @@ const PostSale = {
       alert('Network error — please check your connection and try again.');
       this._renderNav();
     }
+  },
+
+  _fireDiscordWebhook(payload) {
+    try {
+      // Build products summary string
+      const soldItems = [];
+      if (this._campaign === 'attb2b') {
+        if (payload.air) soldItems.push('Air');
+        if (payload.newPhones || payload.byods) soldItems.push('Wireless x' + (payload.newPhones + payload.byods));
+        if (payload.fiber) soldItems.push('Fiber' + (payload.fiberPackage ? ' (' + payload.fiberPackage + ')' : ''));
+        if (payload.voipQty) soldItems.push('VoIP x' + payload.voipQty);
+        if (payload.dtv) soldItems.push('DTV' + (payload.dtvPackage ? ' (' + payload.dtvPackage + ')' : ''));
+      } else {
+        soldItems.push(payload.oomaPackage || 'Ooma');
+      }
+
+      // Calculate units (DTV excluded per config)
+      const air = payload.air || 0;
+      const cell = (payload.newPhones || 0) + (payload.byods || 0);
+      const fiber = payload.fiber || 0;
+      const voip = payload.voipQty || 0;
+      const units = air + cell + fiber + voip;
+
+      const webhookData = {
+        repName: payload.repName,
+        campaign: this._campaign === 'attb2b' ? 'AT&T B2B' : 'Ooma',
+        dateOfSale: payload.dateOfSale,
+        dsi: payload.dsi || payload.clientName || '',
+        products: soldItems.join(', '),
+        units: units
+      };
+
+      fetch(this._WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(webhookData)
+      }).catch(() => { /* silent fail — Discord post is optional */ });
+    } catch (e) { /* silent fail */ }
   },
 
   _buildPayload() {

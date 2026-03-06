@@ -112,6 +112,9 @@ function doGet(e) {
       case 'readOwners':
         return jsonResponse({ owners: readOwners() });
 
+      case 'listOfficesBasic':
+        return jsonResponse({ offices: readOfficesBasic() });
+
       default:
         return jsonResponse({ error: 'Unknown action: ' + action });
     }
@@ -386,6 +389,27 @@ function readOffices() {
       logoIconUrl: (data[i][11] || '').toString().trim(),
       brandColors: (data[i][12] || '').toString().trim(),
       createdDate: (data[i][13] || '').toString()
+    });
+  }
+  return offices;
+}
+
+// Lightweight office list for the office switcher dropdown (active offices only, minimal fields)
+function readOfficesBasic() {
+  const sheet = getOrCreateSheet(OFFICES_TAB);
+  const data = sheet.getDataRange().getValues();
+  const offices = [];
+  for (let i = 1; i < data.length; i++) {
+    const officeId = (data[i][0] || '').toString().trim();
+    const status = (data[i][6] || 'setup').toString().trim();
+    if (!officeId || status !== 'active') continue;
+    offices.push({
+      officeId: officeId,
+      name: (data[i][1] || '').toString().trim(),
+      appsScriptUrl: (data[i][4] || '').toString().trim(),
+      apiKey: (data[i][5] || '').toString().trim(),
+      logoUrl: (data[i][10] || '').toString().trim(),
+      logoIconUrl: (data[i][11] || '').toString().trim()
     });
   }
   return offices;

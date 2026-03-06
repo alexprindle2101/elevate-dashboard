@@ -83,6 +83,14 @@
       </div>
 
       <div class="header-right">
+        <div id="office-switcher" style="display:none;position:relative">
+          <button id="office-switcher-btn" onclick="App.toggleOfficeSwitcher()"
+            style="display:flex;align-items:center;gap:6px;background:none;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:5px 12px;color:var(--white);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;cursor:pointer">
+            <span id="office-switcher-name" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div id="office-switcher-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;min-width:180px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.15);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:100;overflow:hidden"></div>
+        </div>
         <span id="last-updated-text" class="last-updated"></span>
         <button class="refresh-btn" onclick="App.manualRefresh()" title="Refresh data">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

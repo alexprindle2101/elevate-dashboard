@@ -87,6 +87,10 @@ const OFFICE_CONFIG = {
 
   // ── Session ──
   sessionDuration: 24 * 60 * 60 * 1000,  // 24 hours
+
+  // ── Admin API (for office switcher) ──
+  adminApiUrl: 'https://script.google.com/macros/s/AKfycbz1WJARKP4YZzZjbWyyBjgrAkUOkJWiMHkcJxr4qV3QwRuBfo6YyleBe2MwV_ruRHWo/exec',
+  adminApiKey: 'aptel-admin-2026-secret',
 };
 
 // ── Roster sheet columns (email-keyed in _Roster tab) ──

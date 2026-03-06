@@ -10,6 +10,7 @@ const App = {
     teamsData: {},       // raw _Teams sheet data (for rebuilding hierarchy)
     roster: {},          // email-keyed roster from API
     settings: {},        // key-value settings from _Settings tab
+    offices: [],         // list of offices from admin API (for switcher)
     currentRole: 'rep',
     realRole: 'rep',       // actual logged-in role (stays superadmin during View-As)
     viewAsActive: false,   // whether superadmin View-As switcher is expanded
@@ -244,6 +245,7 @@ const App = {
 
     this.updateNav();
     Render.renderAll(this.state.people, this.state.teams);
+    this._loadOfficeSwitcher();
     // Show leaderboard section when on leaderboard, profile, or team views
     const lbSection = document.getElementById('leaderboard-section');
     if (lbSection && ['leaderboard', 'profile', 'team'].includes(this.state.currentNav)) {
@@ -1681,6 +1683,91 @@ const App = {
     toast.textContent = msg;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
+  },
+
+  // ══════════════════════════════════════════════
+  // OFFICE SWITCHER
+  // ══════════════════════════════════════════════
+  async _loadOfficeSwitcher() {
+    const role = this.state.currentRole;
+    if (!['admin', 'owner', 'superadmin'].includes(role)) return;
+    if (!OFFICE_CONFIG.adminApiUrl || !OFFICE_CONFIG.adminApiKey) return;
+
+    try {
+      const url = `${OFFICE_CONFIG.adminApiUrl}?key=${encodeURIComponent(OFFICE_CONFIG.adminApiKey)}&action=listOfficesBasic`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+
+      const offices = data.offices || [];
+      if (offices.length > 1) {
+        this.state.offices = offices;
+        this._renderOfficeSwitcher();
+      }
+    } catch (err) {
+      console.warn('[OfficeSwitcher] Failed to load offices:', err.message);
+    }
+  },
+
+  _renderOfficeSwitcher() {
+    const container = document.getElementById('office-switcher');
+    const nameEl = document.getElementById('office-switcher-name');
+    const menu = document.getElementById('office-switcher-menu');
+    if (!container || !nameEl || !menu) return;
+
+    nameEl.textContent = OFFICE_CONFIG.officeName || 'Office';
+    const currentUrl = (OFFICE_CONFIG.appsScriptUrl || '').trim();
+
+    menu.innerHTML = this.state.offices.map(office => {
+      const isCurrent = office.appsScriptUrl === currentUrl;
+      return `
+        <button onclick="App.switchOffice('${office.officeId}')"
+          style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border:none;background:${isCurrent ? 'rgba(0,153,204,0.08)' : 'transparent'};cursor:${isCurrent ? 'default' : 'pointer'};text-align:left;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:12px;font-weight:${isCurrent ? '700' : '500'};color:${isCurrent ? 'var(--blue-core)' : 'var(--white)'};letter-spacing:0.3px;border-bottom:1px solid rgba(0,0,0,0.06)"
+          ${isCurrent ? 'disabled' : ''}>
+          ${office.logoIconUrl ? `<img src="${office.logoIconUrl}" style="width:20px;height:20px;object-fit:contain;border-radius:4px" onerror="this.style.display='none'">` : ''}
+          <span>${office.name}</span>
+          ${isCurrent ? '<span style="margin-left:auto;font-size:10px;color:var(--silver-dim)">Current</span>' : ''}
+        </button>`;
+    }).join('');
+
+    container.style.display = '';
+  },
+
+  toggleOfficeSwitcher(prefix) {
+    const id = (prefix || '') + 'office-switcher-menu';
+    const wrapperId = (prefix || '') + 'office-switcher';
+    const menu = document.getElementById(id);
+    if (!menu) return;
+    const isOpen = menu.style.display !== 'none';
+    menu.style.display = isOpen ? 'none' : 'block';
+
+    if (!isOpen) {
+      const close = (e) => {
+        if (!e.target.closest('#' + wrapperId)) {
+          menu.style.display = 'none';
+          document.removeEventListener('click', close);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', close), 0);
+    }
+  },
+
+  switchOffice(officeId) {
+    const office = this.state.offices.find(o => o.officeId === officeId);
+    if (!office) return;
+
+    const config = {
+      appsScriptUrl: office.appsScriptUrl,
+      apiKey: office.apiKey,
+      officeName: office.name,
+      logoUrl: office.logoUrl || '',
+      logoIconUrl: office.logoIconUrl || ''
+    };
+
+    const encoded = btoa(JSON.stringify(config));
+    Auth.clearSession();
+    window.location.href = 'index.html?office=' + encoded;
   },
 
   // Manual refresh

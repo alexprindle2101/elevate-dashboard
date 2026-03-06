@@ -179,7 +179,7 @@ const PostSale = {
 
         <div class="wizard-field">
           <label class="wizard-label">Type of Account</label>
-          <div class="toggle-group">
+          <div class="toggle-group" id="ps-account-type-toggle">
             <button class="toggle-btn ${d.accountType === 'Consumer' ? 'active' : ''}" onclick="PostSale.setAccountType('Consumer')">Consumer</button>
             <button class="toggle-btn ${d.accountType === 'Business' ? 'active' : ''}" onclick="PostSale.setAccountType('Business')">Business</button>
           </div>
@@ -597,8 +597,8 @@ const PostSale = {
   setAccountType(type) {
     this._formData.accountType = type;
     this._saveDraft();
-    // Re-render toggles only
-    document.querySelectorAll('#post-sale-body .toggle-group')[1]?.querySelectorAll('.toggle-btn').forEach(btn => {
+    const group = document.getElementById('ps-account-type-toggle');
+    if (group) group.querySelectorAll('.toggle-btn').forEach(btn => {
       btn.classList.toggle('active', btn.textContent.trim() === type);
     });
   },

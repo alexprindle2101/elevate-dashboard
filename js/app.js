@@ -1637,10 +1637,10 @@ const App = {
     if (container) {
       container.innerHTML = `
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:120px 24px;text-align:center">
-          <div style="font-size:48px;margin-bottom:16px">⚠️</div>
-          <div style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:8px">${msg}</div>
-          <div style="color:var(--silver-dim);font-size:13px;max-width:500px;line-height:1.6;margin-bottom:24px">${err?.message || ''}</div>
-          <button onclick="location.reload()" style="background:var(--blue-core);border:none;border-radius:8px;padding:12px 24px;color:#fff;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:14px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer">Retry</button>
+          <div style="font-size:56px;margin-bottom:12px">😔</div>
+          <div style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:24px;font-weight:700;color:var(--white);margin-bottom:6px">Something went wrong</div>
+          <div style="color:var(--silver-dim);font-size:13px;max-width:400px;line-height:1.6;margin-bottom:28px">Don't worry — just tap retry and we'll get you back on track.</div>
+          <button onclick="location.reload()" style="background:var(--blue-deep);border:none;border-radius:12px;padding:14px 36px;color:#fff;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:15px;font-weight:700;letter-spacing:0.3px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15)">Retry</button>
         </div>`;
     }
   },

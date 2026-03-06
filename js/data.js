@@ -476,7 +476,9 @@ const DataPipeline = {
     });
     const alpha = salesPerDay.map((v, i) => parseFloat((v - fourWkDaily[i]).toFixed(1)));
 
-    // Product labels and data
+    // Product labels and data (recent = tw+lw, 4wk = w2+w3+w4+w5)
+    const recentPeriod = this.sumPeriods([twPeriod, lw], config);
+    const fw4Period = this.sumPeriods([w2, w3, w4, w5], config);
     const prodLabels = config.columns.products.map(p => p.label);
     const recentProds = config.columns.products.map(p => recentPeriod.products[p.key] || 0);
     const fw4Prods = config.columns.products.map(p => fw4Period.products[p.key] || 0);
@@ -619,6 +621,8 @@ const DataPipeline = {
         new Array(config.timeSlots.length).fill(0)
       );
 
+      const recentPeriod = this.sumPeriods([tw, lw], config);
+      const fw4Period = this.sumPeriods([w2, w3, w4, w5], config);
       const prodLabels = config.columns.products.map(p => p.label);
       const recentProds = config.columns.products.map(p => recentPeriod.products[p.key] || 0);
       const fw4Prods = config.columns.products.map(p => fw4Period.products[p.key] || 0);
@@ -820,6 +824,8 @@ const DataPipeline = {
       new Array(config.timeSlots.length).fill(0)
     );
 
+    const recentPeriod = this.sumPeriods([tw, lw], config);
+    const fw4Period = this.sumPeriods([w2, w3, w4, w5], config);
     const prodLabels = config.columns.products.map(p => p.label);
     const recentProds = config.columns.products.map(p => recentPeriod.products[p.key] || 0);
     const fw4Prods = config.columns.products.map(p => fw4Period.products[p.key] || 0);

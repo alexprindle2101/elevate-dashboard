@@ -826,7 +826,7 @@ function readTableauSummary(ss) {
       s.speList.push(spe);
       // Track WIRELESS SPEs within 30-day window for Active/Pending/Cancel/Disco %
       var ptUpper = productType.toUpperCase();
-      var isWireless = ptUpper.indexOf('AIR') >= 0 || ptUpper.indexOf('AWB') >= 0;
+      var isWireless = ptUpper === 'WIRELESS';
       var isInMonth = orderDate instanceof Date && orderDate >= thirtyDaysAgo;
       if (isInMonth && isWireless) {
         s.monthWirelessSPEs[spe] = {

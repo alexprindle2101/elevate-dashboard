@@ -238,6 +238,23 @@ function doGet(e) {
     // Auto-assign Tableau names (managers first, then down the ranks)
     roster = autoAssignTableauNames(ss, roster, tableauSummary.possibleTableauNames);
 
+    // Debug: trace Mason's Tableau data path
+    var _masonDebug = {};
+    var _masonEmail = Object.keys(roster).find(function(e) { return roster[e].name === 'Mason Pickard'; });
+    _masonDebug.email = _masonEmail || 'NOT_IN_ROSTER';
+    _masonDebug.rosterTableauName = _masonEmail ? roster[_masonEmail].tableauName : 'N/A';
+    _masonDebug.repByNameKeys = Object.keys(tableauSummary.repByName || {}).slice(0, 20);
+    _masonDebug.inRepByName = !!(tableauSummary.repByName && tableauSummary.repByName['Mason Pickard']);
+    _masonDebug.inRepSummary = !!(_masonEmail && tableauSummary.repSummary && tableauSummary.repSummary[_masonEmail]);
+    if (tableauSummary.repByName && tableauSummary.repByName['Mason Pickard']) {
+      var mn = tableauSummary.repByName['Mason Pickard'];
+      _masonDebug.repByNameData = { totalDevices: mn.totalDevices, monthTotalSPEs: mn.monthTotalSPEs, monthApproved: mn.monthApprovedSPEs, monthPending: mn.monthPendingSPEs };
+    }
+    if (_masonEmail && tableauSummary.repSummary && tableauSummary.repSummary[_masonEmail]) {
+      var mr = tableauSummary.repSummary[_masonEmail];
+      _masonDebug.repSummaryData = { totalDevices: mr.totalDevices, monthTotalSPEs: mr.monthTotalSPEs, monthApproved: mr.monthApprovedSPEs, monthPending: mr.monthPendingSPEs };
+    }
+
     const data = {
       people: peopleResult.people || peopleResult,
       roster: roster,
@@ -249,7 +266,7 @@ function doGet(e) {
       settings: readSettings(ss),
       tableauSummary: tableauSummary,
       churnReport: readChurnReport(ss),
-      _debug: peopleResult._debug || null
+      _debug: _masonDebug
     };
     return jsonResponse(data);
   } catch (err) {
@@ -1128,7 +1145,7 @@ function readTableauDetail(ss, dsi) {
 // Cached wrapper for readTableauSummary (6-hour TTL)
 function getTableauSummaryWithCache(ss) {
   var cache = CacheService.getScriptCache();
-  var cacheKey = 'tableauSummary_v3';
+  var cacheKey = 'tableauSummary_v4';
   var cached = cache.get(cacheKey);
   if (cached) {
     try { return JSON.parse(cached); } catch (e) { /* fall through */ }

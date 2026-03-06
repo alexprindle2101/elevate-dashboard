@@ -1690,18 +1690,22 @@ const App = {
   // ══════════════════════════════════════════════
   async _loadOfficeSwitcher() {
     const role = this.state.currentRole;
-    if (!['admin', 'owner', 'superadmin'].includes(role)) return;
-    if (!OFFICE_CONFIG.adminApiUrl || !OFFICE_CONFIG.adminApiKey) return;
+    console.log('[OfficeSwitcher] Role:', role);
+    if (!['admin', 'owner', 'superadmin'].includes(role)) { console.log('[OfficeSwitcher] Skipped — role not eligible'); return; }
+    if (!OFFICE_CONFIG.adminApiUrl || !OFFICE_CONFIG.adminApiKey) { console.log('[OfficeSwitcher] Skipped — no adminApiUrl/Key'); return; }
 
     try {
       const url = `${OFFICE_CONFIG.adminApiUrl}?key=${encodeURIComponent(OFFICE_CONFIG.adminApiKey)}&action=listOfficesBasic`;
+      console.log('[OfficeSwitcher] Fetching offices...');
       const resp = await fetch(url);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
+      console.log('[OfficeSwitcher] Response:', JSON.stringify(data));
       if (data.error) throw new Error(data.error);
 
       const offices = data.offices || [];
-      if (offices.length > 1) {
+      console.log('[OfficeSwitcher] Found', offices.length, 'active offices');
+      if (offices.length >= 1) {
         this.state.offices = offices;
         this._renderOfficeSwitcher();
       }

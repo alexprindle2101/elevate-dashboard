@@ -393,7 +393,7 @@ const App = {
     // ── PERSONAL GROUP ──
     const showProfile = true;
     const showMyOrders = isSA || ['rep', 'l1', 'jd', 'manager', 'owner'].includes(role);
-    const showPostSale = isSA || ['rep', 'l1', 'jd', 'manager', 'admin', 'owner'].includes(role);
+    const showPostSale = isSA || ['rep', 'l1', 'jd', 'manager', 'owner'].includes(role);
 
     // ── TEAM GROUP ──
     const showTeam = isSA || ['jd', 'manager'].includes(role);

@@ -281,16 +281,19 @@ const App = {
     }
     this.updateLastUpdated();
 
-    // Check if current user needs the Tableau name picker popup (one-time)
-    this._checkTableauNamePicker();
+    // Auto-claim Tableau name if an unclaimed name is found
+    this._autoClaimTableauName();
   },
 
-  // ── Tableau Name Picker Popup ──
-  _checkTableauNamePicker() {
+  // ── Tableau Name Auto-Claim ──
+  // Checks if the current user has an unclaimed Tableau REP name.
+  // A name is "claimed" if any other roster member already has it stored.
+  // If exactly one unclaimed name is found → auto-save it silently.
+  _autoClaimTableauName() {
     const email = this.state.currentEmail;
     if (!email) return;
 
-    // Only show for sales roles (not owner/admin)
+    // Only for sales roles
     const salesRoles = ['rep', 'l1', 'jd', 'manager'];
     if (!salesRoles.includes(this.state.currentRole)) return;
 
@@ -298,45 +301,34 @@ const App = {
     const rosterEntry = this.state.roster[email];
     if (rosterEntry && rosterEntry.tableauName) return;
 
-    // Check if they have possible Tableau names to pick from
+    // Get all Tableau names tied to this rep's posted DSIs
     const possibleNames = this.state.possibleTableauNames[email];
     if (!possibleNames || possibleNames.length === 0) return;
 
-    // If only 1 possible name, auto-select it silently
-    if (possibleNames.length === 1) {
-      this._saveTableauName(possibleNames[0]);
-      return;
+    // Build set of already-claimed names (stored by other roster members)
+    const claimedNames = new Set();
+    Object.entries(this.state.roster).forEach(([rosterEmail, entry]) => {
+      if (rosterEmail !== email && entry.tableauName) {
+        claimedNames.add(entry.tableauName);
+      }
+    });
+
+    // Filter to unclaimed names only
+    const unclaimed = possibleNames.filter(n => !claimedNames.has(n));
+    console.log('[Tableau] Possible names for', email, ':', possibleNames, '| Unclaimed:', unclaimed);
+
+    if (unclaimed.length === 1) {
+      // Exactly one unclaimed name — auto-claim it
+      this._saveTableauName(unclaimed[0]);
     }
-
-    // Multiple names — show the picker popup
-    this._showTableauNamePicker(possibleNames);
-  },
-
-  _showTableauNamePicker(names) {
-    const modal = document.getElementById('tableau-name-modal');
-    if (!modal) return;
-    const list = document.getElementById('tableau-name-list');
-    if (!list) return;
-
-    list.innerHTML = names.map(name => `
-      <button onclick="App._selectTableauName('${name.replace(/'/g, "\\'")}')"
-        style="display:block;width:100%;text-align:left;background:rgba(255,255,255,0.5);border:1px solid rgba(26,92,229,0.2);border-radius:10px;padding:14px 18px;margin-bottom:8px;cursor:pointer;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:15px;font-weight:600;color:var(--white);transition:all 0.15s">
-        ${name}
-      </button>
-    `).join('');
-
-    modal.style.display = 'flex';
-  },
-
-  _selectTableauName(name) {
-    const modal = document.getElementById('tableau-name-modal');
-    if (modal) modal.style.display = 'none';
-    this._saveTableauName(name);
+    // 0 or 2+ unclaimed — do nothing, wait for the situation to resolve
   },
 
   async _saveTableauName(name) {
     const email = this.state.currentEmail;
     if (!email || !name) return;
+
+    console.log('[Tableau] Auto-claiming name:', name, 'for', email);
 
     // Update local roster state immediately
     if (this.state.roster[email]) {

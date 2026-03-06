@@ -711,25 +711,6 @@
   <div id="leaderboard-section" style="display:none">
 
   <!-- ════════════════════════════════════════════════
-       ROLE SWITCHER (superadmin View-As)
-       ════════════════════════════════════════════════ -->
-  <div id="role-switcher" style="display:none">
-    <div class="role-switcher-label">Viewing as</div>
-    <button id="view-as-toggle" onclick="App.toggleViewAs()" style="display:none;padding:4px 12px;border-radius:14px;border:1px solid rgba(0,0,0,0.3);background:#F5F2EE;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--blue-core);cursor:pointer;white-space:nowrap">Admin ▸</button>
-    <div id="view-as-controls" class="role-switcher-pills">
-      <button class="role-pill active" data-role="owner"   onclick="App.setRole('owner')">Owner</button>
-      <button class="role-pill"        data-role="manager" onclick="App.setRole('manager')">Manager</button>
-      <button class="role-pill"        data-role="admin"   onclick="App.setRole('admin')">Admin</button>
-      <button class="role-pill"        data-role="jd"      onclick="App.setRole('jd')">Jr. Director</button>
-      <button class="role-pill"        data-role="l1"      onclick="App.setRole('l1')">Team Leader</button>
-      <button class="role-pill"        data-role="rep"     onclick="App.setRole('rep')">Client Rep</button>
-    </div>
-    <div id="role-persona-wrap">
-      <select id="role-persona" onchange="App.setPersona(this.value)"></select>
-    </div>
-  </div>
-
-  <!-- ════════════════════════════════════════════════
        HERO STATS BAR
        ════════════════════════════════════════════════ -->
   <div class="hero-bar">
@@ -816,6 +797,24 @@
      FULL PROFILE PAGE (overlay)
      ═══════════════════════════════════════════════════════ -->
 <div id="profile-page">
+  <!-- ════════════════════════════════════════════════
+       ROLE SWITCHER (superadmin View-As)
+       ════════════════════════════════════════════════ -->
+  <div id="role-switcher" style="display:none">
+    <div class="role-switcher-label">Viewing as</div>
+    <button id="view-as-toggle" onclick="App.toggleViewAs()" style="display:none;padding:4px 12px;border-radius:14px;border:1px solid rgba(0,0,0,0.3);background:#F5F2EE;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--blue-core);cursor:pointer;white-space:nowrap">Admin ▸</button>
+    <div id="view-as-controls" class="role-switcher-pills">
+      <button class="role-pill active" data-role="owner"   onclick="App.setRole('owner')">Owner</button>
+      <button class="role-pill"        data-role="manager" onclick="App.setRole('manager')">Manager</button>
+      <button class="role-pill"        data-role="admin"   onclick="App.setRole('admin')">Admin</button>
+      <button class="role-pill"        data-role="jd"      onclick="App.setRole('jd')">Jr. Director</button>
+      <button class="role-pill"        data-role="l1"      onclick="App.setRole('l1')">Team Leader</button>
+      <button class="role-pill"        data-role="rep"     onclick="App.setRole('rep')">Client Rep</button>
+    </div>
+    <div id="role-persona-wrap">
+      <select id="role-persona" onchange="App.setPersona(this.value)"></select>
+    </div>
+  </div>
   <div class="profile-page-inner" id="profile-page-inner"></div>
 </div>
 

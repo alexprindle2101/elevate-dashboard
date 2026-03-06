@@ -46,14 +46,9 @@ const App = {
       this.state.currentPersona = session.name;
       this.state.currentEmail = session.email || '';
       await this.loadData();
-      // Show role-switcher for superadmin in production (collapsed — views as admin)
+      // Set up superadmin View-As (collapsed — views as admin)
       if (this.state.realRole === 'superadmin') {
-        const switcher = document.getElementById('role-switcher');
-        if (switcher) switcher.style.display = 'flex';
         this._applySuperAdminViewAs();
-        // Re-open profile after superadmin setup (which resets view)
-        this.state.currentNav = 'profile';
-        this.openPersonProfile(this.state.currentPersona);
       }
     } else {
       // Need login — fetch all data (includes roster for email validation)
@@ -161,10 +156,8 @@ const App = {
     this.state.currentEmail = session.email;
     Auth.hideLoginScreen();
 
-    // Show role-switcher for superadmin (collapsed — views as admin)
+    // Set up superadmin View-As (collapsed — views as admin)
     if (this.state.realRole === 'superadmin') {
-      const switcher = document.getElementById('role-switcher');
-      if (switcher) switcher.style.display = 'flex';
       this._applySuperAdminViewAs();
     }
 
@@ -265,20 +258,6 @@ const App = {
     if (this.state.currentNav === 'myOrders') this._loadAndRenderOrders('my');
     if (this.state.currentNav === 'payroll') this._loadAndRenderPayroll();
     if (this.state.currentNav === 'office') this._renderOfficePage();
-    // Ensure role-switcher stays visible for superadmin after refresh
-    if (this.state.realRole === 'superadmin') {
-      const switcher = document.getElementById('role-switcher');
-      if (switcher) switcher.style.display = 'flex';
-      // Re-apply collapsed/expanded state without resetting it
-      const controls = document.getElementById('view-as-controls');
-      const personaWrap = document.getElementById('role-persona-wrap');
-      const toggleBtn = document.getElementById('view-as-toggle');
-      if (toggleBtn) toggleBtn.style.display = '';
-      if (!this.state.viewAsActive) {
-        if (controls) controls.style.display = 'none';
-        if (personaWrap) personaWrap.style.display = 'none';
-      }
-    }
     this.updateLastUpdated();
 
     // Auto-claim Tableau name if an unclaimed name is found
@@ -977,9 +956,6 @@ const App = {
     this.updateNav();
     Render.closeProfile();
     Render.renderAll(this.state.people, this.state.teams);
-    // Ensure leaderboard section is visible behind profile overlay
-    const lb = document.getElementById('leaderboard-section');
-    if (lb) lb.style.display = '';
     this.openPersonProfile(this.state.currentPersona);
   },
 
@@ -990,9 +966,6 @@ const App = {
     this.updateNav();
     Render.closeProfile();
     Render.renderAll(this.state.people, this.state.teams);
-    // Ensure leaderboard section is visible behind profile overlay
-    const lb = document.getElementById('leaderboard-section');
-    if (lb) lb.style.display = '';
     this.openPersonProfile(name);
   },
 

@@ -672,8 +672,8 @@ th.week-col { color: var(--silver); }
 #role-switcher {
   display: none;  /* hidden by default, shown for superadmin */
   align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 10px 24px; margin: 0 auto 4px;
-  max-width: 1400px;
+  padding: 10px 24px; margin: 0 auto 8px;
+  max-width: 1100px;
   background: rgba(0,0,0,0.06);
   border: 1px solid rgba(0,0,0,0.2);
   border-radius: 10px;

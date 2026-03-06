@@ -480,7 +480,6 @@ const Render = {
           <div style="font-size:18px;font-weight:700;color:${m.remarkColor}">${m.remark}</div>
           <div style="font-size:11px;color:var(--silver-dim);margin-top:6px">Rec Wk Avg: <b style="color:var(--silver)">${m.recentAvg}</b> &nbsp;·&nbsp; 4Wk Avg: <b style="color:var(--silver)">${m.fourWkAvg}</b></div>
         </div>
-        <div class="breakdown-stat"><div class="breakdown-val">${m.recentAvg}</div><div class="breakdown-lbl">Rec. Wk Avg</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${vsColor}">${vsArrow}${Math.abs(m.vsPct)}%</div><div class="breakdown-lbl">vs 4Wk Avg</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.monthTotalSPEs > 0 ? (m.activePct >= 85 ? '#22c55e' : m.activePct <= 70 ? '#e53535' : '#f0b429') : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.activePct + '%' : '---'}</div><div class="breakdown-lbl">Active</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.monthTotalSPEs > 0 ? (m.pendingPct <= 15 ? '#22c55e' : m.pendingPct >= 30 ? '#e53535' : '#f0b429') : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.pendingPct + '%' : '---'}</div><div class="breakdown-lbl">Pending</div></div>
@@ -577,7 +576,6 @@ const Render = {
           <div style="font-size:18px;font-weight:700;color:${m.remarkColor}">${m.remark}</div>
           <div style="font-size:11px;color:var(--silver-dim);margin-top:6px">Team Avg: <b style="color:var(--silver)">${m.recentAvg}</b> &nbsp;·&nbsp; Per Rep: <b style="color:var(--silver)">${perHead}</b> &nbsp;·&nbsp; 4Wk: <b style="color:var(--silver)">${m.fourWkAvg}</b></div>
         </div>
-        <div class="breakdown-stat"><div class="breakdown-val">${m.recentAvg}</div><div class="breakdown-lbl">Rec. Wk Avg</div></div>
         <div class="breakdown-stat"><div class="breakdown-val">${perHead}</div><div class="breakdown-lbl">Per Rep Avg</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${vsColor}">${vsArrow}${Math.abs(m.vsPct)}%</div><div class="breakdown-lbl">vs 4Wk Avg</div></div>
         <div class="breakdown-stat"><div class="breakdown-val" style="color:${m.monthTotalSPEs > 0 ? (m.activePct >= 85 ? '#22c55e' : m.activePct <= 70 ? '#e53535' : '#f0b429') : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.activePct + '%' : '---'}</div><div class="breakdown-lbl">Active</div></div>

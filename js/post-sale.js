@@ -600,38 +600,34 @@ const PostSale = {
 
   _fireDiscordWebhook(payload) {
     try {
-      // Build products summary string
-      const soldItems = [];
+      // Build message matching #production format
+      let msg = '';
       if (this._campaign === 'attb2b') {
-        if (payload.air) soldItems.push('Air');
-        if (payload.newPhones || payload.byods) soldItems.push('Wireless x' + (payload.newPhones + payload.byods));
-        if (payload.fiber) soldItems.push('Fiber' + (payload.fiberPackage ? ' (' + payload.fiberPackage + ')' : ''));
-        if (payload.voipQty) soldItems.push('VoIP x' + payload.voipQty);
-        if (payload.dtv) soldItems.push('DTV' + (payload.dtvPackage ? ' (' + payload.dtvPackage + ')' : ''));
+        // Line 1: **Rep** made a sale with AT&T: B2B!
+        msg += '**' + payload.repName + '** made a sale with AT&T: B2B!\n';
+        // Line 2: Account type
+        msg += (payload.accountType || 'Business') + ' Account\n';
+        // Line 3: DSI
+        msg += payload.dsi + '\n';
+        // Product bullet lines
+        if (payload.air) msg += '• Internet Air\n';
+        if (payload.newPhones || payload.byods) {
+          msg += '• ' + (payload.newPhones || 0) + ' New Phone(s)|' + (payload.byods || 0) + ' BYOD(s)\n';
+        }
+        if (payload.fiber) msg += '• ' + (payload.fiberPackage || 'Fiber') + '\n';
+        if (payload.voipQty) msg += '• ' + payload.voipQty + ' VoIP(s)\n';
+        if (payload.dtv) msg += '• DIRECTV ' + (payload.dtvPackage || '') + '\n';
       } else {
-        soldItems.push(payload.oomaPackage || 'Ooma');
+        // Ooma format
+        msg += '**' + payload.repName + '** made a sale with Ooma!\n';
+        msg += payload.clientName + '\n';
+        msg += '• ' + (payload.oomaPackage || 'Ooma Pro') + '\n';
       }
-
-      // Calculate units (DTV excluded per config)
-      const air = payload.air || 0;
-      const cell = (payload.newPhones || 0) + (payload.byods || 0);
-      const fiber = payload.fiber || 0;
-      const voip = payload.voipQty || 0;
-      const units = air + cell + fiber + voip;
-
-      const webhookData = {
-        repName: payload.repName,
-        campaign: this._campaign === 'attb2b' ? 'AT&T B2B' : 'Ooma',
-        dateOfSale: payload.dateOfSale,
-        dsi: payload.dsi || payload.clientName || '',
-        products: soldItems.join(', '),
-        units: units
-      };
 
       fetch(this._WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(webhookData)
+        body: JSON.stringify({ message: msg.trim() })
       }).catch(() => { /* silent fail — Discord post is optional */ });
     } catch (e) { /* silent fail */ }
   },

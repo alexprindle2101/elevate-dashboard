@@ -45,7 +45,8 @@ const PostSale = {
       voipQty: 0,
       dtvPackage: '',
       clientName: '',
-      oomaPackage: 'Ooma Pro'
+      oomaPackage: 'Ooma Pro',
+      hashtags: ''
     };
     Object.keys(this._products).forEach(k => this._products[k].on = false);
     this._clearDraft();
@@ -100,6 +101,7 @@ const PostSale = {
       this._formData.clientName = v('ps-client-name');
     }
     this._formData.traineeName = v('ps-trainee-name');
+    this._formData.hashtags = v('ps-hashtags');
     this._saveDraft();
   },
 
@@ -222,6 +224,11 @@ const PostSale = {
           <textarea class="wizard-input" id="ps-notes" rows="2" placeholder="Any extra details about the account...">${this._esc(d.accountNotes)}</textarea>
         </div>
       ` : ''}
+
+      <div class="wizard-field">
+        <label class="wizard-label">Hashtags <span style="font-weight:400;text-transform:none">(optional — posted to Discord)</span></label>
+        <input type="text" class="wizard-input" id="ps-hashtags" value="${this._esc(d.hashtags)}" placeholder="#grindteam #letsgoo">
+      </div>
     </div>`;
   },
 
@@ -369,6 +376,7 @@ const PostSale = {
         `}
         ${d.trainee ? `<div class="review-row"><span class="review-row-label">Trainee</span><span class="review-row-value">${this._esc(d.traineeName)}</span></div>` : ''}
         ${d.accountNotes ? `<div class="review-row"><span class="review-row-label">Notes</span><span class="review-row-value" style="max-width:60%;text-align:right">${this._esc(d.accountNotes)}</span></div>` : ''}
+        ${d.hashtags ? `<div class="review-row"><span class="review-row-label">Hashtags</span><span class="review-row-value" style="color:var(--sc-cyan)">${this._esc(d.hashtags)}</span></div>` : ''}
       </div>
 
       ${this._campaign === 'attb2b' ? `
@@ -602,6 +610,7 @@ const PostSale = {
     try {
       // Build message matching #production format
       let msg = '';
+      let units = 0;
       if (this._campaign === 'attb2b') {
         // Line 1: **Rep** made a sale with AT&T: B2B!
         msg += '**' + payload.repName + '** made a sale with AT&T: B2B!\n';
@@ -610,19 +619,29 @@ const PostSale = {
         // Line 3: DSI
         msg += payload.dsi + '\n';
         // Product bullet lines
-        if (payload.air) msg += '• Internet Air\n';
+        if (payload.air) { msg += '• Internet Air\n'; units++; }
         if (payload.newPhones || payload.byods) {
           msg += '• ' + (payload.newPhones || 0) + ' New Phone(s)|' + (payload.byods || 0) + ' BYOD(s)\n';
+          units += (payload.newPhones || 0) + (payload.byods || 0);
         }
-        if (payload.fiber) msg += '• ' + (payload.fiberPackage || 'Fiber') + '\n';
-        if (payload.voipQty) msg += '• ' + payload.voipQty + ' VoIP(s)\n';
+        if (payload.fiber) { msg += '• ' + (payload.fiberPackage || 'Fiber') + '\n'; units++; }
+        if (payload.voipQty) { msg += '• ' + payload.voipQty + ' VoIP(s)\n'; units += payload.voipQty; }
         if (payload.dtv) msg += '• DIRECTV ' + (payload.dtvPackage || '') + '\n';
       } else {
         // Ooma format
         msg += '**' + payload.repName + '** made a sale with Ooma!\n';
         msg += payload.clientName + '\n';
         msg += '• ' + (payload.oomaPackage || 'Ooma Pro') + '\n';
+        units = 1;
       }
+
+      // Hashtags (optional, from form)
+      const tags = this._formData.hashtags?.trim();
+      if (tags) msg += tags + '\n';
+
+      // Team emoji × units
+      const emoji = this._getTeamEmoji();
+      if (emoji && units > 0) msg += emoji.repeat(Math.min(units, 20));
 
       fetch(this._WEBHOOK_URL, {
         method: 'POST',
@@ -764,6 +783,19 @@ const PostSale = {
   },
 
   // ── Helpers ──
+  _getTeamEmoji() {
+    try {
+      const session = Auth.getSession();
+      if (!session?.email || !App.state?.roster) return '';
+      const email = session.email.toLowerCase();
+      const person = App.state.roster.find(r => r.email?.toLowerCase() === email);
+      const teamName = person?.team;
+      if (!teamName || !App.state.teamsData) return '';
+      const team = App.state.teamsData.find(t => t.name === teamName);
+      return team?.emoji || '';
+    } catch (e) { return ''; }
+  },
+
   _esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); },
 
   _formatDate(iso) {

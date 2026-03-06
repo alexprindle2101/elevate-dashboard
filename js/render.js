@@ -480,9 +480,9 @@ const Render = {
         <div class="profile-stat"><div class="profile-stat-val">${tw4.y}</div><div class="profile-stat-lbl">4W Yeses</div></div>
         <div class="profile-stat"><div class="profile-stat-val" style="color:${vsColor}">${vsArrow}${Math.abs(m.vsPct)}%</div><div class="profile-stat-lbl">vs 4Wk Avg</div></div>
         <div class="profile-stat"><div class="profile-stat-val" style="color:${m.activePct >= 85 ? '#22c55e' : m.activePct <= 70 ? '#e53535' : m.activePct > 0 ? '#f0b429' : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.activePct + '%' : '---'}</div><div class="profile-stat-lbl">Active %</div></div>
-        <div class="profile-stat"><div class="profile-stat-val" style="color:${m.monthTotalSPEs > 0 ? '#f0b429' : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.pendingPct + '%' : '---'}</div><div class="profile-stat-lbl">Pending %</div></div>
-        <div class="profile-stat"><div class="profile-stat-val" style="color:${m.monthTotalSPEs > 0 ? (m.cancelPct > 10 ? '#e53535' : m.cancelPct > 5 ? '#f0b429' : '#22c55e') : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.cancelPct + '%' : '---'}</div><div class="profile-stat-lbl">Cancel %</div></div>
-        <div class="profile-stat"><div class="profile-stat-val" style="color:${m.monthApprovedSPEs > 0 ? (m.projDiscoPct > 10 ? '#e53535' : m.projDiscoPct > 5 ? '#f0b429' : '#22c55e') : 'var(--silver-dim)'}">${m.monthApprovedSPEs > 0 ? m.projDiscoPct + '%' : '---'}</div><div class="profile-stat-lbl">Proj. Disco %</div></div>
+        <div class="profile-stat"><div class="profile-stat-val" style="color:${m.monthTotalSPEs > 0 ? (m.pendingPct <= 15 ? '#22c55e' : m.pendingPct >= 30 ? '#e53535' : '#f0b429') : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.pendingPct + '%' : '---'}</div><div class="profile-stat-lbl">Pending %</div></div>
+        <div class="profile-stat"><div class="profile-stat-val" style="color:${m.monthTotalSPEs > 0 ? (m.cancelPct === 0 ? '#22c55e' : m.cancelPct >= 3 ? '#e53535' : '#f0b429') : 'var(--silver-dim)'}">${m.monthTotalSPEs > 0 ? m.cancelPct + '%' : '---'}</div><div class="profile-stat-lbl">Cancel %</div></div>
+        <div class="profile-stat"><div class="profile-stat-val" style="color:${m.monthApprovedSPEs > 0 ? (m.projDiscoPct <= 2.5 ? '#22c55e' : m.projDiscoPct >= 3 ? '#e53535' : '#f0b429') : 'var(--silver-dim)'}">${m.monthApprovedSPEs > 0 ? m.projDiscoPct + '%' : '---'}</div><div class="profile-stat-lbl">Proj. Disco %</div></div>
       </div>
 
       <div class="profile-section-title">Sales Breakdown</div>

@@ -939,19 +939,33 @@ const App = {
   },
 
   _applySuperAdminViewAs() {
-    const switcher = document.getElementById('role-switcher');
-    const toggleBtn = document.getElementById('view-as-toggle');
-    const controls = document.getElementById('view-as-controls');
-    const personaWrap = document.getElementById('role-persona-wrap');
-    // Show switcher globally as fixed top bar
-    if (switcher) switcher.style.display = 'flex';
+    // Build the switcher bar entirely from JS (immune to HTML caching)
+    let switcher = document.getElementById('role-switcher');
+    if (!switcher) {
+      switcher = document.createElement('div');
+      switcher.id = 'role-switcher';
+      document.body.prepend(switcher);
+    }
+    switcher.innerHTML = `
+      <div class="role-switcher-label">Viewing as</div>
+      <button id="view-as-toggle" onclick="App.toggleViewAs()" style="padding:4px 12px;border-radius:14px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#00c8ff;cursor:pointer;white-space:nowrap">Admin ▸</button>
+      <div id="view-as-controls" class="role-switcher-pills" style="display:none">
+        <button class="role-pill active" data-role="owner"   onclick="App.setRole('owner')">Owner</button>
+        <button class="role-pill"        data-role="manager" onclick="App.setRole('manager')">Manager</button>
+        <button class="role-pill"        data-role="admin"   onclick="App.setRole('admin')">Admin</button>
+        <button class="role-pill"        data-role="jd"      onclick="App.setRole('jd')">Jr. Director</button>
+        <button class="role-pill"        data-role="l1"      onclick="App.setRole('l1')">Team Leader</button>
+        <button class="role-pill"        data-role="rep"     onclick="App.setRole('rep')">Client Rep</button>
+      </div>
+      <div id="role-persona-wrap" style="display:none">
+        <select id="role-persona" onchange="App.setPersona(this.value)"></select>
+      </div>
+    `;
+    // Force visible — inline styles override everything
+    switcher.style.cssText = 'display:flex !important;position:fixed;top:0;left:0;right:0;z-index:99999;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 24px;background:#1a1a2e;border-bottom:2px solid #00c8ff;box-shadow:0 2px 12px rgba(0,0,0,0.3)';
     document.body.classList.add('has-role-switcher');
-    if (toggleBtn) toggleBtn.style.display = '';
     // Start collapsed — view as admin
     this.state.viewAsActive = false;
-    if (controls) controls.style.display = 'none';
-    if (personaWrap) personaWrap.style.display = 'none';
-    if (toggleBtn) toggleBtn.textContent = 'Admin ▸';
     this.state.currentRole = 'admin';
     this.updateNav();
   },

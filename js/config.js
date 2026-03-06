@@ -40,7 +40,12 @@ const OFFICE_CONFIG = {
   },
 
   // ── Teams ──
-  teams: ["Aces", "Squids", "Grind Team", "Queenz", "Different Breed", "Sharks", "Dawgs"],
+  // Loaded dynamically from _Teams tab. Fallback only if _Teams is empty.
+  teams: [],
+
+  // ── Logos ──
+  logoUrl: "references/logos/elevate-logo-full-standard-blue.png",
+  logoIconUrl: "references/logos/aptel-symbol-black.png",
 
   // ── Team emojis for customization ──
   // Large pool — UI shows a random subset with a reroll button
@@ -118,6 +123,8 @@ const WEEK_PERIODS = new Set([7, 8, 9, 10, 11]);
       if (cfg.appsScriptUrl) OFFICE_CONFIG.appsScriptUrl = cfg.appsScriptUrl;
       if (cfg.apiKey) OFFICE_CONFIG.apiKey = cfg.apiKey;
       if (cfg.officeName) OFFICE_CONFIG.officeName = cfg.officeName;
+      if (cfg.logoUrl) OFFICE_CONFIG.logoUrl = cfg.logoUrl;
+      if (cfg.logoIconUrl) OFFICE_CONFIG.logoIconUrl = cfg.logoIconUrl;
       console.log('[Multi-Office] Config overridden for:', cfg.officeName || 'Unknown office');
     } catch(e) {
       console.warn('[Multi-Office] Invalid office param, using defaults');

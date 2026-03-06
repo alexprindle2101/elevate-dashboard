@@ -234,6 +234,14 @@ const App = {
     Roster.init(this.state.roster);
     Roster.initFromApi(apiData);
     TeamsManager.init(this.state.teamsData);
+
+    // Apply dynamic office logo
+    const headerLogo = document.getElementById('header-office-logo');
+    if (headerLogo && OFFICE_CONFIG.logoUrl) {
+      headerLogo.src = OFFICE_CONFIG.logoUrl;
+      headerLogo.alt = OFFICE_CONFIG.officeName || 'Office';
+    }
+
     this.updateNav();
     Render.renderAll(this.state.people, this.state.teams);
     // Show leaderboard section when on leaderboard, profile, or team views

@@ -14,21 +14,23 @@ const TEAMS_TAB = '_Teams';
 const SETTINGS_TAB = '_Settings';
 const CHURN_REPORT_TAB = '_TableauChurnReport';
 
-const TEAM_EMOJI_MAP = {
-  '🐙': 'Squids',
-  '♠️': 'Aces',
-  '🦈': 'Sharks',
-  '👽': 'Different Breed',
-  '👑': 'Queenz',
-  '🐶': 'Dawgs',
-  '🫥': 'Grind Team'
-};
-
-// Reverse map: team name → emoji
-const TEAM_NAME_TO_EMOJI = {};
-Object.entries(TEAM_EMOJI_MAP).forEach(([emoji, name]) => {
-  TEAM_NAME_TO_EMOJI[name] = emoji;
-});
+// Build team emoji maps dynamically from _Teams tab
+function buildTeamEmojiMaps(ss) {
+  var emojiMap = {};   // emoji → name
+  var nameMap = {};    // name → emoji
+  var sheet = ss.getSheetByName(TEAMS_TAB);
+  if (!sheet) return { emojiMap: emojiMap, nameMap: nameMap };
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    var name = String(data[i][1] || '').trim();
+    var emoji = String(data[i][4] || '').trim();
+    if (name && emoji) {
+      emojiMap[emoji] = name;
+      nameMap[name] = emoji;
+    }
+  }
+  return { emojiMap: emojiMap, nameMap: nameMap };
+}
 
 // Ranks that appear in the "Leaders" section of the leaderboard
 const LEADER_RANKS = ['owner', 'manager', 'jd', 'l1'];
@@ -298,7 +300,8 @@ function doGet(e) {
 
     // Default: return full dashboard data (includes Tableau summary)
     let roster = readRoster(ss);
-    const peopleResult = readPeople(ss, roster);
+    const teamMaps = buildTeamEmojiMaps(ss);
+    const peopleResult = readPeople(ss, roster, teamMaps.nameMap);
     const tableauSummary = getTableauSummaryWithCache(ss);
 
     // Auto-assign Tableau names (managers first, then down the ranks)
@@ -307,7 +310,7 @@ function doGet(e) {
     const data = {
       people: peopleResult.people || peopleResult,
       roster: roster,
-      teamMap: TEAM_EMOJI_MAP,
+      teamMap: teamMaps.emojiMap,
       teams: readTeams(ss),
       orderOverrides: readOrderOverrides(ss),
       teamCustomizations: readTeamCustomizations(ss),
@@ -392,7 +395,7 @@ function readRoster(ss) {
   return result;
 }
 
-function readPeople(ss, roster) {
+function readPeople(ss, roster, teamNameToEmoji) {
   const olSheet = ss.getSheetByName(ORDER_LOG_TAB);
   if (!olSheet) return { people: [], _debug: { error: 'No Order Log sheet' } };
   if (!roster || Object.keys(roster).length === 0) return { people: [], _debug: { error: 'Empty roster' } };
@@ -554,7 +557,7 @@ function readPeople(ss, roster) {
   Object.entries(roster).forEach(([email, info]) => {
     const pa = agg[email];
     const type = LEADER_RANKS.includes(info.rank) ? 'leader' : 'rep';
-    const teamEmoji = TEAM_NAME_TO_EMOJI[info.team] || '';
+    const teamEmoji = (teamNameToEmoji || {})[info.team] || '';
 
     people.push({
       name: info.name,

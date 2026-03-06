@@ -495,7 +495,9 @@ const AdminApp = {
       sheetId: office.sheetId,
       appsScriptUrl: office.appsScriptUrl,
       apiKey: office.apiKey,
-      officeName: office.name
+      officeName: office.name,
+      logoUrl: office.logoUrl || '',
+      logoIconUrl: office.logoIconUrl || ''
     };
 
     const encoded = btoa(JSON.stringify(config));

@@ -118,7 +118,8 @@ const AdminRender = {
       if (admin.role === 'a1' && admin.assignedOffices) {
         scopeInfo = admin.assignedOffices.split(',').length + ' office(s)';
       } else if (admin.role === 'a2' && admin.assignedOwner) {
-        scopeInfo = admin.assignedOwner;
+        const ownerData = AdminApp.state.owners[admin.assignedOwner];
+        scopeInfo = ownerData ? ownerData.name : admin.assignedOwner;
       } else if (admin.role === 'a3') {
         scopeInfo = 'Full access';
       }

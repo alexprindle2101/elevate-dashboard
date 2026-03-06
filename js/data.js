@@ -34,7 +34,8 @@ const DataPipeline = {
           active: !info.deactivated,
           deactivated: info.deactivated || false,
           dateAdded: info.dateAdded || '',
-          phone: info.phone || ''
+          phone: info.phone || '',
+          tableauName: info.tableauName || ''
         };
       });
     }
@@ -821,13 +822,21 @@ const DataPipeline = {
   },
 
   // Enrich person metrics with Tableau rep-level data
-  enrichWithTableau(people, tableauByRep) {
+  enrichWithTableau(people, tableauByRep, tableauByName, roster) {
     if (!tableauByRep || Object.keys(tableauByRep).length === 0) return;
 
     people.forEach(p => {
       const email = p.email;
       if (!email) return;
-      const rep = tableauByRep[email];
+
+      // If the rep has a stored tableauName (from roster picker), use name-keyed lookup
+      const storedName = (roster && roster[email] && roster[email].tableauName) || '';
+      let rep;
+      if (storedName && tableauByName && tableauByName[storedName]) {
+        rep = tableauByName[storedName];
+      } else {
+        rep = tableauByRep[email];
+      }
       if (!rep) return;
 
       const classified = this._classifyStatusCounts(rep.statusCounts);

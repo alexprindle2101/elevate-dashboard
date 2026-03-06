@@ -19,7 +19,9 @@ const App = {
     lastUpdated: null,
     refreshTimer: null,
     tableauDsi: {},      // DSI-keyed Tableau summary
-    tableauByRep: {}     // email-keyed Tableau rep summary
+    tableauByRep: {},    // email-keyed Tableau rep summary
+    tableauByName: {},   // Tableau REP name-keyed summary (for stored name lookups)
+    possibleTableauNames: {}  // email → [Tableau REP names] for picker popup
   },
 
   // Cached API data (used between fetch and login)
@@ -218,15 +220,18 @@ const App = {
     if (apiData.tableauSummary) {
       this.state.tableauDsi = apiData.tableauSummary.dsiSummary || {};
       this.state.tableauByRep = apiData.tableauSummary.repSummary || {};
+      this.state.tableauByName = apiData.tableauSummary.repByName || {};
+      this.state.possibleTableauNames = apiData.tableauSummary.possibleTableauNames || {};
       console.log('[Tableau] DSIs loaded:', Object.keys(this.state.tableauDsi).length);
+      console.log('[Tableau] Possible names:', Object.keys(this.state.possibleTableauNames).length);
       const firstDsi = Object.keys(this.state.tableauDsi)[0];
       if (firstDsi) console.log('[Tableau] Sample DSI:', firstDsi, this.state.tableauDsi[firstDsi]);
     } else {
       console.warn('[Tableau] No tableauSummary in API response. Keys:', Object.keys(apiData));
     }
 
-    // Enrich person and team metrics with Tableau data
-    DataPipeline.enrichWithTableau(this.state.people, this.state.tableauByRep);
+    // Enrich person and team metrics with Tableau data (pass name-keyed + roster for stored name lookups)
+    DataPipeline.enrichWithTableau(this.state.people, this.state.tableauByRep, this.state.tableauByName, this.state.roster);
     DataPipeline.enrichTeamsWithTableau(this.state.teams, this.state.tableauByRep);
 
     // Enrich churn buckets from _TableauChurnReport
@@ -275,6 +280,85 @@ const App = {
       }
     }
     this.updateLastUpdated();
+
+    // Check if current user needs the Tableau name picker popup (one-time)
+    this._checkTableauNamePicker();
+  },
+
+  // ── Tableau Name Picker Popup ──
+  _checkTableauNamePicker() {
+    const email = this.state.currentEmail;
+    if (!email) return;
+
+    // Only show for sales roles (not owner/admin)
+    const salesRoles = ['rep', 'l1', 'jd', 'manager'];
+    if (!salesRoles.includes(this.state.currentRole)) return;
+
+    // Skip if already has a stored tableauName
+    const rosterEntry = this.state.roster[email];
+    if (rosterEntry && rosterEntry.tableauName) return;
+
+    // Check if they have possible Tableau names to pick from
+    const possibleNames = this.state.possibleTableauNames[email];
+    if (!possibleNames || possibleNames.length === 0) return;
+
+    // If only 1 possible name, auto-select it silently
+    if (possibleNames.length === 1) {
+      this._saveTableauName(possibleNames[0]);
+      return;
+    }
+
+    // Multiple names — show the picker popup
+    this._showTableauNamePicker(possibleNames);
+  },
+
+  _showTableauNamePicker(names) {
+    const modal = document.getElementById('tableau-name-modal');
+    if (!modal) return;
+    const list = document.getElementById('tableau-name-list');
+    if (!list) return;
+
+    list.innerHTML = names.map(name => `
+      <button onclick="App._selectTableauName('${name.replace(/'/g, "\\'")}')"
+        style="display:block;width:100%;text-align:left;background:rgba(255,255,255,0.5);border:1px solid rgba(26,92,229,0.2);border-radius:10px;padding:14px 18px;margin-bottom:8px;cursor:pointer;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:15px;font-weight:600;color:var(--white);transition:all 0.15s">
+        ${name}
+      </button>
+    `).join('');
+
+    modal.style.display = 'flex';
+  },
+
+  _selectTableauName(name) {
+    const modal = document.getElementById('tableau-name-modal');
+    if (modal) modal.style.display = 'none';
+    this._saveTableauName(name);
+  },
+
+  async _saveTableauName(name) {
+    const email = this.state.currentEmail;
+    if (!email || !name) return;
+
+    // Update local roster state immediately
+    if (this.state.roster[email]) {
+      this.state.roster[email].tableauName = name;
+    }
+
+    // Re-run enrichment with the new name
+    DataPipeline.enrichWithTableau(this.state.people, this.state.tableauByRep, this.state.tableauByName, this.state.roster);
+    DataPipeline.enrichTeamsWithTableau(this.state.teams, this.state.tableauByRep);
+
+    // Re-render current view if on profile
+    if (this.state.currentNav === 'profile') {
+      this.openPersonProfile(this.state.currentPersona);
+    }
+
+    // Persist to backend
+    try {
+      await SheetsAPI.post(OFFICE_CONFIG, 'setTableauName', { email, tableauName: name });
+      console.log('[Tableau] Saved tableauName:', name, 'for', email);
+    } catch (err) {
+      console.error('[Tableau] Failed to save tableauName:', err);
+    }
   },
 
   // ── Auto-Refresh ──

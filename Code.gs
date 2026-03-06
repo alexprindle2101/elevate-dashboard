@@ -96,7 +96,7 @@ function getOrCreateSheet(name) {
     sheet = ss.insertSheet(name);
     switch (name) {
       case ROSTER_TAB:
-        sheet.appendRow(['email', 'name', 'team', 'rank', 'deactivated', 'dateAdded', 'pinHash', 'phone']);
+        sheet.appendRow(['email', 'name', 'team', 'rank', 'deactivated', 'dateAdded', 'pinHash', 'phone', 'tableauName']);
         break;
       case ORDER_OVERRIDES_TAB:
         sheet.appendRow(['key', 'product', 'status', 'date', 'order', 'notes_json']);
@@ -272,7 +272,8 @@ function readRoster(ss) {
       deactivated: data[i][4] === true || String(data[i][4]).toUpperCase() === 'TRUE',
       dateAdded: data[i][5] || '',
       hasPin: pinVal.length > 0 && pinVal !== 'undefined',
-      phone: String(data[i][7] || '').trim()
+      phone: String(data[i][7] || '').trim(),
+      tableauName: String(data[i][8] || '').trim()
     };
   }
   return result;
@@ -732,17 +733,20 @@ function readTeams(ss) {
 // Build DSI → email map from Order Log (for joining Tableau DSIs to roster emails)
 function buildDsiEmailMap(ss) {
   var olSheet = ss.getSheetByName(ORDER_LOG_TAB);
-  if (!olSheet) return {};
+  if (!olSheet) return { dsiToEmail: {}, emailToDsis: {} };
   var olData = olSheet.getDataRange().getValues();
-  var map = {};
+  var dsiToEmail = {};   // DSI → first email (first-wins)
+  var emailToDsis = {};  // email → { dsi: true, ... } (ALL DSIs per rep)
   for (var i = 1; i < olData.length; i++) {
     var dsi = String(olData[i][OL.DSI] || '').trim();
     var email = String(olData[i][OL.EMAIL] || '').trim().toLowerCase();
     if (dsi && email) {
-      map[dsi] = email;
+      if (!dsiToEmail[dsi]) dsiToEmail[dsi] = email;  // first-wins
+      if (!emailToDsis[email]) emailToDsis[email] = {};
+      emailToDsis[email][dsi] = true;
     }
   }
-  return map;
+  return { dsiToEmail: dsiToEmail, emailToDsis: emailToDsis };
 }
 
 // Read and aggregate _TableauOrderLog by DSI and by rep email
@@ -753,8 +757,10 @@ function readTableauSummary(ss) {
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return { dsiSummary: {}, repSummary: {} };
 
-  // Build DSI → email map for rep aggregation
-  var dsiEmailMap = buildDsiEmailMap(ss);
+  // Build DSI → email map + email → DSIs map for rep aggregation
+  var maps = buildDsiEmailMap(ss);
+  var dsiEmailMap = maps.dsiToEmail;
+  var emailToDsis = maps.emailToDsis;
 
   // Month window cutoff for Active % calc
   var thirtyDaysAgo = new Date();
@@ -895,7 +901,77 @@ function readTableauSummary(ss) {
     delete rs.monthWirelessSPEs;
   });
 
-  return { dsiSummary: dsiSummary, repSummary: repSummary };
+  // Build possibleTableauNames: email → [unique Tableau REP names from their DSIs]
+  var possibleTableauNames = {};
+  Object.keys(emailToDsis).forEach(function(email) {
+    var names = {};
+    Object.keys(emailToDsis[email]).forEach(function(dsi) {
+      if (dsiSummary[dsi] && dsiSummary[dsi].tableauRep) {
+        names[dsiSummary[dsi].tableauRep] = true;
+      }
+    });
+    var nameList = Object.keys(names);
+    if (nameList.length > 0) {
+      possibleTableauNames[email] = nameList;
+    }
+  });
+
+  // Build repByName: Tableau REP name → aggregated summary (for stored tableauName lookups)
+  var repByName = {};
+  Object.keys(dsiSummary).forEach(function(dsi) {
+    var ds = dsiSummary[dsi];
+    var name = ds.tableauRep;
+    if (!name) return;
+
+    if (!repByName[name]) {
+      repByName[name] = {
+        totalDevices: 0, totalActivations: 0, totalVolume: 0,
+        statusCounts: {}, productCounts: {}, tableauName: name,
+        monthWirelessSPEs: {}
+      };
+    }
+
+    var rn = repByName[name];
+    rn.totalDevices += ds.totalDevices;
+    rn.totalActivations += ds.totalActivations;
+    rn.totalVolume += ds.totalVolume;
+
+    Object.keys(ds.statusCounts).forEach(function(st) {
+      rn.statusCounts[st] = (rn.statusCounts[st] || 0) + ds.statusCounts[st];
+    });
+    Object.keys(ds.productCounts).forEach(function(pt) {
+      rn.productCounts[pt] = (rn.productCounts[pt] || 0) + ds.productCounts[pt];
+    });
+    Object.keys(ds.monthWirelessSPEs).forEach(function(spe) {
+      rn.monthWirelessSPEs[spe] = ds.monthWirelessSPEs[spe];
+    });
+  });
+
+  // Convert monthWirelessSPEs to counts for repByName
+  Object.keys(repByName).forEach(function(name) {
+    var rn = repByName[name];
+    var spes = Object.keys(rn.monthWirelessSPEs);
+    rn.monthTotalSPEs = spes.length;
+    rn.monthApprovedSPEs = 0;
+    rn.monthPendingSPEs = 0;
+    rn.monthCanceledSPEs = 0;
+    rn.monthDiscoSPEs = 0;
+    spes.forEach(function(spe) {
+      var info = rn.monthWirelessSPEs[spe];
+      if (info.orderStatus === 'approved') rn.monthApprovedSPEs++;
+      else if (info.orderStatus === 'pending') rn.monthPendingSPEs++;
+      else if (info.orderStatus === 'canceled' || info.orderStatus === 'cancelled') rn.monthCanceledSPEs++;
+      if (info.dtrStatus === 'Disconnected') rn.monthDiscoSPEs++;
+    });
+    delete rn.monthWirelessSPEs;
+  });
+
+  return {
+    dsiSummary: dsiSummary,
+    repSummary: repSummary,
+    repByName: repByName,
+    possibleTableauNames: possibleTableauNames
+  };
 }
 
 // Lazy-load per-device detail rows for a single DSI
@@ -970,6 +1046,7 @@ function doPost(e) {
       // Roster management (JD+ only — enforced client-side)
       case 'addRosterEntry':      result = writeAddRosterEntry(body); break;
       case 'updateRosterEntry':   result = writeUpdateRosterEntry(body); break;
+      case 'setTableauName':      result = writeSetTableauName(body); break;
       case 'deleteRosterEntry':   result = writeDeleteRosterEntry(body); break;
       case 'toggleDeactivate':    result = writeToggleDeactivate(body); break;
       // Existing actions
@@ -1021,7 +1098,8 @@ function writeAddRosterEntry(body) {
     false,
     new Date().toISOString().split('T')[0],
     '',  // pinHash — empty until first login
-    body.phone || ''  // phone
+    body.phone || '',  // phone
+    ''   // tableauName — empty until rep picks from popup
   ]);
   return { ok: true };
 }
@@ -1041,7 +1119,7 @@ function writeUpdateRosterEntry(body) {
     if (conflict > 0) return { error: 'new email already exists in roster' };
   }
 
-  const cur = sheet.getRange(rowIdx, 1, 1, 8).getValues()[0];
+  const cur = sheet.getRange(rowIdx, 1, 1, 9).getValues()[0];
   const rowData = [
     newEmail || email,
     body.name !== undefined ? body.name : cur[1],
@@ -1050,9 +1128,10 @@ function writeUpdateRosterEntry(body) {
     body.deactivated !== undefined ? body.deactivated : cur[4],
     cur[5], // preserve dateAdded
     cur[6], // preserve pinHash
-    body.phone !== undefined ? body.phone : (cur[7] || '')  // phone
+    body.phone !== undefined ? body.phone : (cur[7] || ''),  // phone
+    body.tableauName !== undefined ? body.tableauName : (cur[8] || '')  // tableauName
   ];
-  sheet.getRange(rowIdx, 1, 1, 8).setValues([rowData]);
+  sheet.getRange(rowIdx, 1, 1, 9).setValues([rowData]);
   return { ok: true };
 }
 
@@ -1075,6 +1154,22 @@ function writeToggleDeactivate(body) {
   if (rowIdx > 0) {
     sheet.getRange(rowIdx, 5).setValue(body.deactivated === true || body.deactivated === 'true');
   }
+  return { ok: true };
+}
+
+
+function writeSetTableauName(body) {
+  const sheet = getOrCreateSheet(ROSTER_TAB);
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!email) return { error: 'missing email' };
+  const tableauName = String(body.tableauName || '').trim();
+  if (!tableauName) return { error: 'missing tableauName' };
+
+  const rowIdx = findRowCI(sheet, 0, email);
+  if (rowIdx < 0) return { error: 'email not found' };
+
+  // Column 9 = tableauName (1-based index)
+  sheet.getRange(rowIdx, 9).setValue(tableauName);
   return { ok: true };
 }
 

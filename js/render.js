@@ -308,6 +308,12 @@ const Render = {
     const curNav = App.state.currentNav;
     const tabs = [];
 
+    // ── POST SALE (pinned left) ──
+    if (isSA || ['rep','l1','jd','manager','owner'].includes(role)) {
+      tabs.push({ label: '+ Post Sale', action: "App.navTo('postSale')", active: curNav === 'postSale' });
+      tabs.push({ separator: true });
+    }
+
     // ── PERSONAL GROUP ──
     tabs.push({ label: 'My Profile', action: "App.navTo('profile')", active: curNav === 'profile' });
     if (isSA || ['rep','l1','jd','manager','owner'].includes(role))

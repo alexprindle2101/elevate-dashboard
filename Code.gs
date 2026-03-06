@@ -293,20 +293,6 @@ function doGet(e) {
     // Auto-assign Tableau names (managers first, then down the ranks)
     roster = autoAssignTableauNames(ss, roster, tableauSummary.possibleTableauNames);
 
-    // Debug: dump actual Tableau headers so we can fix the column map
-    var _masonDebug = {};
-    var _tolSheet = ss.getSheetByName(TABLEAU_TAB);
-    if (_tolSheet) {
-      var _tolData = _tolSheet.getDataRange().getValues();
-      _masonDebug.tableauHeaders = _tolData.length > 0 ? _tolData[0].map(function(h) { return String(h || '').trim(); }) : [];
-      _masonDebug.tableauRowCount = _tolData.length - 1;
-      _masonDebug.columnMap = buildTableauColumnMap(_tolData[0]);
-    } else {
-      _masonDebug.tableauHeaders = 'SHEET_NOT_FOUND';
-    }
-    _masonDebug.dsiCount = Object.keys(tableauSummary.dsiSummary || {}).length;
-    _masonDebug.repByNameKeys = Object.keys(tableauSummary.repByName || {}).slice(0, 20);
-
     const data = {
       people: peopleResult.people || peopleResult,
       roster: roster,
@@ -317,8 +303,7 @@ function doGet(e) {
       unlockRequests: readUnlockRequests(ss),
       settings: readSettings(ss),
       tableauSummary: tableauSummary,
-      churnReport: readChurnReport(ss),
-      _debug: _masonDebug
+      churnReport: readChurnReport(ss)
     };
     return jsonResponse(data);
   } catch (err) {

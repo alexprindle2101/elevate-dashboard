@@ -8,10 +8,11 @@ const AdminRender = {
   // OFFICES PAGE
   // ═══════════════════════════════════════════════════════
 
-  renderOffices(offices) {
+  renderOffices(offices, role) {
     const grid = document.getElementById('offices-grid');
     if (!grid) return;
 
+    const isA3 = role === 'a3';
     let html = '';
 
     // Office cards
@@ -49,21 +50,23 @@ const AdminRender = {
             </div>
           </div>
           <div class="office-card-actions" onclick="event.stopPropagation()">
-            <button class="btn btn-secondary btn-sm" onclick="AdminApp.showEditOfficeModal('${office.officeId}')">Edit</button>
+            ${isA3 ? `<button class="btn btn-secondary btn-sm" onclick="AdminApp.showEditOfficeModal('${office.officeId}')">Edit</button>` : ''}
             <button class="btn btn-secondary btn-sm" onclick="AdminApp.openOffice('${office.officeId}')">Open Dashboard</button>
-            <button class="btn btn-danger btn-sm" onclick="AdminApp.deleteOffice('${office.officeId}')">Delete</button>
+            ${isA3 ? `<button class="btn btn-danger btn-sm" onclick="AdminApp.deleteOffice('${office.officeId}')">Delete</button>` : ''}
           </div>
         </div>
       `;
     });
 
-    // Add Office card (dashed)
-    html += `
-      <div class="add-card" onclick="AdminApp.showAddOfficeModal()">
-        <span class="icon">+</span>
-        <span class="label">Add Office</span>
-      </div>
-    `;
+    // Add Office card — a3 only
+    if (isA3) {
+      html += `
+        <div class="add-card" onclick="AdminApp.showAddOfficeModal()">
+          <span class="icon">+</span>
+          <span class="label">Add Office</span>
+        </div>
+      `;
+    }
 
     grid.innerHTML = html;
   },
@@ -73,9 +76,13 @@ const AdminRender = {
   // PEOPLE PAGE
   // ═══════════════════════════════════════════════════════
 
-  renderPeople(adminRoster) {
+  renderPeople(adminRoster, role, currentEmail) {
     const wrap = document.getElementById('people-table-wrap');
     if (!wrap) return;
+
+    // Update page header — hide Add Admin button for a1
+    const addBtn = document.querySelector('#page-people .page-header .btn-primary');
+    if (addBtn) addBtn.style.display = (role === 'a1') ? 'none' : '';
 
     const admins = Object.values(adminRoster);
 
@@ -90,17 +97,38 @@ const AdminRender = {
       return;
     }
 
+    const isA1 = role === 'a1';
+    const isA2 = role === 'a2';
+    const isA3 = role === 'a3';
+
     let rows = '';
     admins.forEach(admin => {
       const statusClass = admin.deactivated ? 'inactive' : 'active';
       const statusLabel = admin.deactivated ? 'Deactivated' : 'Active';
-      const roleLabel = admin.role === 'superadmin' ? 'Super Admin' : admin.role;
+
+      // Map role code to label
+      const roleCfg = ADMIN_CONFIG.adminRoles[admin.role];
+      const roleLabel = roleCfg ? roleCfg.label : (admin.role === 'superadmin' ? 'Super Admin' : admin.role);
+
+      // Determine if current user can manage this admin
+      const canManage = isA3 || (isA2 && admin.managedBy === currentEmail);
+
+      // Scope info columns for a2/a3
+      let scopeInfo = '—';
+      if (admin.role === 'a1' && admin.assignedOffices) {
+        scopeInfo = admin.assignedOffices.split(',').length + ' office(s)';
+      } else if (admin.role === 'a2' && admin.assignedOwner) {
+        scopeInfo = admin.assignedOwner;
+      } else if (admin.role === 'a3') {
+        scopeInfo = 'Full access';
+      }
 
       rows += `
         <tr>
           <td><strong>${this._esc(admin.name || '—')}</strong></td>
           <td>${this._esc(admin.email)}</td>
           <td>${this._esc(roleLabel)}</td>
+          <td>${this._esc(scopeInfo)}</td>
           <td>
             <span class="status-badge ${statusClass}">
               <span class="dot"></span> ${statusLabel}
@@ -108,13 +136,17 @@ const AdminRender = {
           </td>
           <td>${admin.hasPinSet ? 'Yes' : 'No'}</td>
           <td>${this._formatDate(admin.dateAdded)}</td>
+          ${isA1 ? '' : `
           <td>
-            <button class="btn btn-secondary btn-sm" onclick="AdminApp.showEditAdminModal('${this._esc(admin.email)}')">Edit</button>
-            <button class="btn btn-sm ${admin.deactivated ? 'btn-primary' : 'btn-danger'}"
-                    onclick="AdminApp.toggleAdminDeactivated('${this._esc(admin.email)}')">
-              ${admin.deactivated ? 'Reactivate' : 'Deactivate'}
-            </button>
+            ${canManage ? `
+              <button class="btn btn-secondary btn-sm" onclick="AdminApp.showEditAdminModal('${this._esc(admin.email)}')">Edit</button>
+              <button class="btn btn-sm ${admin.deactivated ? 'btn-primary' : 'btn-danger'}"
+                      onclick="AdminApp.toggleAdminDeactivated('${this._esc(admin.email)}')">
+                ${admin.deactivated ? 'Reactivate' : 'Deactivate'}
+              </button>
+            ` : ''}
           </td>
+          `}
         </tr>
       `;
     });
@@ -126,10 +158,11 @@ const AdminRender = {
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
+            <th>Scope</th>
             <th>Status</th>
             <th>PIN Set</th>
             <th>Added</th>
-            <th>Actions</th>
+            ${isA1 ? '' : '<th>Actions</th>'}
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -219,14 +252,20 @@ const AdminRender = {
 
 
   // ═══════════════════════════════════════════════════════
-  // ADMIN MODAL
+  // ADMIN MODAL — expanded with role-based fields
   // ═══════════════════════════════════════════════════════
 
-  populateAdminModal(admin) {
+  populateAdminModal(admin, options) {
+    options = options || { availableRoles: ['a3'], availableOwners: [], availableOffices: [] };
+
     const title = document.getElementById('admin-modal-title');
     const emailInput = document.getElementById('admin-email');
     const nameInput = document.getElementById('admin-name');
     const roleSelect = document.getElementById('admin-role');
+    const ownerGroup = document.getElementById('admin-assigned-owner-group');
+    const ownerSelect = document.getElementById('admin-assigned-owner');
+    const officesGroup = document.getElementById('admin-assigned-offices-group');
+    const officesList = document.getElementById('admin-assigned-offices-list');
     const error = document.getElementById('admin-modal-error');
 
     if (title) title.textContent = admin ? 'Edit Admin' : 'Add Admin';
@@ -238,7 +277,78 @@ const AdminRender = {
       emailInput.disabled = !!admin;
     }
     if (nameInput) nameInput.value = admin ? admin.name : '';
-    if (roleSelect) roleSelect.value = admin ? admin.role : 'superadmin';
+
+    // Populate role dropdown with available roles
+    if (roleSelect) {
+      roleSelect.innerHTML = '';
+      (options.availableRoles || []).forEach(roleKey => {
+        const roleCfg = ADMIN_CONFIG.adminRoles[roleKey];
+        const opt = document.createElement('option');
+        opt.value = roleKey;
+        opt.textContent = roleCfg ? roleCfg.label : roleKey;
+        if (admin && admin.role === roleKey) opt.selected = true;
+        roleSelect.appendChild(opt);
+      });
+
+      // Default to a1 for new admins
+      if (!admin && roleSelect.options.length > 0) {
+        roleSelect.value = 'a1';
+      }
+
+      // Wire up role change to toggle conditional fields
+      const newSelect = roleSelect.cloneNode(true);
+      roleSelect.parentNode.replaceChild(newSelect, roleSelect);
+      newSelect.addEventListener('change', () => this._toggleAdminRoleFields(newSelect.value));
+
+      // Set initial value for existing admin
+      if (admin) newSelect.value = admin.role || 'a1';
+    }
+
+    // Populate assigned owner dropdown
+    if (ownerSelect) {
+      ownerSelect.innerHTML = '<option value="">(Select owner organization)</option>';
+      (options.availableOwners || []).forEach(owner => {
+        const opt = document.createElement('option');
+        opt.value = owner.email;
+        opt.textContent = `${owner.name || owner.email} (${this._ownerLevelLabel(owner.level)})`;
+        if (admin && admin.assignedOwner === owner.email) opt.selected = true;
+        ownerSelect.appendChild(opt);
+      });
+    }
+
+    // Populate assigned offices checkbox list
+    if (officesList) {
+      officesList.innerHTML = '';
+      const assignedSet = new Set((admin && admin.assignedOffices) ? admin.assignedOffices.split(',') : []);
+
+      (options.availableOffices || []).forEach(office => {
+        const checked = assignedSet.has(office.officeId) ? 'checked' : '';
+        officesList.innerHTML += `
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer">
+            <input type="checkbox" value="${this._esc(office.officeId)}" ${checked}
+                   style="width:16px;height:16px;accent-color:var(--teal)">
+            <span>${this._esc(office.name)}</span>
+          </label>
+        `;
+      });
+
+      if ((options.availableOffices || []).length === 0) {
+        officesList.innerHTML = '<div style="color:var(--gray-400);font-size:13px;padding:8px 0">No active offices available</div>';
+      }
+    }
+
+    // Toggle conditional fields based on current role
+    const currentRole = admin ? admin.role : 'a1';
+    this._toggleAdminRoleFields(currentRole);
+  },
+
+  _toggleAdminRoleFields(role) {
+    const ownerGroup = document.getElementById('admin-assigned-owner-group');
+    const officesGroup = document.getElementById('admin-assigned-offices-group');
+
+    // Show assignedOwner for a2, assignedOffices for a1, hide both for a3
+    if (ownerGroup) ownerGroup.style.display = (role === 'a2') ? 'block' : 'none';
+    if (officesGroup) officesGroup.style.display = (role === 'a1') ? 'block' : 'none';
   },
 
 
@@ -246,10 +356,16 @@ const AdminRender = {
   // OWNERS PAGE
   // ═══════════════════════════════════════════════════════
 
-  renderOwners(rootNodes, totalCount) {
+  renderOwners(rootNodes, totalCount, role) {
     const wrap = document.getElementById('owners-tree-wrap');
     const countEl = document.getElementById('owners-count');
     if (!wrap) return;
+
+    const isA3 = role === 'a3';
+
+    // Update page header — hide Add Owner button for non-a3
+    const addBtn = document.querySelector('#page-owners .page-header .btn-primary');
+    if (addBtn) addBtn.style.display = isA3 ? '' : 'none';
 
     if (countEl) countEl.textContent = totalCount + ' owner' + (totalCount !== 1 ? 's' : '');
 
@@ -293,6 +409,7 @@ const AdminRender = {
               <span class="dot"></span> ${statusLabel}
             </span>
           </td>
+          ${isA3 ? `
           <td>
             <button class="btn btn-secondary btn-sm" onclick="AdminApp.showEditOwnerModal('${this._esc(node.email)}')">Edit</button>
             <button class="btn btn-sm ${node.deactivated ? 'btn-primary' : 'btn-danger'}"
@@ -301,6 +418,7 @@ const AdminRender = {
             </button>
             <button class="btn btn-danger btn-sm" onclick="AdminApp.deleteOwner('${this._esc(node.email)}')">Delete</button>
           </td>
+          ` : '<td></td>'}
         </tr>
       `;
 

@@ -247,8 +247,24 @@
     <div class="form-group">
       <label for="admin-role">Role</label>
       <select id="admin-role">
-        <option value="superadmin">Super Admin</option>
+        <!-- Populated dynamically by populateAdminModal -->
       </select>
+    </div>
+
+    <div id="admin-assigned-owner-group" class="form-group" style="display:none">
+      <label for="admin-assigned-owner">Assigned Owner Organization</label>
+      <select id="admin-assigned-owner">
+        <!-- Populated dynamically -->
+      </select>
+      <div class="hint">This Org Admin will manage offices under the selected owner and their downline.</div>
+    </div>
+
+    <div id="admin-assigned-offices-group" class="form-group" style="display:none">
+      <label>Assigned Offices</label>
+      <div id="admin-assigned-offices-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:var(--radius);padding:8px 12px">
+        <!-- Populated dynamically with checkboxes -->
+      </div>
+      <div class="hint">Select the offices this Admin can access.</div>
     </div>
 
     <div id="admin-modal-error" class="login-error" style="text-align:left"></div>

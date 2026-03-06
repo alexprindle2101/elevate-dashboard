@@ -39,6 +39,32 @@ const App = {
   async initProduction() {
     Auth.showLoading('Checking session...');
 
+    // ── SSO from Admin Portal ──
+    // If adminAuth token is present and valid, create session automatically
+    if (OFFICE_CONFIG._adminAuth) {
+      const session = Auth.createAdminSSOSession(OFFICE_CONFIG._adminAuth);
+      this.state.currentRole = session.role;
+      this.state.realRole = session.role;
+      this.state.currentPersona = session.name;
+      this.state.currentEmail = session.email;
+      // SSO admins land on leaderboard (they won't be in the office roster/people)
+      this.state.currentNav = 'leaderboard';
+
+      // Strip adminAuth param from URL to prevent token replay
+      const url = new URL(window.location);
+      url.searchParams.delete('adminAuth');
+      history.replaceState(null, '', url.toString());
+
+      // Clear the token from config after consuming
+      delete OFFICE_CONFIG._adminAuth;
+
+      await this.loadData();
+      if (this.state.realRole === 'superadmin') {
+        this._applySuperAdminViewAs();
+      }
+      return;
+    }
+
     // Check existing session
     const session = Auth.getSession();
     if (session) {
@@ -251,9 +277,16 @@ const App = {
     if (lbSection && ['leaderboard', 'profile', 'team'].includes(this.state.currentNav)) {
       lbSection.style.display = '';
     }
-    // Land on My Profile by default
+    // Land on My Profile by default (but SSO admins may not be in people array)
     if (this.state.currentNav === 'profile') {
-      this.openPersonProfile(this.state.currentPersona);
+      const isInRoster = this.state.people.some(p => p.name === this.state.currentPersona);
+      if (isInRoster) {
+        this.openPersonProfile(this.state.currentPersona);
+      } else {
+        // SSO admin not in this office's roster — redirect to leaderboard
+        this.state.currentNav = 'leaderboard';
+        this.navTo('leaderboard');
+      }
     }
     // Re-render roster page if it's currently visible
     if (this.state.currentNav === 'roster') {
@@ -1695,8 +1728,16 @@ const App = {
     if (!OFFICE_CONFIG.adminApiUrl || !OFFICE_CONFIG.adminApiKey) { console.log('[OfficeSwitcher] Skipped — no adminApiUrl/Key'); return; }
 
     try {
-      const url = `${OFFICE_CONFIG.adminApiUrl}?key=${encodeURIComponent(OFFICE_CONFIG.adminApiKey)}&action=listOfficesBasic`;
-      console.log('[OfficeSwitcher] Fetching offices...');
+      // Use scoped endpoint for SSO admins (filters by role + assigned offices/owner)
+      const session = Auth.getSession();
+      const isSSO = session && session.source === 'admin-portal';
+      let url;
+      if (isSSO) {
+        url = `${OFFICE_CONFIG.adminApiUrl}?key=${encodeURIComponent(OFFICE_CONFIG.adminApiKey)}&action=listOfficesBasicScoped&email=${encodeURIComponent(this.state.currentEmail)}`;
+      } else {
+        url = `${OFFICE_CONFIG.adminApiUrl}?key=${encodeURIComponent(OFFICE_CONFIG.adminApiKey)}&action=listOfficesBasic`;
+      }
+      console.log('[OfficeSwitcher] Fetching offices...' + (isSSO ? ' (scoped)' : ''));
       const resp = await fetch(url);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
@@ -1791,9 +1832,26 @@ const App = {
     };
 
     const encoded = btoa(JSON.stringify(config));
+    let url = 'index.html?office=' + encoded;
+
+    // If SSO session, regenerate adminAuth token with fresh timestamp
+    const session = Auth.getSession();
+    if (session && session.source === 'admin-portal') {
+      const adminAuth = {
+        email: session.email,
+        name: session.name,
+        role: session.adminRole || 'a3',
+        source: 'admin-portal',
+        timestamp: Date.now(),
+        assignedOffices: session.assignedOffices || '',
+        assignedOwner: session.assignedOwner || ''
+      };
+      url += '&adminAuth=' + btoa(JSON.stringify(adminAuth));
+    }
+
     // Keep session — same email works across offices.
     // If email isn't in the new roster, login screen shows automatically.
-    window.location.href = 'index.html?office=' + encoded;
+    window.location.href = url;
   },
 
   // Manual refresh

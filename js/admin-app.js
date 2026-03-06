@@ -9,6 +9,9 @@ const AdminApp = {
     currentPage: 'offices',
     currentEmail: '',
     currentName: '',
+    currentRole: 'a3',
+    assignedOwner: '',
+    assignedOffices: '',
     owners: {},
     editingOfficeId: null,  // null = add mode, string = edit mode
     editingAdminEmail: null,
@@ -25,6 +28,7 @@ const AdminApp = {
     if (session) {
       this.state.currentEmail = session.email;
       this.state.currentName = session.name;
+      this.state.currentRole = session.role || 'a3';
       await this.loadData();
       return;
     }
@@ -300,6 +304,7 @@ const AdminApp = {
     this.saveSession(this._loginEmail, this._loginName, this._loginRole);
     this.state.currentEmail = this._loginEmail;
     this.state.currentName = this._loginName;
+    this.state.currentRole = this._loginRole || 'a3';
 
     const loginScreen = document.getElementById('login-screen');
     if (loginScreen) loginScreen.style.display = 'none';
@@ -311,6 +316,9 @@ const AdminApp = {
     localStorage.removeItem(ADMIN_CONFIG.sessionKey);
     this.state.currentEmail = '';
     this.state.currentName = '';
+    this.state.currentRole = 'a3';
+    this.state.assignedOwner = '';
+    this.state.assignedOffices = '';
     this.state.adminRoster = {};
     this.state.offices = [];
     this.state.owners = {};
@@ -327,7 +335,8 @@ const AdminApp = {
     this.showLoading('Loading admin data...');
 
     try {
-      const url = `${ADMIN_CONFIG.appsScriptUrl}?key=${encodeURIComponent(ADMIN_CONFIG.apiKey)}`;
+      // Use readScoped endpoint — returns role-filtered data based on email
+      const url = `${ADMIN_CONFIG.appsScriptUrl}?key=${encodeURIComponent(ADMIN_CONFIG.apiKey)}&action=readScoped&email=${encodeURIComponent(this.state.currentEmail)}`;
       const resp = await fetch(url);
       const data = await resp.json();
 
@@ -340,6 +349,15 @@ const AdminApp = {
       this.state.adminRoster = data.adminRoster || {};
       this.state.offices = data.offices || [];
       this.state.owners = data.owners || {};
+
+      // Update role + scope from server response (authoritative)
+      if (data.role) {
+        this.state.currentRole = data.role;
+        // Update session with server-confirmed role
+        this.saveSession(this.state.currentEmail, this.state.currentName, data.role);
+      }
+      if (data.assignedOwner !== undefined) this.state.assignedOwner = data.assignedOwner;
+      if (data.assignedOffices !== undefined) this.state.assignedOffices = data.assignedOffices;
 
       this.hideLoading();
       this.showDashboard();
@@ -367,14 +385,74 @@ const AdminApp = {
     const dashboard = document.getElementById('admin-dashboard');
     if (dashboard) dashboard.style.display = 'flex';
 
-    // Update sidebar user info
+    // Update sidebar user info with role label
     const nameEl = document.getElementById('sidebar-user-name');
     const roleEl = document.getElementById('sidebar-user-role');
     if (nameEl) nameEl.textContent = this.state.currentName || this.state.currentEmail;
-    if (roleEl) roleEl.textContent = 'Super Admin';
+
+    const roleCfg = ADMIN_CONFIG.adminRoles[this.state.currentRole];
+    if (roleEl) roleEl.textContent = roleCfg ? roleCfg.label : 'Admin';
+
+    // Apply RBAC sidebar visibility
+    this._applyRBACSidebar();
 
     // Render current page
     this.navTo(this.state.currentPage);
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // RBAC — Sidebar Visibility & Helpers
+  // ═══════════════════════════════════════════════════════
+
+  _applyRBACSidebar() {
+    const role = this.state.currentRole;
+    const links = {
+      offices: document.querySelector('.sidebar-link[data-page="offices"]'),
+      owners: document.querySelector('.sidebar-link[data-page="owners"]'),
+      people: document.querySelector('.sidebar-link[data-page="people"]'),
+      settings: document.querySelector('.sidebar-link[data-page="settings"]')
+    };
+
+    // a1: Offices + People only
+    // a2: Offices + Owners + People
+    // a3: All 4 tabs
+    if (links.owners) links.owners.style.display = (role === 'a1') ? 'none' : '';
+    if (links.settings) links.settings.style.display = (role === 'a3') ? '' : 'none';
+  },
+
+  _roleRank() {
+    const cfg = ADMIN_CONFIG.adminRoles[this.state.currentRole];
+    return cfg ? cfg.rank : 0;
+  },
+
+  _canManageAdmin(email) {
+    const role = this.state.currentRole;
+    if (role === 'a3') return true;
+    if (role === 'a2') {
+      const admin = this.state.adminRoster[email];
+      return admin && admin.managedBy === this.state.currentEmail;
+    }
+    return false;
+  },
+
+  _getAdminModalOptions() {
+    const role = this.state.currentRole;
+
+    // Available roles the current user can assign
+    let availableRoles = [];
+    if (role === 'a3') {
+      availableRoles = ['a1', 'a2', 'a3'];
+    } else if (role === 'a2') {
+      availableRoles = ['a1', 'a2'];
+    }
+
+    // Available owners for assignedOwner dropdown (active only)
+    const availableOwners = Object.values(this.state.owners).filter(o => !o.deactivated);
+
+    // Available offices for assignedOffices checkboxes (active only)
+    const availableOffices = this.state.offices.filter(o => o.status === 'active');
+
+    return { availableRoles, availableOwners, availableOffices };
   },
 
   // ═══════════════════════════════════════════════════════
@@ -382,6 +460,12 @@ const AdminApp = {
   // ═══════════════════════════════════════════════════════
 
   navTo(page) {
+    const role = this.state.currentRole;
+
+    // RBAC guards — redirect to allowed page if unauthorized
+    if (page === 'owners' && role === 'a1') page = 'offices';
+    if (page === 'settings' && role !== 'a3') page = 'offices';
+
     this.state.currentPage = page;
 
     // Update sidebar active state
@@ -395,16 +479,16 @@ const AdminApp = {
       if (el) el.style.display = (p === page) ? 'block' : 'none';
     });
 
-    // Render page content
+    // Render page content — pass role for conditional rendering
     switch (page) {
       case 'offices':
-        AdminRender.renderOffices(this.state.offices);
+        AdminRender.renderOffices(this.state.offices, role);
         break;
       case 'owners':
-        AdminRender.renderOwners(this.buildOwnerTree(), Object.keys(this.state.owners).length);
+        AdminRender.renderOwners(this.buildOwnerTree(), Object.keys(this.state.owners).length, role);
         break;
       case 'people':
-        AdminRender.renderPeople(this.state.adminRoster);
+        AdminRender.renderPeople(this.state.adminRoster, role, this.state.currentEmail);
         break;
       case 'settings':
         AdminRender.renderSettings(this.state.offices, this.state.adminRoster);
@@ -413,16 +497,18 @@ const AdminApp = {
   },
 
   // ═══════════════════════════════════════════════════════
-  // OFFICE CRUD
+  // OFFICE CRUD — a3 only for add/edit/delete
   // ═══════════════════════════════════════════════════════
 
   showAddOfficeModal() {
+    if (this.state.currentRole !== 'a3') return;
     this.state.editingOfficeId = null;
     AdminRender.populateOfficeModal(null);
     document.getElementById('office-modal')?.classList.add('open');
   },
 
   showEditOfficeModal(officeId) {
+    if (this.state.currentRole !== 'a3') return;
     this.state.editingOfficeId = officeId;
     const office = this.state.offices.find(o => o.officeId === officeId);
     AdminRender.populateOfficeModal(office);
@@ -436,6 +522,8 @@ const AdminApp = {
   },
 
   async saveOffice() {
+    if (this.state.currentRole !== 'a3') return;
+
     const name = document.getElementById('office-name')?.value?.trim();
     const templateType = document.getElementById('office-template')?.value;
     const sheetId = document.getElementById('office-sheet-id')?.value?.trim();
@@ -474,6 +562,8 @@ const AdminApp = {
   },
 
   async deleteOffice(officeId) {
+    if (this.state.currentRole !== 'a3') return;
+
     const office = this.state.offices.find(o => o.officeId === officeId);
     if (!office) return;
     if (!confirm(`Delete office "${office.name}"? This cannot be undone.`)) return;
@@ -501,24 +591,39 @@ const AdminApp = {
     };
 
     const encoded = btoa(JSON.stringify(config));
-    const url = template.file + '?office=' + encoded;
+
+    // Build SSO adminAuth token
+    const adminAuth = {
+      email: this.state.currentEmail,
+      name: this.state.currentName,
+      role: this.state.currentRole,
+      source: 'admin-portal',
+      timestamp: Date.now(),
+      assignedOffices: this.state.assignedOffices,
+      assignedOwner: this.state.assignedOwner
+    };
+    const authEncoded = btoa(JSON.stringify(adminAuth));
+
+    const url = template.file + '?office=' + encoded + '&adminAuth=' + authEncoded;
     window.open(url, '_blank');
   },
 
   // ═══════════════════════════════════════════════════════
-  // ADMIN USER CRUD
+  // ADMIN USER CRUD — a2 (managed) and a3 (all)
   // ═══════════════════════════════════════════════════════
 
   showAddAdminModal() {
+    if (this._roleRank() < 2) return; // a2 and a3 only
     this.state.editingAdminEmail = null;
-    AdminRender.populateAdminModal(null);
+    AdminRender.populateAdminModal(null, this._getAdminModalOptions());
     document.getElementById('admin-modal')?.classList.add('open');
   },
 
   showEditAdminModal(email) {
+    if (!this._canManageAdmin(email)) return;
     this.state.editingAdminEmail = email;
     const admin = this.state.adminRoster[email];
-    AdminRender.populateAdminModal(admin);
+    AdminRender.populateAdminModal(admin, this._getAdminModalOptions());
     document.getElementById('admin-modal')?.classList.add('open');
   },
 
@@ -529,6 +634,8 @@ const AdminApp = {
   },
 
   async saveAdmin() {
+    if (this._roleRank() < 2) return;
+
     const email = document.getElementById('admin-email')?.value?.trim()?.toLowerCase();
     const name = document.getElementById('admin-name')?.value?.trim();
     const role = document.getElementById('admin-role')?.value;
@@ -537,14 +644,25 @@ const AdminApp = {
     if (!email || !email.includes('@')) { if (error) error.textContent = 'Valid email required'; return; }
     if (!name) { if (error) error.textContent = 'Name is required'; return; }
 
+    // Collect new fields
+    const assignedOwner = document.getElementById('admin-assigned-owner')?.value || '';
+
+    // Collect assigned offices from checkboxes
+    const officeCheckboxes = document.querySelectorAll('#admin-assigned-offices-list input[type="checkbox"]:checked');
+    const assignedOffices = Array.from(officeCheckboxes).map(cb => cb.value).join(',');
+
     const saveBtn = document.getElementById('admin-modal-save');
     if (saveBtn) { saveBtn.textContent = 'Saving...'; saveBtn.disabled = true; }
 
     try {
+      const payload = { email, name, role, assignedOwner, assignedOffices };
+
       if (this.state.editingAdminEmail) {
-        await this._post('updateAdmin', { email, name, role });
+        await this._post('updateAdmin', payload);
       } else {
-        await this._post('addAdmin', { email, name, role });
+        // Auto-set managedBy to current user on create
+        payload.managedBy = this.state.currentEmail;
+        await this._post('addAdmin', payload);
       }
 
       this.closeAdminModal();
@@ -557,6 +675,8 @@ const AdminApp = {
   },
 
   async toggleAdminDeactivated(email) {
+    if (!this._canManageAdmin(email)) return;
+
     const admin = this.state.adminRoster[email];
     if (!admin) return;
     const newState = !admin.deactivated;
@@ -628,16 +748,18 @@ const AdminApp = {
   },
 
   // ═══════════════════════════════════════════════════════
-  // OWNER CRUD
+  // OWNER CRUD — a3 only
   // ═══════════════════════════════════════════════════════
 
   showAddOwnerModal() {
+    if (this.state.currentRole !== 'a3') return;
     this.state.editingOwnerEmail = null;
     AdminRender.populateOwnerModal(null, this.getAvailableUplines(null));
     document.getElementById('owner-modal')?.classList.add('open');
   },
 
   showEditOwnerModal(email) {
+    if (this.state.currentRole !== 'a3') return;
     this.state.editingOwnerEmail = email;
     const owner = this.state.owners[email];
     AdminRender.populateOwnerModal(owner, this.getAvailableUplines(email));
@@ -651,6 +773,8 @@ const AdminApp = {
   },
 
   async saveOwner() {
+    if (this.state.currentRole !== 'a3') return;
+
     const email = document.getElementById('owner-email')?.value?.trim()?.toLowerCase();
     const name = document.getElementById('owner-name')?.value?.trim();
     const level = document.getElementById('owner-level')?.value;
@@ -681,6 +805,8 @@ const AdminApp = {
   },
 
   async deleteOwner(email) {
+    if (this.state.currentRole !== 'a3') return;
+
     const owner = this.state.owners[email];
     if (!owner) return;
 
@@ -703,6 +829,8 @@ const AdminApp = {
   },
 
   async toggleOwnerDeactivated(email) {
+    if (this.state.currentRole !== 'a3') return;
+
     const owner = this.state.owners[email];
     if (!owner) return;
     const newState = !owner.deactivated;

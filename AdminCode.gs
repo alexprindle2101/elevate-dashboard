@@ -35,7 +35,7 @@ function getOrCreateSheet(name) {
     sheet = ss.insertSheet(name);
     switch (name) {
       case ADMIN_ROSTER_TAB:
-        sheet.appendRow(['email', 'name', 'role', 'pinHash', 'dateAdded', 'deactivated']);
+        sheet.appendRow(['email', 'name', 'role', 'pinHash', 'dateAdded', 'deactivated', 'assignedOwner', 'assignedOffices', 'managedBy']);
         break;
       case OFFICES_TAB:
         sheet.appendRow([
@@ -50,6 +50,17 @@ function getOrCreateSheet(name) {
     }
   }
   return sheet;
+}
+
+// Auto-migrate _AdminRoster headers if sheet has fewer than 9 columns
+function migrateAdminRosterHeaders(sheet) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var expected = ['email', 'name', 'role', 'pinHash', 'dateAdded', 'deactivated', 'assignedOwner', 'assignedOffices', 'managedBy'];
+  if (headers.length < expected.length) {
+    for (var c = headers.length; c < expected.length; c++) {
+      sheet.getRange(1, c + 1).setValue(expected[c]);
+    }
+  }
 }
 
 function hashPin(pin) {
@@ -81,6 +92,24 @@ function generateOfficeId() {
   return 'off_' + String(maxNum + 1).padStart(3, '0');
 }
 
+// Recursively collect all downline owner emails for a given owner
+function getDownlineEmails(ownerEmail, allOwners) {
+  var result = {};
+  var queue = [ownerEmail.toLowerCase()];
+  while (queue.length > 0) {
+    var current = queue.shift();
+    var entries = Object.values(allOwners);
+    for (var i = 0; i < entries.length; i++) {
+      var o = entries[i];
+      if (o.uplineEmail === current && !result[o.email]) {
+        result[o.email] = true;
+        queue.push(o.email);
+      }
+    }
+  }
+  return result;
+}
+
 
 // ═══════════════════════════════════════════════════════
 // doGet — Read operations
@@ -95,6 +124,10 @@ function doGet(e) {
   const action = (e.parameter.action || 'readAll').trim();
 
   try {
+    // Auto-migrate _AdminRoster headers on every read
+    var adminSheet = getOrCreateSheet(ADMIN_ROSTER_TAB);
+    migrateAdminRosterHeaders(adminSheet);
+
     switch (action) {
       case 'readAll':
         return jsonResponse({
@@ -112,8 +145,31 @@ function doGet(e) {
       case 'readOwners':
         return jsonResponse({ owners: readOwners() });
 
-      case 'listOfficesBasic':
+      case 'listOfficesBasic': {
+        var email = (e.parameter.email || '').trim().toLowerCase();
+        if (email) {
+          return jsonResponse({ offices: readOfficesBasicScoped(email) });
+        }
         return jsonResponse({ offices: readOfficesBasic() });
+      }
+
+      // ── Scoped read — returns role-filtered data for a specific admin ──
+      case 'readScoped': {
+        var scopeEmail = (e.parameter.email || '').trim().toLowerCase();
+        if (!scopeEmail) return jsonResponse({ error: 'Email parameter required' });
+        return jsonResponse(readScoped(scopeEmail));
+      }
+
+      // ── SSO validation — checks if email is a valid active admin ──
+      case 'validateAdminAuth': {
+        var authEmail = (e.parameter.email || '').trim().toLowerCase();
+        if (!authEmail) return jsonResponse({ valid: false, error: 'Email required' });
+        var roster = readAdminRoster();
+        var admin = roster[authEmail];
+        if (!admin) return jsonResponse({ valid: false, error: 'Admin not found' });
+        if (admin.deactivated) return jsonResponse({ valid: false, error: 'Account deactivated' });
+        return jsonResponse({ valid: true, email: admin.email, name: admin.name, role: admin.role });
+      }
 
       default:
         return jsonResponse({ error: 'Unknown action: ' + action });
@@ -163,12 +219,16 @@ function doPost(e) {
         const storedHash = (row[3] || '').toString().trim();
         if (!storedHash) {
           // No PIN set — first login
-          return jsonResponse({ success: true, firstLogin: true, name: row[1], role: row[2] });
+          var rawRole = (row[2] || 'a3').toString().trim();
+          var mappedRole = (rawRole === 'superadmin') ? 'a3' : rawRole;
+          return jsonResponse({ success: true, firstLogin: true, name: row[1], role: mappedRole });
         }
 
         const inputHash = hashPin(pin);
         if (inputHash === storedHash) {
-          return jsonResponse({ success: true, firstLogin: false, name: row[1], role: row[2] });
+          var rawRole2 = (row[2] || 'a3').toString().trim();
+          var mappedRole2 = (rawRole2 === 'superadmin') ? 'a3' : rawRole2;
+          return jsonResponse({ success: true, firstLogin: false, name: row[1], role: mappedRole2 });
         } else {
           return jsonResponse({ success: false, error: 'Incorrect PIN' });
         }
@@ -247,10 +307,13 @@ function doPost(e) {
         sheet.appendRow([
           (body.email || '').trim().toLowerCase(),
           body.name || '',
-          body.role || 'superadmin',
+          body.role || 'a3',
           '', // pinHash — set on first login
           new Date().toISOString(),
-          'FALSE'
+          'FALSE',
+          (body.assignedOwner || '').trim().toLowerCase(),
+          body.assignedOffices || '',
+          (body.managedBy || '').trim().toLowerCase()
         ]);
         return jsonResponse({ success: true });
       }
@@ -264,6 +327,9 @@ function doPost(e) {
         if (body.name !== undefined) sheet.getRange(row, 2).setValue(body.name);
         if (body.role !== undefined) sheet.getRange(row, 3).setValue(body.role);
         if (body.deactivated !== undefined) sheet.getRange(row, 6).setValue(body.deactivated);
+        if (body.assignedOwner !== undefined) sheet.getRange(row, 7).setValue((body.assignedOwner || '').trim().toLowerCase());
+        if (body.assignedOffices !== undefined) sheet.getRange(row, 8).setValue(body.assignedOffices);
+        if (body.managedBy !== undefined) sheet.getRange(row, 9).setValue((body.managedBy || '').trim().toLowerCase());
         return jsonResponse({ success: true });
       }
 
@@ -332,13 +398,19 @@ function readAdminRoster() {
   for (let i = 1; i < data.length; i++) {
     const email = (data[i][0] || '').toString().trim().toLowerCase();
     if (!email) continue;
+    var rawRole = (data[i][2] || 'a3').toString().trim();
+    // Backward compat: map legacy 'superadmin' to 'a3'
+    if (rawRole === 'superadmin') rawRole = 'a3';
     roster[email] = {
       email: email,
       name: (data[i][1] || '').toString().trim(),
-      role: (data[i][2] || 'superadmin').toString().trim(),
+      role: rawRole,
       hasPinSet: !!(data[i][3] || '').toString().trim(),
       dateAdded: (data[i][4] || '').toString(),
-      deactivated: (data[i][5] || '').toString().toUpperCase() === 'TRUE'
+      deactivated: (data[i][5] || '').toString().toUpperCase() === 'TRUE',
+      assignedOwner: (data[i][6] || '').toString().trim().toLowerCase(),
+      assignedOffices: (data[i][7] || '').toString().trim(),
+      managedBy: (data[i][8] || '').toString().trim().toLowerCase()
     };
   }
   return roster;
@@ -382,7 +454,7 @@ function readOffices() {
       appsScriptUrl: (data[i][4] || '').toString().trim(),
       apiKey: (data[i][5] || '').toString().trim(),
       status: (data[i][6] || 'setup').toString().trim(),
-      ownerEmail: (data[i][7] || '').toString().trim(),
+      ownerEmail: (data[i][7] || '').toString().trim().toLowerCase(),
       ownerName: (data[i][8] || '').toString().trim(),
       ownerLevel: (data[i][9] || 'lvl1').toString().trim(),
       logoUrl: (data[i][10] || '').toString().trim(),
@@ -394,7 +466,7 @@ function readOffices() {
   return offices;
 }
 
-// Lightweight office list for the office switcher dropdown (active offices only, minimal fields)
+// Lightweight office list — all active offices (unscoped)
 function readOfficesBasic() {
   const sheet = getOrCreateSheet(OFFICES_TAB);
   const data = sheet.getDataRange().getValues();
@@ -413,4 +485,142 @@ function readOfficesBasic() {
     });
   }
   return offices;
+}
+
+// Scoped office list — filtered by admin role
+function readOfficesBasicScoped(adminEmail) {
+  var roster = readAdminRoster();
+  var admin = roster[adminEmail];
+  if (!admin) return [];
+
+  var allBasic = readOfficesBasic();
+
+  // a3: all active offices
+  if (admin.role === 'a3') return allBasic;
+
+  // a1: only assigned offices
+  if (admin.role === 'a1') {
+    var ids = {};
+    var parts = (admin.assignedOffices || '').split(',');
+    for (var i = 0; i < parts.length; i++) {
+      var id = parts[i].trim();
+      if (id) ids[id] = true;
+    }
+    return allBasic.filter(function(o) { return ids[o.officeId]; });
+  }
+
+  // a2: offices under assigned owner + downline
+  if (admin.role === 'a2' && admin.assignedOwner) {
+    var allOwners = readOwners();
+    var downline = getDownlineEmails(admin.assignedOwner, allOwners);
+    downline[admin.assignedOwner] = true;
+    var allOffices = readOffices();
+    var activeIds = {};
+    for (var j = 0; j < allOffices.length; j++) {
+      var off = allOffices[j];
+      if (off.status === 'active' && downline[off.ownerEmail]) {
+        activeIds[off.officeId] = true;
+      }
+    }
+    return allBasic.filter(function(o) { return activeIds[o.officeId]; });
+  }
+
+  return [];
+}
+
+
+// ═══════════════════════════════════════════════════════
+// SCOPED READ — Role-filtered data for admin portal
+// ═══════════════════════════════════════════════════════
+
+function readScoped(email) {
+  var roster = readAdminRoster();
+  var admin = roster[email];
+  if (!admin) return { error: 'Admin not found' };
+
+  var allOffices = readOffices();
+  var allOwners = readOwners();
+
+  // ── a3 (Super Admin): full access ──
+  if (admin.role === 'a3') {
+    return {
+      adminRoster: roster,
+      offices: allOffices,
+      owners: allOwners,
+      role: 'a3'
+    };
+  }
+
+  // ── a2 (Org Admin): scoped to assigned owner + downline ──
+  if (admin.role === 'a2') {
+    var ownerEmail = admin.assignedOwner || '';
+    var downline = {};
+    if (ownerEmail) {
+      downline = getDownlineEmails(ownerEmail, allOwners);
+      downline[ownerEmail] = true;
+    }
+
+    // Offices under owner org
+    var scopedOffices = allOffices.filter(function(o) {
+      return downline[o.ownerEmail];
+    });
+
+    // Owners in the tree
+    var scopedOwners = {};
+    var ownerKeys = Object.keys(allOwners);
+    for (var i = 0; i < ownerKeys.length; i++) {
+      if (downline[ownerKeys[i]]) {
+        scopedOwners[ownerKeys[i]] = allOwners[ownerKeys[i]];
+      }
+    }
+
+    // Admins: those managed by this a2, plus self
+    var scopedAdmins = {};
+    var rosterKeys = Object.keys(roster);
+    for (var j = 0; j < rosterKeys.length; j++) {
+      var a = roster[rosterKeys[j]];
+      if (a.managedBy === email || rosterKeys[j] === email) {
+        scopedAdmins[rosterKeys[j]] = a;
+      }
+    }
+
+    return {
+      adminRoster: scopedAdmins,
+      offices: scopedOffices,
+      owners: scopedOwners,
+      role: 'a2',
+      assignedOwner: ownerEmail
+    };
+  }
+
+  // ── a1 (Admin): only assigned offices, team read-only ──
+  if (admin.role === 'a1') {
+    var ids = {};
+    var parts = (admin.assignedOffices || '').split(',');
+    for (var k = 0; k < parts.length; k++) {
+      var id = parts[k].trim();
+      if (id) ids[id] = true;
+    }
+    var scopedOffices1 = allOffices.filter(function(o) { return ids[o.officeId]; });
+
+    // Admins with same managedBy (the a2 team), plus self
+    var scopedAdmins1 = {};
+    var rosterKeys1 = Object.keys(roster);
+    for (var m = 0; m < rosterKeys1.length; m++) {
+      var a1 = roster[rosterKeys1[m]];
+      if (admin.managedBy && a1.managedBy === admin.managedBy) {
+        scopedAdmins1[rosterKeys1[m]] = a1;
+      }
+    }
+    scopedAdmins1[email] = roster[email]; // always include self
+
+    return {
+      adminRoster: scopedAdmins1,
+      offices: scopedOffices1,
+      owners: {},
+      role: 'a1'
+    };
+  }
+
+  return { error: 'Unknown role: ' + admin.role };
 }

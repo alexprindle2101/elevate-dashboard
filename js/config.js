@@ -134,4 +134,22 @@ const WEEK_PERIODS = new Set([7, 8, 9, 10, 11]);
       console.warn('[Multi-Office] Invalid office param, using defaults');
     }
   }
+
+  // ── Admin SSO token ──
+  // When opened from admin portal, URL includes ?adminAuth=BASE64
+  // Validates source + 5-minute timestamp expiry
+  const authParam = params.get('adminAuth');
+  if (authParam) {
+    try {
+      const auth = JSON.parse(atob(authParam));
+      if (auth.source === 'admin-portal' && (Date.now() - auth.timestamp) < 5 * 60 * 1000) {
+        OFFICE_CONFIG._adminAuth = auth;
+        console.log('[SSO] Admin auth token validated for:', auth.email);
+      } else {
+        console.warn('[SSO] Admin auth token expired or invalid source');
+      }
+    } catch(e) {
+      console.warn('[SSO] Invalid adminAuth param');
+    }
+  }
 })();

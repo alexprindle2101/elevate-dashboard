@@ -23,6 +23,13 @@ const ADMIN_CONFIG = {
     'alex': 'alex.aspirehr@gmail.com'
   },
 
+  // Admin roles — tiered access control
+  adminRoles: {
+    'a1': { label: 'Admin',       rank: 1, description: 'Office-scoped access' },
+    'a2': { label: 'Org Admin',   rank: 2, description: 'Owner org management' },
+    'a3': { label: 'Super Admin', rank: 3, description: 'Full platform access' }
+  },
+
   // Owner levels — hierarchy for office owners
   ownerLevels: {
     'lvl1': { label: 'Owner',                rank: 1 },

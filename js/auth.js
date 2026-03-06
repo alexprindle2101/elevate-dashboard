@@ -96,6 +96,28 @@ const Auth = {
     return session;
   },
 
+  // Create session from admin portal SSO token (bypasses PIN login)
+  createAdminSSOSession(adminAuth) {
+    // Map admin portal roles to office dashboard roles
+    const roleMap = { a1: 'admin', a2: 'admin', a3: 'superadmin' };
+    const officeRole = roleMap[adminAuth.role] || 'admin';
+
+    const session = {
+      email: adminAuth.email,
+      name: adminAuth.name,
+      role: officeRole,
+      team: '',
+      office: OFFICE_CONFIG.officeName,
+      loginTime: Date.now(),
+      source: 'admin-portal',
+      adminRole: adminAuth.role,
+      assignedOffices: adminAuth.assignedOffices || '',
+      assignedOwner: adminAuth.assignedOwner || ''
+    };
+    this.saveSession(session);
+    return session;
+  },
+
   logout() {
     this.clearSession();
     window.location.reload();

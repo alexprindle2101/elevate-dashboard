@@ -126,16 +126,21 @@ const App = {
       return;
     }
 
-    // Show loading state on button
+    // Show loading state on button + bookmark hint
     const btn = document.getElementById('login-btn');
     if (btn) { btn.textContent = 'FINDING OFFICE...'; btn.disabled = true; }
-    Auth.showLoginError('');
+    const errEl = document.getElementById('login-error');
+    if (errEl) {
+      errEl.style.color = 'var(--silver-dim, #4a7090)';
+      errEl.textContent = 'Tip: bookmark the next page for faster login next time';
+    }
 
     try {
       const result = await SheetsAPI.findRepOffice(cleanEmail);
 
       if (!result.found) {
         if (btn) { btn.textContent = 'Continue'; btn.disabled = false; }
+        if (errEl) errEl.style.color = '';
         Auth.showLoginError('Email not found. Contact your JD or Admin to be added.');
         return;
       }
@@ -179,6 +184,7 @@ const App = {
     } catch (err) {
       console.error('Universal login error:', err);
       if (btn) { btn.textContent = 'Continue'; btn.disabled = false; }
+      if (errEl) errEl.style.color = '';
       Auth.showLoginError('Connection error. Please try again.');
     }
   },

@@ -1058,14 +1058,14 @@ const NationalApp = {
     html += `</thead><tbody>`;
 
     // Data rows
-    rows.forEach(row => {
+    rows.forEach((row, ri) => {
       html += `<tr>`;
       html += `<td>${this._esc(row.label)}</td>`;
       html += `<td class="rt-projected">${this._fmtCell(row.projected, row.isRate)}</td>`;
 
       // Weekly values with conditional coloring
       row.values.forEach(val => {
-        const color = this._cellColor(val, row.projected, row.isRate);
+        const color = this._cellColor(val, row.projected, row.isRate, ri);
         html += `<td class="${color}">${this._fmtCell(val, row.isRate)}</td>`;
       });
 
@@ -1073,7 +1073,8 @@ const NationalApp = {
       const totalColor = this._cellColor(
         row.total,
         row.isRate ? row.projected : row.projected * weeks.length,
-        row.isRate
+        row.isRate,
+        ri
       );
       html += `<td class="rt-total ${totalColor}">${this._fmtCell(row.total, row.isRate)}</td>`;
 
@@ -1149,28 +1150,67 @@ const NationalApp = {
     return isRate ? val + '%' : val;
   },
 
-  // Conditional cell color based on actual vs projected
-  _cellColor(actual, projected, isRate) {
-    if (actual === null || actual === undefined || actual === '—') return '';
-    if (projected === null || projected === undefined || projected === '—') return '';
-    const a = parseFloat(actual);
-    const p = parseFloat(projected);
-    if (isNaN(a) || isNaN(p) || p === 0) return '';
+  // Per-row color thresholds: [blue≥, green≥, yellow≥, orange≥, else red]
+  // Rows 0-3 (Applies, Sent to List, 1st Booked, 1st Showed): ratio-based
+  // Row 4 (1st Retention): absolute %
+  // Row 5 (% Call List Booked): absolute %
+  // Row 6 (2nds Booked): ratio-based
+  // Row 7 (2nds Showed): ratio-based
+  // Row 8 (2nd Retention): absolute %
+  // Row 9 (New Starts Booked): ratio-based
+  // Row 10 (New Starts Showed): ratio-based
+  // Row 11 (New Start Retention): absolute %
+  _COLOR_THRESHOLDS: {
+    // ratio thresholds: value / projected [blue≥, green≥, yellow≥, orange≥]
+    ratio: {
+      0:  [1.20, 1.00, 0.85, 0.70],  // Applies Received
+      1:  [1.20, 1.00, 0.85, 0.70],  // Sent to List
+      2:  [1.20, 1.00, 0.85, 0.70],  // 1st Rounds Booked
+      3:  [1.20, 1.00, 0.85, 0.70],  // 1st Rounds Showed
+      6:  [1.20, 1.00, 0.80, 0.50],  // 2nd Rounds Booked
+      7:  [1.20, 1.00, 0.50, 0.30],  // 2nd Rounds Showed
+      9:  [1.20, 1.00, 0.85, 0.65],  // New Starts Booked
+      10: [1.20, 1.00, 0.80, 0.60],  // New Starts Showed
+    },
+    // absolute % thresholds [blue≥, green≥, yellow≥, orange≥]
+    absolute: {
+      4:  [60, 50, 45, 35],  // 1st Retention
+      5:  [50, 45, 38, 35],  // % Call List Booked
+      8:  [60, 50, 40, 35],  // 2nd Retention
+      11: [60, 50, 40, 35],  // New Start Retention
+    }
+  },
 
-    if (isRate) {
-      // Percentage comparison
-      if (a >= p) return 'cell-green';
-      if (a >= p - 5) return 'cell-yellow';
-      if (a >= p - 10) return 'cell-orange';
-      return 'cell-red';
-    } else {
-      // Absolute number comparison
-      const ratio = a / p;
-      if (ratio >= 1) return 'cell-green';
-      if (ratio >= 0.8) return 'cell-yellow';
-      if (ratio >= 0.6) return 'cell-orange';
+  // Conditional cell color based on actual vs projected + row-specific thresholds
+  _cellColor(actual, projected, isRate, rowIdx) {
+    if (actual === null || actual === undefined || actual === '—') return '';
+    const a = parseFloat(actual);
+    if (isNaN(a)) return '';
+
+    const abs = this._COLOR_THRESHOLDS.absolute[rowIdx];
+    if (abs) {
+      // Absolute % comparison (rate rows)
+      if (a >= abs[0]) return 'cell-blue';
+      if (a >= abs[1]) return 'cell-green';
+      if (a >= abs[2]) return 'cell-yellow';
+      if (a >= abs[3]) return 'cell-orange';
       return 'cell-red';
     }
+
+    const rat = this._COLOR_THRESHOLDS.ratio[rowIdx];
+    if (rat) {
+      if (projected === null || projected === undefined || projected === '—') return '';
+      const p = parseFloat(projected);
+      if (isNaN(p) || p === 0) return '';
+      const ratio = a / p;
+      if (ratio >= rat[0]) return 'cell-blue';
+      if (ratio >= rat[1]) return 'cell-green';
+      if (ratio >= rat[2]) return 'cell-yellow';
+      if (ratio >= rat[3]) return 'cell-orange';
+      return 'cell-red';
+    }
+
+    return '';
   },
 
   _statusColor(code) {

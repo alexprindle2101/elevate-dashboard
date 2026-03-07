@@ -335,6 +335,17 @@ const App = {
       document.head.appendChild(link);
     }
 
+    // Populate persistent user info in main header
+    const headerUserInfo = document.getElementById('header-user-info');
+    const headerUserName = document.getElementById('header-user-name');
+    const headerUserRole = document.getElementById('header-user-role');
+    if (headerUserInfo && headerUserName && this.state.currentPersona) {
+      headerUserName.textContent = this.state.currentPersona;
+      const roleLabels = { rep: 'Rep', l1: 'L1', jd: 'Junior Director', manager: 'Manager', admin: 'Admin', owner: 'Owner', superadmin: 'Super Admin' };
+      if (headerUserRole) headerUserRole.textContent = roleLabels[this.state.currentRole] || this.state.currentRole;
+      headerUserInfo.style.display = '';
+    }
+
     this.updateNav();
     Render.renderAll(this.state.people, this.state.teams);
     this._loadOfficeSwitcher();

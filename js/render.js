@@ -43,7 +43,7 @@ const Render = {
 
   visiblePeriods() {
     if (this.currentView === 'weeks') return [7, 8, 9, 10, 11];
-    return [0, 1, 2, 3, 4, 5, 6];
+    return [0, 1, 2, 3, 4, 5, 6, 7]; // 0-6 = Mon–Sun, 7 = THIS WK total
   },
 
   // ── Period data access ──
@@ -64,6 +64,29 @@ const Render = {
 
   twUnits(p) { return p.days.reduce((s, d) => s + d.units, 0); },
   twYeses(p) { return p.days.reduce((s, d) => s + d.y, 0); },
+
+  // Multi-level sort: units → yeses → prior week units → prior week yeses → keep going back
+  _sortByPerformance(list) {
+    return [...list].sort((a, b) => {
+      // 1. This week units (desc)
+      let diff = this.twUnits(b) - this.twUnits(a);
+      if (diff !== 0) return diff;
+      // 2. This week yeses (desc)
+      diff = this.twYeses(b) - this.twYeses(a);
+      if (diff !== 0) return diff;
+      // 3+. Prior weeks: units then yeses for LW (8), 2WA (9), 3WA (10)
+      for (const pi of [8, 9, 10]) {
+        const bp = this.getPeriod(b, pi);
+        const ap = this.getPeriod(a, pi);
+        diff = (bp.units || 0) - (ap.units || 0);
+        if (diff !== 0) return diff;
+        diff = (bp.y || 0) - (ap.y || 0);
+        if (diff !== 0) return diff;
+      }
+      // Final tiebreak: alphabetical
+      return a.name.localeCompare(b.name);
+    });
+  },
 
   // ── View Toggle ──
   setView(v) {
@@ -133,22 +156,35 @@ const Render = {
   },
 
   // ── Period Cells (config-driven) ──
+  // Today's day index (Mon=0 … Sun=6) — cached per render cycle
+  _todayIdx: null,
+  _getTodayIdx() {
+    if (this._todayIdx === null) this._todayIdx = (new Date().getDay() + 6) % 7;
+    return this._todayIdx;
+  },
+
   periodCells(d, pi) {
     const isExp = !!this.expandedPeriods[pi];
     const hc = isExp ? '' : 'hidden';
     const isWeek = WEEK_PERIODS.has(pi);
-    const uc = isWeek ? this.weeklyClass(d.units) : this.dailyClass(d.units);
+
+    // Future day detection: show dashes for days that haven't happened yet (with no data)
+    const isFutureDay = !isWeek && pi < 7 && pi > this._getTodayIdx();
+    const isEmpty = !d.units && !d.y;
+    const showDash = isFutureDay && isEmpty;
+
+    const uc = showDash ? 'c-none' : (isWeek ? this.weeklyClass(d.units) : this.dailyClass(d.units));
     const bc = isWeek ? 'week-start' : 'day-start';
     const wc = isWeek ? ' week-col' : '';
 
-    let html = `<td class="val c-none ${bc}${wc}">${this.fmt(d.y)}</td>`;
+    let html = `<td class="val c-none ${bc}${wc}">${showDash ? '—' : this.fmt(d.y)}</td>`;
 
     OFFICE_CONFIG.columns.products.forEach(prod => {
       const val = d.products ? (d.products[prod.key] || 0) : (d[prod.key] || 0);
-      html += `<td class="val c-none dp${pi}${wc} ${hc}">${this.fmt(val)}</td>`;
+      html += `<td class="val c-none dp${pi}${wc} ${hc}">${showDash ? '—' : this.fmt(val)}</td>`;
     });
 
-    html += `<td class="val ${uc}${wc}">${this.fmt(d.units)}</td>`;
+    html += `<td class="val ${uc}${wc}">${showDash ? '—' : this.fmt(d.units)}</td>`;
     return html;
   },
 
@@ -196,7 +232,7 @@ const Render = {
     const leaders = active.filter(p => leaderRoles.has(p._roleKey));
     const reps = active.filter(p => !leaderRoles.has(p._roleKey));
 
-    const sortedL = [...leaders].sort((a, b) => this.twUnits(b) - this.twUnits(a));
+    const sortedL = this._sortByPerformance(leaders);
     sortedL.forEach((p, i) => {
       const tr = document.createElement('tr');
       tr.className = this.personRowClass(p);
@@ -207,7 +243,7 @@ const Render = {
       tbody.insertAdjacentHTML('beforeend', this.groupTotalRowHTML(leaders, '👑 Leader Total', 'leader-total-row'));
     }
 
-    const sortedR = [...reps].sort((a, b) => this.twUnits(b) - this.twUnits(a));
+    const sortedR = this._sortByPerformance(reps);
     sortedR.forEach((p, i) => {
       const tr = document.createElement('tr');
       tr.className = this.personRowClass(p);
@@ -669,7 +705,7 @@ const Render = {
     tbody.innerHTML = '';
 
     const active = members.filter(p => !Roster.deactivated.has(p.name) && !this._isExcludedFromLeaderboard(p));
-    const sorted = [...active].sort((a, b) => this.twUnits(b) - this.twUnits(a));
+    const sorted = this._sortByPerformance(active);
 
     sorted.forEach((p, i) => {
       const tr = document.createElement('tr');

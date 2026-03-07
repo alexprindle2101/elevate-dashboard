@@ -81,9 +81,9 @@ const OFFICE_CONFIG = {
 
   // ── Thresholds ──
   dailyGreenThreshold: 3,   // daily units >= 3 → green
-  dailyYellowThreshold: 1,  // daily units >= 1 → yellow, else red
+  dailyYellowThreshold: 2,  // daily units 1..2 → yellow, else red (3+ = green)
   weeklyGreenThreshold: 10, // weekly units >= 10 → green
-  weeklyYellowThreshold: 1, // weekly units >= 1 → yellow, else red
+  weeklyYellowThreshold: 9, // weekly units >= 1..9 → yellow, else red (10+ = green)
 
   // ── Refresh ──
   refreshInterval: 5 * 60 * 1000,  // 5 minutes

@@ -162,9 +162,10 @@ const Roster = {
 
   // ── Visibility (RBAC) — hierarchy-aware ──
   canViewMetrics(targetName, currentRole, currentPersona, people, teams) {
-    if (currentRole === 'superadmin' || currentRole === 'owner' || currentRole === 'manager' || currentRole === 'admin') return true;
+    if (currentRole === 'superadmin' || currentRole === 'owner' || currentRole === 'admin') return true;
     if (targetName === currentPersona) return true;
-    if (currentRole === 'jd') {
+    // Managers and JDs: scoped to their own team (+ descendant sub-teams)
+    if (currentRole === 'manager' || currentRole === 'jd') {
       const myTeam = this.getEffectiveTeam(currentPersona, people);
       const theirTeam = this.getEffectiveTeam(targetName, people);
       if (myTeam !== null && myTeam === theirTeam) return true;
@@ -181,8 +182,9 @@ const Roster = {
   },
 
   canViewTeam(teamName, currentRole, currentPersona, people, teams) {
-    if (currentRole === 'superadmin' || currentRole === 'owner' || currentRole === 'manager' || currentRole === 'admin') return true;
-    if (currentRole === 'jd') {
+    if (currentRole === 'superadmin' || currentRole === 'owner' || currentRole === 'admin') return true;
+    // Managers and JDs: scoped to their own team (+ descendant sub-teams)
+    if (currentRole === 'manager' || currentRole === 'jd') {
       const myTeam = this.getEffectiveTeam(currentPersona, people);
       if (myTeam === teamName) return true;
       // Check if teamName is a descendant of my team

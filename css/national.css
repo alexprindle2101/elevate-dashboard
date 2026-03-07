@@ -220,6 +220,20 @@ input, select, textarea { font-family: inherit; }
   flex-shrink: 0;
   padding-top: 4px;
 }
+.import-weeks-select {
+  padding: 8px 12px;
+  border: 1px solid #b0c4d8;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #fff;
+  color: #1a3a52;
+  cursor: pointer;
+}
+.import-weeks-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .hc-submit-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;

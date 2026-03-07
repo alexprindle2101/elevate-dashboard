@@ -88,7 +88,7 @@ function doPost(e) {
     var result;
     switch (body.action) {
       case 'importRecruiting':
-        result = importLatestRecruiting();
+        result = importLatestRecruiting(body.weeks || 1);
         break;
       default:
         result = { error: 'unknown action: ' + body.action };
@@ -106,92 +106,102 @@ function doPost(e) {
 // into Ken's national sheet, then returns fresh data
 // ══════════════════════════════════════════════════
 
-function importLatestRecruiting() {
+function importLatestRecruiting(weekCount) {
+  // weekCount: number of weeks to import (0 = all date-named tabs)
+  weekCount = weekCount || 1;
+
   // 1. Open source sheet (Maddy's All Campaigns Stats Tracker)
   var srcSS = SpreadsheetApp.openById(SHEETS.RECRUITING_WEEKLY);
   var allSheets = srcSS.getSheets();
   if (!allSheets.length) return { error: 'Source sheet has no tabs' };
 
-  // 2. Find most recent tab by parsing tab names as dates
-  var tabInfos = allSheets.map(function(sheet, idx) {
-    var name = sheet.getName();
+  // 2. Sort all tabs by date (newest first), keep only date-named tabs
+  var tabInfos = [];
+  for (var i = 0; i < allSheets.length; i++) {
+    var name = allSheets[i].getName();
     var d = _parseTabDate(name);
-    return { sheet: sheet, name: name, date: d, idx: idx };
-  });
-  tabInfos.sort(function(a, b) {
-    if (a.date && b.date) return b.date.getTime() - a.date.getTime();
-    if (a.date) return -1;
-    if (b.date) return 1;
-    return a.idx - b.idx;
-  });
-
-  var latestTab = tabInfos[0];
-  var srcData = latestTab.sheet.getDataRange().getValues();
-  var tabName = latestTab.name;
-
-  // 3. Find all campaign sections using existing helper
-  var sections = _findCampaignSections(srcData);
-  if (!sections.length) return { error: 'No campaign sections found in tab: ' + tabName };
-
-  // 4. Build output rows — copy raw header + owner rows verbatim
-  //    This preserves the format that readNationalRecruiting() expects
-  var outputRows = [];
-
-  for (var s = 0; s < sections.length; s++) {
-    var sec = sections[s];
-
-    // Campaign header row (col A = label, other cols = recruiting headers)
-    var headerRow = [];
-    for (var c = 0; c < srcData[sec.headerRow].length; c++) {
-      headerRow.push(srcData[sec.headerRow][c]);
-    }
-    outputRows.push(headerRow);
-
-    // Owner data rows
-    for (var r = sec.startRow; r <= sec.endRow; r++) {
-      var ownerRow = [];
-      for (var c = 0; c < srcData[r].length; c++) {
-        ownerRow.push(srcData[r][c]);
-      }
-      outputRows.push(ownerRow);
-    }
-
-    // Blank row between sections for readability
-    outputRows.push([]);
+    if (d) tabInfos.push({ sheet: allSheets[i], name: name, date: d });
   }
+  if (!tabInfos.length) return { error: 'No date-named tabs found in source sheet' };
 
-  // 5. Write to Ken's national sheet
+  tabInfos.sort(function(a, b) { return b.date.getTime() - a.date.getTime(); });
+
+  // 3. Slice to requested week count (0 = all)
+  var tabsToImport = weekCount === 0 ? tabInfos : tabInfos.slice(0, weekCount);
+
+  // 4. Open destination sheet
   var dstSS = SpreadsheetApp.openById(SHEETS.NATIONAL);
-  var dstSheet = dstSS.getSheetByName(tabName);
+  var importedTabNames = [];
+  var totalRows = 0;
+  var totalSections = 0;
 
-  if (dstSheet) {
-    dstSheet.clearContents();
-  } else {
-    dstSheet = dstSS.insertSheet(tabName);
-  }
+  // 5. Loop through each tab and copy
+  for (var t = 0; t < tabsToImport.length; t++) {
+    var tab = tabsToImport[t];
+    var srcData = tab.sheet.getDataRange().getValues();
+    var tabName = tab.name;
 
-  if (outputRows.length > 0) {
-    var maxCols = 1;
-    for (var i = 0; i < outputRows.length; i++) {
-      if (outputRows[i].length > maxCols) maxCols = outputRows[i].length;
-    }
-    for (var i = 0; i < outputRows.length; i++) {
-      while (outputRows[i].length < maxCols) {
-        outputRows[i].push('');
+    var sections = _findCampaignSections(srcData);
+    if (!sections.length) continue; // skip tabs with no recognizable sections
+
+    // Build output rows — copy raw header + owner rows verbatim
+    var outputRows = [];
+    for (var s = 0; s < sections.length; s++) {
+      var sec = sections[s];
+
+      var headerRow = [];
+      for (var c = 0; c < srcData[sec.headerRow].length; c++) {
+        headerRow.push(srcData[sec.headerRow][c]);
       }
+      outputRows.push(headerRow);
+
+      for (var r = sec.startRow; r <= sec.endRow; r++) {
+        var ownerRow = [];
+        for (var c = 0; c < srcData[r].length; c++) {
+          ownerRow.push(srcData[r][c]);
+        }
+        outputRows.push(ownerRow);
+      }
+      outputRows.push([]);
     }
-    dstSheet.getRange(1, 1, outputRows.length, maxCols).setValues(outputRows);
+
+    // Write to destination tab (create or overwrite)
+    var dstSheet = dstSS.getSheetByName(tabName);
+    if (dstSheet) {
+      dstSheet.clearContents();
+    } else {
+      dstSheet = dstSS.insertSheet(tabName);
+    }
+
+    if (outputRows.length > 0) {
+      var maxCols = 1;
+      for (var i = 0; i < outputRows.length; i++) {
+        if (outputRows[i].length > maxCols) maxCols = outputRows[i].length;
+      }
+      for (var i = 0; i < outputRows.length; i++) {
+        while (outputRows[i].length < maxCols) outputRows[i].push('');
+      }
+      dstSheet.getRange(1, 1, outputRows.length, maxCols).setValues(outputRows);
+    }
+
+    importedTabNames.push(tabName);
+    totalRows += outputRows.length;
+    totalSections += sections.length;
   }
 
-  // 6. Return success + fresh data from readNationalRecruiting
+  if (!importedTabNames.length) return { error: 'No importable data found in source tabs' };
+
+  // 6. Return success + fresh data
   var freshData = readNationalRecruiting(6);
 
   return {
     ok: true,
     imported: {
-      tabName: tabName,
-      sections: sections.length,
-      rows: outputRows.length
+      tabCount: importedTabNames.length,
+      tabNames: importedTabNames,
+      tabName: importedTabNames[0], // backwards compat
+      sections: totalSections,
+      rows: totalRows
     },
     recruiting: freshData
   };

@@ -585,8 +585,11 @@ const NationalApp = {
 
     const btn = document.getElementById('btn-import-recruiting');
     const status = document.getElementById('import-status');
+    const weeksSelect = document.getElementById('import-weeks');
+    const weeks = weeksSelect ? parseInt(weeksSelect.value, 10) : 1;
 
     if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+    if (weeksSelect) weeksSelect.disabled = true;
     if (status) { status.textContent = ''; status.className = 'import-status'; }
 
     try {
@@ -595,7 +598,8 @@ const NationalApp = {
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           key: NATIONAL_CONFIG.apiKey,
-          action: 'importRecruiting'
+          action: 'importRecruiting',
+          weeks: weeks
         })
       });
 
@@ -620,11 +624,15 @@ const NationalApp = {
       this.renderOwnersList();
 
       // Show success
-      const tabName = result.imported?.tabName || 'latest';
+      const tabCount = result.imported?.tabCount || 1;
+      const tabNames = result.imported?.tabNames || [result.imported?.tabName || 'latest'];
+      const msg = tabCount === 1
+        ? 'Imported: ' + tabNames[0]
+        : 'Imported ' + tabCount + ' weeks (' + tabNames[0] + ' → ' + tabNames[tabNames.length - 1] + ')';
       if (status) {
-        status.textContent = 'Imported: ' + tabName;
+        status.textContent = msg;
         status.className = 'import-status import-success';
-        setTimeout(() => { status.textContent = ''; status.className = 'import-status'; }, 5000);
+        setTimeout(() => { status.textContent = ''; status.className = 'import-status'; }, 6000);
       }
       console.log('[NationalApp] Import successful:', result.imported);
 
@@ -635,7 +643,8 @@ const NationalApp = {
         status.className = 'import-status import-error';
       }
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Import Latest Recruiting'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Import Recruiting'; }
+      if (weeksSelect) weeksSelect.disabled = false;
     }
   },
 

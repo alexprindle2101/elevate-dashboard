@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="css/national.css?v=21">
+  <link rel="stylesheet" href="css/national.css?v=22">
 </head>
 <body>
 
@@ -91,8 +91,14 @@
           <div class="overview-date" id="overview-date"></div>
         </div>
         <div class="overview-actions">
+          <select id="import-weeks" class="import-weeks-select">
+            <option value="1">Latest Week</option>
+            <option value="4">Last 4 Weeks</option>
+            <option value="6" selected>Last 6 Weeks</option>
+            <option value="0">All History</option>
+          </select>
           <button id="btn-import-recruiting" class="hc-submit-btn"
-            onclick="NationalApp.importLatestRecruiting()">Import Latest Recruiting</button>
+            onclick="NationalApp.importLatestRecruiting()">Import Recruiting</button>
           <span id="import-status" class="import-status"></span>
         </div>
       </div>
@@ -214,7 +220,7 @@
      ═══════════════════════════════════════════════════════ -->
 <script src="js/national-config.js?v=12"></script>
 <script src="js/sheets-api.js?v=10"></script>
-<script src="js/national-app.js?v=21"></script>
+<script src="js/national-app.js?v=22"></script>
 
 </body>
 </html>

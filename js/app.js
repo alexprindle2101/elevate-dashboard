@@ -88,6 +88,10 @@ const App = {
         if (session.officeConfig.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = session.officeConfig.discordWebhookUrl;
         console.log('[Session] Restored officeConfig:', session.officeConfig.officeName || session.officeConfig.officeId);
       }
+      // Fetch discordWebhookUrl if missing (old URLs without ?office= param)
+      if (!OFFICE_CONFIG.discordWebhookUrl && OFFICE_CONFIG.officeId) {
+        await this._resolveOfficeId(OFFICE_CONFIG.officeId);
+      }
       this.state.currentRole = session.role;
       this.state.realRole = session.role;
       this.state.currentPersona = session.name;
@@ -102,6 +106,10 @@ const App = {
       // If ?office= was a plain ID (e.g. "off_002"), resolve it first
       if (OFFICE_CONFIG._pendingOfficeId) {
         await this._resolveOfficeId(OFFICE_CONFIG._pendingOfficeId);
+      }
+      // Fetch discordWebhookUrl if missing (old URLs without ?office= param)
+      if (!OFFICE_CONFIG.discordWebhookUrl && OFFICE_CONFIG.officeId) {
+        await this._resolveOfficeId(OFFICE_CONFIG.officeId);
       }
 
       // Now fetch data and show login

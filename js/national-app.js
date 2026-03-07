@@ -553,30 +553,29 @@ const NationalApp = {
     const goals = owner.nextGoals;
     const ownerIdx = this.state.owners.indexOf(owner);
 
-    // ── Section 1: Headcount Check ──
-    const dist = (hc.active || 0) - (hc.leaders || 0);
+    // ── Section 1: Headcount Check (starts empty — filled during call) ──
     const headcountEl = document.getElementById('health-headcount');
     headcountEl.innerHTML = `
       <div class="coaching-label">Headcount</div>
       <div class="hc-grid">
         <div class="hc-field">
           <label class="hc-field-label">Active Reps</label>
-          <input type="number" class="hc-input" id="hc-active-${ownerIdx}" value="${hc.active}" min="0"
+          <input type="number" class="hc-input" id="hc-active-${ownerIdx}" value="" min="0" placeholder="—"
             onchange="NationalApp._updateHeadcount(${ownerIdx}, 'active', this.value)">
         </div>
         <div class="hc-field">
           <label class="hc-field-label">Leaders</label>
-          <input type="number" class="hc-input" id="hc-leaders-${ownerIdx}" value="${hc.leaders}" min="0"
+          <input type="number" class="hc-input" id="hc-leaders-${ownerIdx}" value="" min="0" placeholder="—"
             onchange="NationalApp._updateHeadcount(${ownerIdx}, 'leaders', this.value)">
         </div>
         <div class="hc-field hc-field-calc">
           <label class="hc-field-label">Distributors</label>
-          <div class="hc-value" id="hc-dist-${ownerIdx}">${dist}</div>
+          <div class="hc-value" id="hc-dist-${ownerIdx}">—</div>
           <div class="hc-calc-note">Active − Leaders</div>
         </div>
         <div class="hc-field">
           <label class="hc-field-label">In Training</label>
-          <input type="number" class="hc-input" id="hc-training-${ownerIdx}" value="${hc.training}" min="0"
+          <input type="number" class="hc-input" id="hc-training-${ownerIdx}" value="" min="0" placeholder="—"
             onchange="NationalApp._updateHeadcount(${ownerIdx}, 'training', this.value)">
         </div>
       </div>
@@ -589,43 +588,13 @@ const NationalApp = {
     // ── Headcount Trend Table ──
     this._renderHeadcountTrend(owner, ownerIdx);
 
-    // ── Section 2: Production Review (Goal vs Actual) ──
-    const totalDelta = prod.totalActual - prod.totalGoal;
-    const wirelessDelta = prod.wirelessActual - prod.wirelessGoal;
-    const totalPct = prod.totalGoal ? Math.round((prod.totalActual / prod.totalGoal) * 100) : 0;
-    const wirelessPct = prod.wirelessGoal ? Math.round((prod.wirelessActual / prod.wirelessGoal) * 100) : 0;
-
+    // ── Section 2: Production Review (two side-by-side cards) ──
     const prodEl = document.getElementById('health-production');
     prodEl.innerHTML = `
-      <div class="coaching-label">Production Review <span class="coaching-sublabel">Last Week Goal vs Actual</span></div>
-      <div class="prod-table-wrap">
-        <table class="prod-table">
-          <thead>
-            <tr>
-              <th>Metric</th>
-              <th>Goal</th>
-              <th>Actual</th>
-              <th>+/−</th>
-              <th>%</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="prod-metric">Total Units</td>
-              <td class="prod-goal">${prod.totalGoal}</td>
-              <td class="prod-actual">${prod.totalActual}</td>
-              <td class="prod-delta ${totalDelta >= 0 ? 'delta-pos' : 'delta-neg'}">${totalDelta >= 0 ? '+' : ''}${totalDelta}</td>
-              <td class="prod-pct ${this._pctClass(totalPct)}">${totalPct}%</td>
-            </tr>
-            <tr>
-              <td class="prod-metric">Wireless Units</td>
-              <td class="prod-goal">${prod.wirelessGoal}</td>
-              <td class="prod-actual">${prod.wirelessActual}</td>
-              <td class="prod-delta ${wirelessDelta >= 0 ? 'delta-pos' : 'delta-neg'}">${wirelessDelta >= 0 ? '+' : ''}${wirelessDelta}</td>
-              <td class="prod-pct ${this._pctClass(wirelessPct)}">${wirelessPct}%</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="coaching-label">Production Review <span class="coaching-sublabel">Last Week</span></div>
+      <div class="prod-cards">
+        ${this._prodCard('Total Units', prod.totalActual, prod.totalGoal)}
+        ${this._prodCard('Wireless Lines', prod.wirelessActual, prod.wirelessGoal)}
       </div>`;
 
     // ── Section 3: Set Goals (Next Week) ──
@@ -654,9 +623,13 @@ const NationalApp = {
     if (!owner) return;
     owner.headcount[field] = parseInt(value) || 0;
     // Recalc distributors display
-    const dist = owner.headcount.active - owner.headcount.leaders;
+    const activeEl = document.getElementById('hc-active-' + ownerIdx);
+    const leadersEl = document.getElementById('hc-leaders-' + ownerIdx);
+    const activeVal = parseInt(activeEl?.value) || 0;
+    const leadersVal = parseInt(leadersEl?.value) || 0;
+    const dist = activeVal - leadersVal;
     const distEl = document.getElementById('hc-dist-' + ownerIdx);
-    if (distEl) distEl.textContent = dist;
+    if (distEl) distEl.textContent = (activeEl?.value && leadersEl?.value) ? dist : '—';
   },
 
   // ── Submit headcount — logs a new dated row ──
@@ -664,16 +637,25 @@ const NationalApp = {
     const owner = this.state.owners[ownerIdx];
     if (!owner) return;
 
-    const hc = owner.headcount;
+    // Read current values from inputs
+    const active = parseInt(document.getElementById('hc-active-' + ownerIdx)?.value) || 0;
+    const leaders = parseInt(document.getElementById('hc-leaders-' + ownerIdx)?.value) || 0;
+    const training = parseInt(document.getElementById('hc-training-' + ownerIdx)?.value) || 0;
+
+    if (!active && !leaders && !training) return; // Don't submit empty
+
+    // Update state
+    owner.headcount.active = active;
+    owner.headcount.leaders = leaders;
+    owner.headcount.training = training;
+
     const now = new Date();
     const dateStr = (now.getMonth() + 1) + '/' + now.getDate();
 
     // Push new entry
     owner.headcountHistory.push({
       date: dateStr,
-      active: hc.active,
-      leaders: hc.leaders,
-      training: hc.training
+      active, leaders, training
     });
 
     // Re-render the trend table
@@ -745,6 +727,21 @@ const NationalApp = {
     const owner = this.state.owners[ownerIdx];
     if (!owner) return;
     owner.nextGoals[field] = parseInt(value) || 0;
+  },
+
+  // ── Production card (big actual / small goal) ──
+  _prodCard(label, actual, goal) {
+    const delta = actual - goal;
+    const pct = goal ? Math.round((actual / goal) * 100) : 0;
+    const deltaClass = delta >= 0 ? 'delta-pos' : 'delta-neg';
+    const deltaStr = delta >= 0 ? '+' + delta : '' + delta;
+    return `
+      <div class="prod-card ${this._pctClass(pct)}">
+        <div class="prod-card-label">${label}</div>
+        <div class="prod-card-actual">${actual}</div>
+        <div class="prod-card-goal">/ ${goal} goal</div>
+        <div class="prod-card-delta ${deltaClass}">${deltaStr}</div>
+      </div>`;
   },
 
   // ── Production percentage → class ──

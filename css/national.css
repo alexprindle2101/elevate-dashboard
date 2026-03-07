@@ -497,59 +497,50 @@ input, select, textarea { font-family: inherit; }
 }
 .hc-submit-note.show { opacity: 1; }
 
-/* ── Production Review Table ── */
-.prod-table-wrap {
+/* ── Production Review Cards ── */
+.prod-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.prod-card {
   border-radius: var(--radius);
-  overflow: hidden;
+  padding: 24px 20px;
+  text-align: center;
+  border: 1px solid var(--gray-100);
 }
-.prod-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-.prod-table thead th {
-  padding: 10px 16px;
-  background: var(--gray-50);
+.prod-card.pct-green  { background: #ecfdf5; border-color: #a7f3d0; }
+.prod-card.pct-yellow { background: #fefce8; border-color: #fde68a; }
+.prod-card.pct-orange { background: #fff7ed; border-color: #fed7aa; }
+.prod-card.pct-red    { background: #fef2f2; border-color: #fecaca; }
+.prod-card-label {
   font-size: 11px; font-weight: 700;
   color: var(--gray-500);
-  text-transform: uppercase; letter-spacing: 0.4px;
-  text-align: center;
-  border-bottom: 2px solid var(--gray-200);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 8px;
 }
-.prod-table thead th:first-child { text-align: left; }
-.prod-table tbody td {
-  padding: 14px 16px;
-  text-align: center;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  border-bottom: 1px solid var(--gray-100);
+.prod-card-actual {
+  font-size: 42px; font-weight: 800;
+  color: var(--gray-900);
+  line-height: 1;
 }
-.prod-table tbody tr:last-child td { border-bottom: none; }
-.prod-metric {
-  text-align: left !important;
-  font-size: 14px; font-weight: 700; color: var(--gray-800);
+.prod-card-goal {
+  font-size: 16px; font-weight: 400;
+  color: var(--gray-400);
+  margin-top: 4px;
 }
-.prod-goal {
-  color: var(--gray-500);
-  font-size: 18px;
-}
-.prod-actual {
-  font-size: 20px; font-weight: 800; color: var(--gray-800);
-}
-.prod-delta {
-  font-size: 16px; font-weight: 800;
+.prod-card-delta {
+  font-size: 14px; font-weight: 700;
+  margin-top: 8px;
 }
 .delta-pos { color: var(--green); }
 .delta-neg { color: var(--red); }
-.prod-pct {
-  font-size: 14px; font-weight: 800;
-  padding: 4px 10px;
-  border-radius: 4px;
-}
-.pct-green  { background: #d1fae5; color: #065f46; }
-.pct-yellow { background: #fef9c3; color: #854d0e; }
-.pct-orange { background: #ffedd5; color: #9a3412; }
-.pct-red    { background: #fecaca; color: #991b1b; }
+
+/* Production pct classes (used on cards) */
+.pct-green  {}
+.pct-yellow {}
+.pct-orange {}
+.pct-red    {}
 
 /* ── Goals Grid ── */
 .goals-grid {
@@ -836,5 +827,6 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
   .top-bar-title { display: none; }
   .top-bar-divider { display: none; }
   .hc-grid { grid-template-columns: repeat(2, 1fr); }
+  .prod-cards { grid-template-columns: 1fr; }
   .coaching-section { padding: 16px; }
 }

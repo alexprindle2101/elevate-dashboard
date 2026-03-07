@@ -1805,9 +1805,9 @@ const App = {
   },
 
   _buildSwitcherMenuHTML() {
-    const currentUrl = (OFFICE_CONFIG.appsScriptUrl || '').trim();
+    const currentId = (OFFICE_CONFIG.officeId || '').trim();
     return this.state.offices.map(office => {
-      const isCurrent = office.appsScriptUrl === currentUrl;
+      const isCurrent = office.officeId === currentId;
       return `
         <button onclick="App.switchOffice('${office.officeId}')"
           style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border:none;background:${isCurrent ? 'rgba(0,153,204,0.08)' : 'transparent'};cursor:${isCurrent ? 'default' : 'pointer'};text-align:left;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:12px;font-weight:${isCurrent ? '700' : '500'};color:${isCurrent ? 'var(--blue-core)' : 'var(--white)'};letter-spacing:0.3px;border-bottom:1px solid rgba(0,0,0,0.06)"
@@ -1872,12 +1872,18 @@ const App = {
     const office = this.state.offices.find(o => o.officeId === officeId);
     if (!office) return;
 
+    // Skip if already on this office
+    if (officeId === OFFICE_CONFIG.officeId) return;
+
     const config = {
+      officeId: office.officeId,
+      sheetId: office.sheetId || '',
       appsScriptUrl: office.appsScriptUrl,
       apiKey: office.apiKey,
       officeName: office.name,
       logoUrl: office.logoUrl || '',
-      logoIconUrl: office.logoIconUrl || ''
+      logoIconUrl: office.logoIconUrl || '',
+      discordWebhookUrl: office.discordWebhookUrl || ''
     };
 
     const encoded = btoa(JSON.stringify(config));

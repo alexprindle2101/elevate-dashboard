@@ -554,10 +554,12 @@ function readOfficesBasic() {
     offices.push({
       officeId: officeId,
       name: (data[i][1] || '').toString().trim(),
+      sheetId: (data[i][3] || '').toString().trim(),
       appsScriptUrl: (data[i][4] || '').toString().trim(),
       apiKey: (data[i][5] || '').toString().trim(),
       logoUrl: (data[i][10] || '').toString().trim(),
-      logoIconUrl: (data[i][11] || '').toString().trim()
+      logoIconUrl: (data[i][11] || '').toString().trim(),
+      discordWebhookUrl: (data[i][14] || '').toString().trim()
     });
   }
   return offices;

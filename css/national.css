@@ -607,13 +607,13 @@ input, select, textarea { font-family: inherit; }
 .trend-flat { color: var(--gray-400); }
 
 /* Production trend table — inline actual/goal */
-.prod-trend-table { table-layout: fixed; }
+.prod-trend-table { table-layout: auto; }
 .prod-trend-table th:first-child,
-.prod-trend-table td:first-child { width: 72px; }
+.prod-trend-table td:first-child { width: 60px; white-space: nowrap; }
 .prod-trend-table th.num,
-.prod-trend-table td.num { text-align: center; white-space: nowrap; overflow: visible; }
-.prod-trend-actual { font-weight: 800; font-size: 15px; color: var(--gray-800); display: inline-block; min-width: 24px; text-align: center; }
-.prod-trend-suffix { font-size: 12px; white-space: nowrap; display: inline-block; width: 0; overflow: visible; text-align: left; vertical-align: baseline; }
+.prod-trend-table td.num { text-align: center; white-space: nowrap; width: 45%; }
+.prod-trend-actual { font-weight: 800; font-size: 15px; color: var(--gray-800); }
+.prod-trend-suffix { font-size: 12px; white-space: nowrap; }
 .prod-trend-goal { font-weight: 400; color: var(--gray-400); }
 
 /* ═══════════════════════════════════════════════════════

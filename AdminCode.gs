@@ -180,6 +180,13 @@ function doGet(e) {
         return jsonResponse({ valid: false, error: 'Account not found' });
       }
 
+      // ── Universal login — find which office a rep belongs to ──
+      case 'findRepOffice': {
+        var repEmail = (e.parameter.email || '').trim().toLowerCase();
+        if (!repEmail) return jsonResponse({ found: false, error: 'Email required' });
+        return jsonResponse(findRepOffice(repEmail));
+      }
+
       default:
         return jsonResponse({ error: 'Unknown action: ' + action });
     }
@@ -527,6 +534,80 @@ function readOfficesBasic() {
     });
   }
   return offices;
+}
+
+// ── Universal login: find which office a rep email belongs to ──
+// Scans _Roster_{officeId} tabs across all active offices.
+// Groups by sheetId to avoid opening the same spreadsheet multiple times.
+function findRepOffice(email) {
+  var offices = readOffices();
+  var activeOffices = [];
+  for (var i = 0; i < offices.length; i++) {
+    if (offices[i].status === 'active' && offices[i].sheetId) {
+      activeOffices.push(offices[i]);
+    }
+  }
+  if (!activeOffices.length) return { found: false, error: 'No active offices configured' };
+
+  // Group offices by sheetId (all AT&T B2B offices share one sheet)
+  var sheetGroups = {};
+  for (var j = 0; j < activeOffices.length; j++) {
+    var sid = activeOffices[j].sheetId;
+    if (!sheetGroups[sid]) sheetGroups[sid] = [];
+    sheetGroups[sid].push(activeOffices[j]);
+  }
+
+  // Scan each sheet's roster tabs
+  for (var sheetId in sheetGroups) {
+    var ss;
+    try {
+      ss = SpreadsheetApp.openById(sheetId);
+    } catch (err) {
+      Logger.log('findRepOffice: Cannot open sheet ' + sheetId + ': ' + err.message);
+      continue;
+    }
+
+    var groupOffices = sheetGroups[sheetId];
+    for (var k = 0; k < groupOffices.length; k++) {
+      var office = groupOffices[k];
+      var rosterTab = ss.getSheetByName('_Roster_' + office.officeId);
+      if (!rosterTab) continue;
+
+      var rosterData = rosterTab.getDataRange().getValues();
+      for (var r = 1; r < rosterData.length; r++) {
+        var rowEmail = String(rosterData[r][0] || '').trim().toLowerCase();
+        if (rowEmail !== email) continue;
+
+        // Check deactivated (col 4)
+        var deactivated = rosterData[r][4] === true || String(rosterData[r][4]).toUpperCase() === 'TRUE';
+        if (deactivated) continue;
+
+        // Found active rep
+        var pinVal = String(rosterData[r][6] || '').trim();
+        return {
+          found: true,
+          office: {
+            officeId: office.officeId,
+            name: office.name,
+            sheetId: office.sheetId,
+            appsScriptUrl: office.appsScriptUrl,
+            apiKey: office.apiKey,
+            logoUrl: office.logoUrl || '',
+            logoIconUrl: office.logoIconUrl || ''
+          },
+          rosterEntry: {
+            name: String(rosterData[r][1] || '').trim(),
+            team: String(rosterData[r][2] || '').trim(),
+            rank: String(rosterData[r][3] || 'rep').trim(),
+            hasPin: pinVal.length > 0 && pinVal !== 'undefined',
+            deactivated: false
+          }
+        };
+      }
+    }
+  }
+
+  return { found: false };
 }
 
 // Scoped office list — filtered by admin role

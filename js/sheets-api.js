@@ -109,6 +109,15 @@ const SheetsAPI = {
     return data.devices || [];
   },
 
+  // ── Universal login: find which office a rep belongs to ──
+  // Calls AdminCode.gs (admin API), not the per-office Code.gs
+  async findRepOffice(email) {
+    const url = `${OFFICE_CONFIG.adminApiUrl}?key=${encodeURIComponent(OFFICE_CONFIG.adminApiKey)}&action=findRepOffice&email=${encodeURIComponent(email)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Admin API HTTP ${resp.status}`);
+    return await resp.json();
+  },
+
   // ── Check if Apps Script URL is configured ──
   isConfigured(config) {
     return config.appsScriptUrl &&

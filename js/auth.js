@@ -90,6 +90,16 @@ const Auth = {
       role: rosterEntry.rank || 'rep',
       team: rosterEntry.team,
       office: OFFICE_CONFIG.officeName,
+      // Persist office config so refresh works without ?office= param
+      officeConfig: {
+        officeId: OFFICE_CONFIG.officeId,
+        sheetId: OFFICE_CONFIG.sheetId,
+        appsScriptUrl: OFFICE_CONFIG.appsScriptUrl,
+        apiKey: OFFICE_CONFIG.apiKey,
+        officeName: OFFICE_CONFIG.officeName,
+        logoUrl: OFFICE_CONFIG.logoUrl || '',
+        logoIconUrl: OFFICE_CONFIG.logoIconUrl || ''
+      },
       loginTime: Date.now()
     };
     this.saveSession(session);
@@ -110,6 +120,15 @@ const Auth = {
       role: officeRole,
       team: '',
       office: OFFICE_CONFIG.officeName,
+      officeConfig: {
+        officeId: OFFICE_CONFIG.officeId,
+        sheetId: OFFICE_CONFIG.sheetId,
+        appsScriptUrl: OFFICE_CONFIG.appsScriptUrl,
+        apiKey: OFFICE_CONFIG.apiKey,
+        officeName: OFFICE_CONFIG.officeName,
+        logoUrl: OFFICE_CONFIG.logoUrl || '',
+        logoIconUrl: OFFICE_CONFIG.logoIconUrl || ''
+      },
       loginTime: Date.now(),
       source: 'admin-portal',
       adminRole: adminAuth.role,

@@ -48,7 +48,7 @@ const AdminRender = {
             </div>
             <div class="office-card-detail">
               <span class="label">Role</span>
-              <span>${this._ownerLevelLabel(office.ownerLevel)}</span>
+              <span>${this._ownerLevelLabel(this._resolveOwnerLevel(office))}</span>
             </div>
             `}
           </div>
@@ -551,6 +551,16 @@ const AdminRender = {
     let count = node.children.length;
     node.children.forEach(child => { count += this._countDescendants(child); });
     return count;
+  },
+
+  // Look up the owner's real level from _Owners data (source of truth)
+  // Falls back to the office row's ownerLevel if owner not found
+  _resolveOwnerLevel(office) {
+    const email = (office.ownerEmail || '').toLowerCase();
+    if (email && AdminApp.state.owners[email]) {
+      return AdminApp.state.owners[email].level || office.ownerLevel || 'o1';
+    }
+    return office.ownerLevel || 'o1';
   },
 
   _ownerLevelLabel(level) {

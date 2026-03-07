@@ -131,7 +131,22 @@ const NationalApp = {
     const cfg = NATIONAL_CONFIG.campaigns[campaignKey];
     if (!cfg) throw new Error('Unknown campaign: ' + campaignKey);
 
-    if (NATIONAL_CONFIG.appsScriptUrl) {
+    // Step 1: Try to load owner list + recruiting actuals from national sheet
+    let sheetData = null;
+    if (NATIONAL_CONFIG.appsScriptUrl && NATIONAL_CONFIG.sheets.national && NATIONAL_CONFIG.sheets.national.id) {
+      try {
+        sheetData = await this._fetchRecruitingFromSheet(campaignKey);
+        console.log('[NationalApp] Loaded recruiting from national sheet:', sheetData);
+      } catch (err) {
+        console.warn('[NationalApp] National sheet fetch failed:', err.message);
+      }
+    }
+
+    // Step 2: Build owners — from sheet if available, otherwise scaffold
+    if (sheetData && sheetData.owners && sheetData.owners.length) {
+      this._buildOwnersFromSheet(campaignKey, sheetData);
+    } else if (NATIONAL_CONFIG.appsScriptUrl) {
+      // Try original campaign overview API
       try {
         const url = NATIONAL_CONFIG.appsScriptUrl +
           '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
@@ -145,11 +160,132 @@ const NationalApp = {
         return;
       } catch (err) {
         console.warn('[NationalApp] API fetch failed, using scaffold data:', err.message);
+        this._loadScaffoldData(campaignKey);
       }
+    } else {
+      console.log('[NationalApp] Using scaffold data for', campaignKey);
+      this._loadScaffoldData(campaignKey);
     }
+  },
 
-    console.log('[NationalApp] Using scaffold data for', campaignKey);
-    this._loadScaffoldData(campaignKey);
+  // ── Fetch recruiting data from Ken's national sheet via NationalCode.gs ──
+  async _fetchRecruitingFromSheet(campaignKey) {
+    const weeks = NATIONAL_CONFIG.campaigns[campaignKey]?.weeksToPull || 6;
+    const url = NATIONAL_CONFIG.appsScriptUrl +
+      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+      '&action=recruiting&weeks=' + weeks;
+    const resp = await fetch(url);
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
+
+    // Extract the campaign-specific data
+    const campaignData = result.campaigns && result.campaigns[campaignKey];
+    if (!campaignData) return null;
+
+    return {
+      owners: campaignData.owners || [],
+      weeks: campaignData.weeks || [],
+      label: campaignData.label || ''
+    };
+  },
+
+  // ── Build owner objects from national sheet data ──
+  _buildOwnersFromSheet(campaignKey, sheetData) {
+    const ownerNames = sheetData.owners;
+    const weeks = sheetData.weeks || [];
+
+    // Week column labels (tab names from most recent to oldest)
+    const weekLabels = weeks.map(w => w.tabName);
+
+    this.state.owners = ownerNames.map(name => {
+      // Build recruiting actuals: 12 rows × N weeks
+      // Each row's values array = [week0val, week1val, ...]
+      const actuals = Array.from({ length: 12 }, () => []);
+      for (let wi = 0; wi < weeks.length; wi++) {
+        const weekData = weeks[wi].data || {};
+        const ownerVals = weekData[name] || new Array(12).fill(0);
+        for (let ri = 0; ri < 12; ri++) {
+          actuals[ri].push(ownerVals[ri] || 0);
+        }
+      }
+
+      return {
+        name: name,
+        tab: name,
+        statusCode: null,
+        headcount: { active: 0, leaders: 0, training: 0 },
+        headcountHistory: [],
+        production: { totalGoal: 0, totalActual: 0, wirelessGoal: 0, wirelessActual: 0 },
+        productionHistory: [],
+        nextGoals: { totalUnits: 0, wirelessUnits: 0 },
+        recruiting: {
+          leaders: 0,          // Stays at 0 until Ken inputs during headcount step
+          weeks: weekLabels,
+          rows: this._buildRows(0, actuals)
+        },
+        sales: {
+          summary: { totalSales: 0, newInternet: 0, upgrades: 0, videoSales: 0, abpMix: '—', gigMix: '—' },
+          reps: []
+        },
+        audit: {
+          grades: { reviews: '—', website: '—', social: '—', seo: '—' },
+          details: {}
+        }
+      };
+    });
+
+    // Campaign-level totals + aggregate recruiting
+    this._buildCampaignAggregates(weekLabels);
+  },
+
+  // ── Build campaign-level totals and aggregate recruiting table ──
+  _buildCampaignAggregates(weekLabels) {
+    const totals = this.state.owners.reduce((acc, o) => {
+      acc.headcount += o.headcount.active;
+      acc.leaders += o.headcount.leaders;
+      acc.production += o.production.totalActual;
+      return acc;
+    }, { headcount: 0, leaders: 0, production: 0 });
+
+    // Aggregate actuals across all owners
+    const numWeeks = weekLabels.length || 1;
+    const aggA = Array.from({ length: 12 }, () => new Array(numWeeks).fill(0));
+
+    this.state.owners.forEach(o => {
+      if (!o.recruiting.rows.length) return;
+      o.recruiting.rows.forEach((row, ri) => {
+        row.values.forEach((v, wi) => { aggA[ri][wi] += v; });
+      });
+    });
+
+    // For rate rows, compute average instead of sum
+    this.RECRUITING_LABELS.forEach((def, i) => {
+      if (def.isRate) {
+        const cnt = this.state.owners.filter(o => o.recruiting.rows.length).length || 1;
+        aggA[i] = aggA[i].map(v => Math.round(v / cnt));
+      }
+    });
+
+    this.state.campaignRecruiting = {
+      leaders: totals.leaders,
+      weeks: weekLabels,
+      rows: this._buildRows(totals.leaders, aggA),
+      showLegend: true
+    };
+
+    // KPI totals
+    const firstBookedIdx = 2;
+    const newStartsIdx = 9;
+    const startRetIdx = 11;
+
+    const crRows = this.state.campaignRecruiting.rows;
+    this.state.campaignTotals = {
+      headcount: totals.headcount,
+      firstBooked: crRows[firstBookedIdx] ? crRows[firstBookedIdx].total : 0,
+      newStarts: crRows[newStartsIdx] ? crRows[newStartsIdx].total : 0,
+      retention: crRows[startRetIdx] ? crRows[startRetIdx].total + '%' : '—',
+      production: totals.production
+    };
   },
 
   // ── Calculate projected weekly numbers from leader count ──
@@ -411,52 +547,8 @@ const NationalApp = {
       };
     });
 
-    // Campaign-level totals
-    const totals = this.state.owners.reduce((acc, o) => {
-      acc.headcount += o.headcount.active;
-      acc.leaders += o.headcount.leaders;
-      acc.production += o.production.totalActual;
-      return acc;
-    }, { headcount: 0, leaders: 0, production: 0 });
-
-    // Campaign-level recruiting (aggregate actuals across all owners)
-    const aggA = Array.from({ length: 12 }, () => new Array(4).fill(0));
-
-    this.state.owners.forEach(o => {
-      if (!o.recruiting.rows.length) return;
-      o.recruiting.rows.forEach((row, ri) => {
-        row.values.forEach((v, wi) => { aggA[ri][wi] += v; });
-      });
-    });
-
-    // For rate rows, compute average instead of sum
-    this.RECRUITING_LABELS.forEach((def, i) => {
-      if (def.isRate) {
-        const cnt = this.state.owners.filter(o => o.recruiting.rows.length).length || 1;
-        aggA[i] = aggA[i].map(v => Math.round(v / cnt));
-      }
-    });
-
-    this.state.campaignRecruiting = {
-      leaders: totals.leaders,
-      weeks: weeks,
-      rows: this._buildRows(totals.leaders, aggA),
-      showLegend: true
-    };
-
-    // Aggregate KPI totals
-    const firstBookedIdx = 2; // '1st Rounds Booked' row
-    const newStartsIdx = 9;   // 'New Starts Booked' row
-    const startRetIdx = 11;   // 'New Start Retention' row
-
-    const crRows = this.state.campaignRecruiting.rows;
-    this.state.campaignTotals = {
-      headcount: totals.headcount,
-      firstBooked: crRows[firstBookedIdx] ? crRows[firstBookedIdx].total : 0,
-      newStarts: crRows[newStartsIdx] ? crRows[newStartsIdx].total : 0,
-      retention: crRows[startRetIdx] ? crRows[startRetIdx].total + '%' : '—',
-      production: totals.production
-    };
+    // Build campaign-level aggregates (shared helper)
+    this._buildCampaignAggregates(weeks);
   },
 
   // ══════════════════════════════════════════════════

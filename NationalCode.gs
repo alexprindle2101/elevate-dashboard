@@ -12,7 +12,8 @@ const SHEETS = {
   RECRUITING_WEEKLY:  '1MNLqi8A329444SeZpKbYbcRe3dMxaOPLVdMy-7F1DPk',  // All Campaigns Stats Tracker 2026
   RECRUITING_DAILY:   '1ytTGen_AlzfDPW3HGYU1JKNLz1kfHrrhAFCVnmRS3fg',  // Recruiting Scoreboard Daily
   CAMPAIGN_TRACKER:   '1HvWJYox3JXvxmza63YBWAqKPtUGPFuaV-s-BOfbWGKM',  // ATT Campaign Tracker
-  PERFORMANCE_AUDIT:  '15WCMzKnqvyyRMx2ae4tC1a12_-aoSRDh3McOuRAKuHk'   // Performance Audit
+  PERFORMANCE_AUDIT:  '15WCMzKnqvyyRMx2ae4tC1a12_-aoSRDh3McOuRAKuHk',  // Performance Audit
+  NATIONAL:           ''  // Ken's national recruiting sheet — user provides after creating
 };
 
 // Campaign configs
@@ -41,10 +42,17 @@ function doGet(e) {
   const key = (e && e.parameter && e.parameter.key) || '';
   if (!validateKey(key)) return jsonResp({ error: 'unauthorized' });
 
+  const action = (e && e.parameter && e.parameter.action) || '';
   const campaign = (e && e.parameter && e.parameter.campaign) || 'att-b2b';
   const owner = (e && e.parameter && e.parameter.owner) || '';
 
   try {
+    // ── National recruiting data from Ken's sheet ──
+    if (action === 'recruiting') {
+      var weeks = parseInt(e.parameter.weeks) || 6;
+      return jsonResp(readNationalRecruiting(weeks));
+    }
+
     if (owner) {
       // Single owner detail request
       const data = loadOwnerDetail(campaign, owner);
@@ -450,6 +458,254 @@ function enrichWithWeeklyRecruiting(ss, owners, cfg) {
   // Match reps to owners via the sales.reps list (rep names appear in both)
   // For now, attach all reps to the campaign data — we'll match by owner tab later
   // TODO: Cross-reference rep names between Campaign Tracker owner tabs and recruiting data
+}
+
+// ══════════════════════════════════════════════════
+// NATIONAL RECRUITING — Read Ken's sheet
+// Dynamically discovers campaigns & owners from
+// Column A, reads recruiting actuals per week tab
+// ══════════════════════════════════════════════════
+
+// Known header patterns that identify a campaign section header row
+var RECRUITING_HEADER_PATTERNS = [
+  '1st rounds booked', '1st round booked',
+  '1st rounds showed', '1st round showed',
+  '2nd rounds booked', '2nd round booked',
+  'retention', 'conversion',
+  'new start scheduled', 'new starts scheduled'
+];
+
+function readNationalRecruiting(weekCount) {
+  if (!SHEETS.NATIONAL) return { error: 'National sheet ID not configured' };
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    return { error: 'Cannot open national sheet: ' + err.message };
+  }
+
+  var allTabs = ss.getSheets();
+  if (!allTabs.length) return { error: 'National sheet has no tabs' };
+
+  // Sort tabs: try to parse as dates (newest first), fall back to position
+  var tabInfos = allTabs.map(function(sheet, idx) {
+    var name = sheet.getName();
+    var d = _parseTabDate(name);
+    return { sheet: sheet, name: name, date: d, idx: idx };
+  });
+  tabInfos.sort(function(a, b) {
+    if (a.date && b.date) return b.date.getTime() - a.date.getTime();
+    if (a.date) return -1;
+    if (b.date) return 1;
+    return a.idx - b.idx;
+  });
+
+  // Take first N tabs
+  var tabs = tabInfos.slice(0, weekCount);
+
+  // Result: campaigns → { label, owners[], weeks[] }
+  var campaigns = {};
+
+  for (var t = 0; t < tabs.length; t++) {
+    var sheet = tabs[t].sheet;
+    var tabName = tabs[t].name;
+    var data = sheet.getDataRange().getValues();
+
+    // Find all campaign section headers in this tab
+    var sections = _findCampaignSections(data);
+
+    for (var s = 0; s < sections.length; s++) {
+      var sec = sections[s];
+      var key = _campaignSlug(sec.label);
+
+      // Initialize campaign if first time seeing it
+      if (!campaigns[key]) {
+        campaigns[key] = { label: sec.label, owners: [], weeks: [] };
+      }
+
+      // Parse owner rows for this section
+      var weekData = _parseOwnerRecruiting(data, sec);
+
+      // Collect unique owner names (from most recent tab)
+      if (t === 0) {
+        var ownerNames = Object.keys(weekData);
+        for (var oi = 0; oi < ownerNames.length; oi++) {
+          if (campaigns[key].owners.indexOf(ownerNames[oi]) < 0) {
+            campaigns[key].owners.push(ownerNames[oi]);
+          }
+        }
+      }
+
+      // Add week data
+      campaigns[key].weeks.push({
+        tabName: tabName,
+        data: weekData
+      });
+    }
+  }
+
+  return { campaigns: campaigns };
+}
+
+// ── Detect campaign section headers ──
+// A section header has text in Column A AND has ≥2 recognizable
+// recruiting metric headers in other columns of the same row.
+function _findCampaignSections(data) {
+  var sections = [];
+  for (var i = 0; i < data.length; i++) {
+    var colA = String(data[i][0] || '').trim();
+    if (!colA) continue;
+
+    // Count how many recognizable recruiting headers are in this row
+    var headerCount = 0;
+    var rowLower = data[i].map(function(c) { return String(c).toLowerCase().trim(); });
+    for (var p = 0; p < RECRUITING_HEADER_PATTERNS.length; p++) {
+      for (var c = 1; c < rowLower.length; c++) {
+        if (rowLower[c].indexOf(RECRUITING_HEADER_PATTERNS[p]) >= 0) {
+          headerCount++;
+          break; // count each pattern once
+        }
+      }
+      if (headerCount >= 2) break; // enough to confirm
+    }
+
+    if (headerCount >= 2) {
+      // Find where this section ends (next section header or blank row or end of data)
+      var endRow = data.length - 1;
+      for (var j = i + 1; j < data.length; j++) {
+        var nextColA = String(data[j][0] || '').trim();
+        if (!nextColA) { endRow = j - 1; break; } // blank row = end
+
+        // Check if next row is also a section header
+        var nextHeaderCount = 0;
+        var nextRowLower = data[j].map(function(c2) { return String(c2).toLowerCase().trim(); });
+        for (var p2 = 0; p2 < RECRUITING_HEADER_PATTERNS.length; p2++) {
+          for (var c2 = 1; c2 < nextRowLower.length; c2++) {
+            if (nextRowLower[c2].indexOf(RECRUITING_HEADER_PATTERNS[p2]) >= 0) {
+              nextHeaderCount++;
+              break;
+            }
+          }
+          if (nextHeaderCount >= 2) break;
+        }
+        if (nextHeaderCount >= 2) { endRow = j - 1; break; }
+      }
+
+      sections.push({
+        label: colA,
+        headerRow: i,
+        startRow: i + 1,
+        endRow: endRow,
+        headers: rowLower
+      });
+    }
+  }
+  return sections;
+}
+
+// ── Parse owner rows within a campaign section ──
+// Returns { "Owner Name": [12 values matching RECRUITING_LABELS order] }
+function _parseOwnerRecruiting(data, section) {
+  var headers = section.headers;
+
+  // Map columns to the 12 RECRUITING_LABELS positions
+  var colMap = [
+    -1,                                                       // 0: Applies Received (not in sheet → 0)
+    -1,                                                       // 1: Sent to List (not in sheet → 0)
+    findCol(headers, ['1st rounds booked', '1st round booked']),  // 2: 1st Rounds Booked
+    findCol(headers, ['1st rounds showed', '1st round showed']),  // 3: 1st Rounds Showed
+    _findNthPattern(headers, 'retention', 1),                 // 4: 1st Retention
+    findCol(headers, ['conversion', '% call list booked']),   // 5: % Call List Booked / Conversion
+    findCol(headers, ['2nd rounds booked', '2nd round booked']),  // 6: 2nd Rounds Booked
+    findCol(headers, ['2nd rounds showed', '2nd round showed']),  // 7: 2nd Rounds Showed
+    _findNthPattern(headers, 'retention', 2),                 // 8: 2nd Retention
+    findCol(headers, ['new start scheduled', 'new starts scheduled']),  // 9: New Starts Booked
+    findCol(headers, ['new starts showed']),                   // 10: New Starts Showed
+    _findNthPattern(headers, 'retention', 3)                  // 11: New Start Retention
+  ];
+
+  var result = {};
+
+  for (var i = section.startRow; i <= section.endRow; i++) {
+    var row = data[i];
+    var ownerName = String(row[0] || '').trim();
+    if (!ownerName) continue;
+
+    var values = [];
+    for (var m = 0; m < 12; m++) {
+      var ci = colMap[m];
+      if (ci < 0) {
+        values.push(0);
+      } else {
+        var cellVal = row[ci];
+        // Rate rows (4, 5, 8, 11): read as percentage number
+        if (m === 4 || m === 5 || m === 8 || m === 11) {
+          values.push(_pctNum(cellVal));
+        } else {
+          values.push(num(cellVal));
+        }
+      }
+    }
+    result[ownerName] = values;
+  }
+
+  return result;
+}
+
+// ── Find Nth occurrence of a pattern in headers ──
+function _findNthPattern(headers, pattern, n) {
+  var count = 0;
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i].indexOf(pattern) >= 0) {
+      count++;
+      if (count === n) return i;
+    }
+  }
+  return -1;
+}
+
+// ── Convert percentage cell to a number (e.g., 0.65→65, "65%"→65, 65→65) ──
+function _pctNum(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  var s = String(v);
+  if (s.indexOf('%') >= 0) {
+    var n = parseFloat(s.replace('%', ''));
+    return isNaN(n) ? 0 : Math.round(n);
+  }
+  var n = Number(v);
+  if (isNaN(n)) return 0;
+  // If decimal (0.65), convert to percentage
+  if (n > 0 && n <= 1) return Math.round(n * 100);
+  return Math.round(n);
+}
+
+// ── Parse tab name as date ──
+function _parseTabDate(name) {
+  // Try formats: "3-7-2026", "03-02-26", "Mar-7", "2-28-2026"
+  var parts = name.split(/[-\/]/);
+  if (parts.length >= 2) {
+    var month = parseInt(parts[0]);
+    var day = parseInt(parts[1]);
+    var year = parts.length >= 3 ? parseInt(parts[2]) : new Date().getFullYear();
+    if (year < 100) year += 2000;
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return new Date(year, month - 1, day);
+    }
+  }
+  return null;
+}
+
+// ── Normalize campaign header text to a slug ──
+function _campaignSlug(label) {
+  var s = label.toLowerCase()
+    .replace(/campaign\s*totals?/gi, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .trim();
+  // Known mappings
+  if (s.indexOf('at&t') >= 0 || s.indexOf('att') >= 0 || s === 'at-t' || s === 'at-t-b2b') return 'att-b2b';
+  return s || 'unknown';
 }
 
 // ══════════════════════════════════════════════════

@@ -36,6 +36,12 @@ const NATIONAL_CONFIG = {
     performanceAudit: {
       id: '15WCMzKnqvyyRMx2ae4tC1a12_-aoSRDh3McOuRAKuHk',
       label: 'Performance Audit'
+    },
+    // Sheet 5: Ken's national recruiting data (copy of Maddy's weekly stats)
+    // One tab per week, Column A has owners grouped under campaign headers.
+    national: {
+      id: '',  // TODO: user provides sheet ID after creating
+      label: 'National Recruiting Data'
     }
   },
 

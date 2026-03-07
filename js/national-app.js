@@ -1086,7 +1086,7 @@ const NationalApp = {
     this._renderRecruitingWoW(owner);
   },
 
-  // ── Week-over-week raw recruiting data (stacked under projected table) ──
+  // ── Week-over-week raw recruiting data (stacked cards under projected table) ──
   _renderRecruitingWoW(owner) {
     const el = document.getElementById('owner-recruiting-wow');
     if (!el) return;
@@ -1101,29 +1101,44 @@ const NationalApp = {
     const rows = full.rows || [];
     const labels = this.RECRUITING_LABELS;
 
-    // Build one table row per week, columns = recruiting metrics
-    let html = `<div class="coaching-label">Week-over-Week Recruiting</div>
-      <div class="data-table-wrap"><table class="data-table">
-        <thead><tr>
-          <th>Week</th>
-          ${labels.map(l => `<th class="num">${this._esc(l.label)}</th>`).join('')}
-        </tr></thead>
-        <tbody>`;
+    // Filter to weeks that have at least one non-zero value
+    const activeWeekIdxs = [];
+    for (let wi = 0; wi < weeks.length; wi++) {
+      const hasData = labels.some((_, ri) => (rows[ri]?.values?.[wi] ?? 0) !== 0);
+      if (hasData) activeWeekIdxs.push(wi);
+    }
 
-    weeks.forEach((weekLabel, wi) => {
-      html += `<tr>`;
-      html += `<td class="bold">${this._esc(weekLabel)}</td>`;
+    if (!activeWeekIdxs.length) {
+      el.innerHTML = '';
+      return;
+    }
+
+    // Stacked cards, newest first (reverse)
+    let html = `<div class="coaching-label">Week-over-Week Recruiting</div>
+      <div class="wow-cards">`;
+
+    [...activeWeekIdxs].reverse().forEach(wi => {
+      const prevWi = activeWeekIdxs[activeWeekIdxs.indexOf(wi) - 1] ?? null;
+      html += `<div class="wow-card">
+        <div class="wow-card-header">${this._esc(weeks[wi])}</div>
+        <div class="data-table-wrap"><table class="data-table">
+          <tbody>`;
+
       labels.forEach((def, ri) => {
         const val = rows[ri]?.values?.[wi] ?? 0;
-        const prev = wi > 0 ? (rows[ri]?.values?.[wi - 1] ?? null) : null;
+        const prev = prevWi !== null ? (rows[ri]?.values?.[prevWi] ?? null) : null;
         const display = def.isRate ? val + '%' : val;
         const arrow = prev !== null ? this._trendArrow(val, prev) : '';
-        html += `<td class="num">${display} ${arrow}</td>`;
+        html += `<tr>
+          <td>${this._esc(def.label)}</td>
+          <td class="num">${display} ${arrow}</td>
+        </tr>`;
       });
-      html += `</tr>`;
+
+      html += `</tbody></table></div></div>`;
     });
 
-    html += `</tbody></table></div>`;
+    html += `</div>`;
     el.innerHTML = html;
   },
 

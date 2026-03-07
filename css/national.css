@@ -648,6 +648,33 @@ input, select, textarea { font-family: inherit; }
 .data-table tbody tr:hover { background: var(--gray-50); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 
+/* Week-over-week stacked cards */
+.wow-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.wow-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  border: 1px solid var(--gray-100);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.wow-card-header {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray-800);
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+}
+.wow-card .data-table-wrap {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 /* Trend indicator in cells */
 .trend-up { color: var(--green); }
 .trend-down { color: var(--red); }

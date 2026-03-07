@@ -606,6 +606,11 @@ input, select, textarea { font-family: inherit; }
 .trend-down { color: var(--red); }
 .trend-flat { color: var(--gray-400); }
 
+/* Production trend table — inline actual/goal */
+.prod-trend-table td.num { white-space: nowrap; }
+.prod-trend-actual { font-weight: 800; font-size: 15px; color: var(--gray-800); }
+.prod-trend-goal { font-weight: 400; font-size: 12px; color: var(--gray-400); }
+
 /* ═══════════════════════════════════════════════════════
    RECRUITING TABLE (spreadsheet-style with conditional colors)
    ═══════════════════════════════════════════════════════ */

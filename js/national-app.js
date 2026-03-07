@@ -644,16 +644,20 @@ const NationalApp = {
       <div class="goals-grid">
         <div class="goal-field">
           <label class="goal-field-label">Total Units</label>
-          <input type="number" class="goal-input" value="${goals.totalUnits || ''}" min="0"
+          <input type="number" class="goal-input" id="goal-total-${ownerIdx}" value="${goals.totalUnits || ''}" min="0"
             placeholder="—"
             onchange="NationalApp._updateGoal(${ownerIdx}, 'totalUnits', this.value)">
         </div>
         <div class="goal-field">
           <label class="goal-field-label">Wireless Units</label>
-          <input type="number" class="goal-input" value="${goals.wirelessUnits || ''}" min="0"
+          <input type="number" class="goal-input" id="goal-wireless-${ownerIdx}" value="${goals.wirelessUnits || ''}" min="0"
             placeholder="—"
             onchange="NationalApp._updateGoal(${ownerIdx}, 'wirelessUnits', this.value)">
         </div>
+      </div>
+      <div class="hc-submit-row">
+        <button class="hc-submit-btn" onclick="NationalApp._submitGoals(${ownerIdx})">Submit Goals</button>
+        <span class="hc-submit-note" id="goal-submit-note-${ownerIdx}"></span>
       </div>`;
   },
 
@@ -777,14 +781,12 @@ const NationalApp = {
     trendEl.innerHTML = `
       <div class="coaching-label">Week-over-Week Production</div>
       <div class="data-table-wrap">
-        <table class="data-table">
+        <table class="data-table prod-trend-table">
           <thead>
             <tr>
-              <th>Date</th>
+              <th>Week</th>
               <th class="num">Total Units</th>
-              <th class="num">Goal</th>
-              <th class="num">Wireless</th>
-              <th class="num">Goal</th>
+              <th class="num">Wireless Lines</th>
             </tr>
           </thead>
           <tbody>
@@ -793,10 +795,8 @@ const NationalApp = {
               return `
                 <tr>
                   <td class="bold">${this._esc(r.date)}</td>
-                  <td class="num">${r.tA} ${this._trendArrow(r.tA, prev?.tA)}</td>
-                  <td class="num" style="color:var(--gray-400)">${r.tG}</td>
-                  <td class="num">${r.wA} ${this._trendArrow(r.wA, prev?.wA)}</td>
-                  <td class="num" style="color:var(--gray-400)">${r.wG}</td>
+                  <td class="num"><span class="prod-trend-actual">${r.tA}</span><span class="prod-trend-goal"> of ${r.tG}</span> ${this._trendArrow(r.tA, prev?.tA)}</td>
+                  <td class="num"><span class="prod-trend-actual">${r.wA}</span><span class="prod-trend-goal"> of ${r.wG}</span> ${this._trendArrow(r.wA, prev?.wA)}</td>
                 </tr>`;
             }).join('')}
           </tbody>
@@ -809,6 +809,27 @@ const NationalApp = {
     const owner = this.state.owners[ownerIdx];
     if (!owner) return;
     owner.nextGoals[field] = parseInt(value) || 0;
+  },
+
+  // ── Submit goals ──
+  _submitGoals(ownerIdx) {
+    const owner = this.state.owners[ownerIdx];
+    if (!owner) return;
+
+    const total = parseInt(document.getElementById('goal-total-' + ownerIdx)?.value) || 0;
+    const wireless = parseInt(document.getElementById('goal-wireless-' + ownerIdx)?.value) || 0;
+
+    if (!total && !wireless) return;
+
+    owner.nextGoals.totalUnits = total;
+    owner.nextGoals.wirelessUnits = wireless;
+
+    const note = document.getElementById('goal-submit-note-' + ownerIdx);
+    if (note) {
+      note.textContent = 'Goals saved ✓';
+      note.classList.add('show');
+      setTimeout(() => note.classList.remove('show'), 3000);
+    }
   },
 
   // ── Production card (colored card, big actual / small goal) ──

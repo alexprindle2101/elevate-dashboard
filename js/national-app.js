@@ -192,7 +192,10 @@ const NationalApp = {
   // ── Build owner objects from national sheet data ──
   _buildOwnersFromSheet(campaignKey, sheetData) {
     const ownerNames = sheetData.owners;
-    const weeks = sheetData.weeks || [];
+    const allWeeks = sheetData.weeks || [];
+
+    // Limit to 4 most recent weeks for table display
+    const weeks = allWeeks.slice(0, 4);
 
     // Week column labels (tab names from most recent to oldest)
     const weekLabels = weeks.map(w => w.tabName);

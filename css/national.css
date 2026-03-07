@@ -504,12 +504,16 @@ input, select, textarea { font-family: inherit; }
   gap: 14px;
 }
 .prod-card {
-  background: var(--white);
   border-radius: var(--radius);
   padding: 24px 20px;
   text-align: center;
   border: 1px solid var(--gray-200);
+  background: var(--white);
 }
+.prod-card.pct-green  { background: #ecfdf5; border-color: #86efac; }
+.prod-card.pct-yellow { background: #fefce8; border-color: #fde047; }
+.prod-card.pct-orange { background: #fff7ed; border-color: #fdba74; }
+.prod-card.pct-red    { background: #fef2f2; border-color: #fca5a5; }
 .prod-card-label {
   font-size: 11px; font-weight: 700;
   color: var(--gray-500);
@@ -526,17 +530,6 @@ input, select, textarea { font-family: inherit; }
   color: var(--gray-400);
   margin-top: 6px;
 }
-.prod-card-pct {
-  display: inline-block;
-  font-size: 13px; font-weight: 800;
-  padding: 3px 12px;
-  border-radius: 99px;
-  margin-top: 10px;
-}
-.prod-card-pct.pct-green  { background: #d1fae5; color: #065f46; }
-.prod-card-pct.pct-yellow { background: #fef9c3; color: #854d0e; }
-.prod-card-pct.pct-orange { background: #ffedd5; color: #9a3412; }
-.prod-card-pct.pct-red    { background: #fecaca; color: #991b1b; }
 
 /* ── Goals Grid ── */
 .goals-grid {

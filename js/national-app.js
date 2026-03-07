@@ -194,10 +194,10 @@ const NationalApp = {
     const ownerNames = sheetData.owners;
     const allWeeks = sheetData.weeks || [];
 
-    // Limit to 4 most recent weeks for table display
-    const weeks = allWeeks.slice(0, 4);
+    // Limit to 4 most recent weeks, reverse for left-to-right chronological order
+    const weeks = allWeeks.slice(0, 4).reverse();
 
-    // Week column labels (tab names from most recent to oldest)
+    // Week column labels (oldest → newest, left to right)
     const weekLabels = weeks.map(w => w.tabName);
 
     this.state.owners = ownerNames.map(name => {

@@ -573,6 +573,73 @@ const NationalApp = {
   },
 
   // ══════════════════════════════════════════════════
+  // IMPORT LATEST RECRUITING
+  // Copies latest tab from source tracker → Ken's sheet
+  // ══════════════════════════════════════════════════
+
+  async importLatestRecruiting() {
+    if (!NATIONAL_CONFIG.appsScriptUrl) {
+      alert('Apps Script URL not configured. Deploy NationalCode.gs first.');
+      return;
+    }
+
+    const btn = document.getElementById('btn-import-recruiting');
+    const status = document.getElementById('import-status');
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+    if (status) { status.textContent = ''; status.className = 'import-status'; }
+
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'importRecruiting'
+        })
+      });
+
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+
+      // Update state with fresh data returned by the import
+      if (result.recruiting && result.recruiting.campaigns) {
+        const campaignKey = this.state.campaign;
+        const campaignData = result.recruiting.campaigns[campaignKey];
+        if (campaignData) {
+          this._buildOwnersFromSheet(campaignKey, {
+            owners: campaignData.owners || [],
+            weeks: campaignData.weeks || [],
+            label: campaignData.label || ''
+          });
+        }
+      }
+
+      // Re-render dashboard
+      this.renderCampaignOverview();
+      this.renderOwnersList();
+
+      // Show success
+      const tabName = result.imported?.tabName || 'latest';
+      if (status) {
+        status.textContent = 'Imported: ' + tabName;
+        status.className = 'import-status import-success';
+        setTimeout(() => { status.textContent = ''; status.className = 'import-status'; }, 5000);
+      }
+      console.log('[NationalApp] Import successful:', result.imported);
+
+    } catch (err) {
+      console.error('[NationalApp] Import failed:', err);
+      if (status) {
+        status.textContent = 'Import failed: ' + err.message;
+        status.className = 'import-status import-error';
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Import Latest Recruiting'; }
+    }
+  },
+
+  // ══════════════════════════════════════════════════
   // RENDER: Campaign Overview (KPIs + Recruiting Table + Status Codes)
   // ══════════════════════════════════════════════════
 

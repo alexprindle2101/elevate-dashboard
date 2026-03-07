@@ -68,6 +68,135 @@ function doGet(e) {
   }
 }
 
+// ══════════════════════════════════════════════════
+// POST ENTRY POINT
+// ══════════════════════════════════════════════════
+
+function doPost(e) {
+  var body;
+  try {
+    body = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return jsonResp({ error: 'invalid JSON' });
+  }
+
+  if (!validateKey(body.key || '')) {
+    return jsonResp({ error: 'unauthorized' });
+  }
+
+  try {
+    var result;
+    switch (body.action) {
+      case 'importRecruiting':
+        result = importLatestRecruiting();
+        break;
+      default:
+        result = { error: 'unknown action: ' + body.action };
+    }
+    return jsonResp(result);
+  } catch (err) {
+    Logger.log('doPost error: ' + err.message + '\n' + err.stack);
+    return jsonResp({ error: err.message });
+  }
+}
+
+// ══════════════════════════════════════════════════
+// IMPORT LATEST RECRUITING
+// Copies newest tab from All Campaigns Stats Tracker
+// into Ken's national sheet, then returns fresh data
+// ══════════════════════════════════════════════════
+
+function importLatestRecruiting() {
+  // 1. Open source sheet (Maddy's All Campaigns Stats Tracker)
+  var srcSS = SpreadsheetApp.openById(SHEETS.RECRUITING_WEEKLY);
+  var allSheets = srcSS.getSheets();
+  if (!allSheets.length) return { error: 'Source sheet has no tabs' };
+
+  // 2. Find most recent tab by parsing tab names as dates
+  var tabInfos = allSheets.map(function(sheet, idx) {
+    var name = sheet.getName();
+    var d = _parseTabDate(name);
+    return { sheet: sheet, name: name, date: d, idx: idx };
+  });
+  tabInfos.sort(function(a, b) {
+    if (a.date && b.date) return b.date.getTime() - a.date.getTime();
+    if (a.date) return -1;
+    if (b.date) return 1;
+    return a.idx - b.idx;
+  });
+
+  var latestTab = tabInfos[0];
+  var srcData = latestTab.sheet.getDataRange().getValues();
+  var tabName = latestTab.name;
+
+  // 3. Find all campaign sections using existing helper
+  var sections = _findCampaignSections(srcData);
+  if (!sections.length) return { error: 'No campaign sections found in tab: ' + tabName };
+
+  // 4. Build output rows — copy raw header + owner rows verbatim
+  //    This preserves the format that readNationalRecruiting() expects
+  var outputRows = [];
+
+  for (var s = 0; s < sections.length; s++) {
+    var sec = sections[s];
+
+    // Campaign header row (col A = label, other cols = recruiting headers)
+    var headerRow = [];
+    for (var c = 0; c < srcData[sec.headerRow].length; c++) {
+      headerRow.push(srcData[sec.headerRow][c]);
+    }
+    outputRows.push(headerRow);
+
+    // Owner data rows
+    for (var r = sec.startRow; r <= sec.endRow; r++) {
+      var ownerRow = [];
+      for (var c = 0; c < srcData[r].length; c++) {
+        ownerRow.push(srcData[r][c]);
+      }
+      outputRows.push(ownerRow);
+    }
+
+    // Blank row between sections for readability
+    outputRows.push([]);
+  }
+
+  // 5. Write to Ken's national sheet
+  var dstSS = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  var dstSheet = dstSS.getSheetByName(tabName);
+
+  if (dstSheet) {
+    dstSheet.clearContents();
+  } else {
+    dstSheet = dstSS.insertSheet(tabName);
+  }
+
+  if (outputRows.length > 0) {
+    var maxCols = 1;
+    for (var i = 0; i < outputRows.length; i++) {
+      if (outputRows[i].length > maxCols) maxCols = outputRows[i].length;
+    }
+    for (var i = 0; i < outputRows.length; i++) {
+      while (outputRows[i].length < maxCols) {
+        outputRows[i].push('');
+      }
+    }
+    dstSheet.getRange(1, 1, outputRows.length, maxCols).setValues(outputRows);
+  }
+
+  // 6. Return success + fresh data from readNationalRecruiting
+  var freshData = readNationalRecruiting(6);
+
+  return {
+    ok: true,
+    imported: {
+      tabName: tabName,
+      sections: sections.length,
+      rows: outputRows.length
+    },
+    recruiting: freshData
+  };
+}
+
 function validateKey(key) {
   // Check against script property first, fallback to hardcoded
   const stored = PropertiesService.getScriptProperties().getProperty('API_KEY');

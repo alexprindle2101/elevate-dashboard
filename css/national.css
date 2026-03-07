@@ -206,6 +206,39 @@ input, select, textarea { font-family: inherit; }
   margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px;
 }
 
+/* Import button layout */
+.overview-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.overview-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+.hc-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.import-status {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.import-status.import-success {
+  color: var(--green);
+  opacity: 1;
+}
+.import-status.import-error {
+  color: var(--red);
+  opacity: 1;
+}
+
 /* KPI Row */
 .kpi-row {
   display: grid;

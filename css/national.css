@@ -606,15 +606,26 @@ input, select, textarea { font-family: inherit; }
 .trend-down { color: var(--red); }
 .trend-flat { color: var(--gray-400); }
 
-/* Production trend table — inline actual/goal */
-.prod-trend-table { table-layout: auto; }
+/* Production trend table — matches recruiting table centering */
 .prod-trend-table th:first-child,
 .prod-trend-table td:first-child { width: 60px; white-space: nowrap; }
-.prod-trend-table th.num,
-.prod-trend-table td.num { text-align: center; white-space: nowrap; width: 45%; }
-.prod-trend-actual { font-weight: 800; font-size: 15px; color: var(--gray-800); }
-.prod-trend-suffix { font-size: 12px; white-space: nowrap; }
-.prod-trend-goal { font-weight: 400; color: var(--gray-400); }
+.prod-trend-table th.num { text-align: center; }
+.prod-trend-table td.num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--gray-800);
+  position: relative;
+}
+.prod-trend-suffix {
+  position: absolute;
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--gray-400);
+  white-space: nowrap;
+}
 
 /* ═══════════════════════════════════════════════════════
    RECRUITING TABLE (spreadsheet-style with conditional colors)

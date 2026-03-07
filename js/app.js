@@ -325,18 +325,14 @@ const App = {
       document.title = OFFICE_CONFIG.officeName;
     }
     if (OFFICE_CONFIG.logoIconUrl) {
-      const favicon = document.querySelector('link[rel="icon"]');
-      if (favicon) {
-        favicon.href = OFFICE_CONFIG.logoIconUrl;
-      } else {
-        const link = document.createElement('link');
-        link.rel = 'icon';
-        link.type = 'image/png';
-        link.href = OFFICE_CONFIG.logoIconUrl;
-        document.head.appendChild(link);
-      }
-      // Remove the media-based alternates so our dynamic one takes priority
-      document.querySelectorAll('link[rel="icon"][media]').forEach(el => el.remove());
+      // Remove ALL existing favicons first (including media-based alternates)
+      document.querySelectorAll('link[rel="icon"]').forEach(el => el.remove());
+      // Add a single clean favicon with no media attribute
+      const link = document.createElement('link');
+      link.rel = 'icon';
+      link.type = 'image/png';
+      link.href = OFFICE_CONFIG.logoIconUrl;
+      document.head.appendChild(link);
     }
 
     this.updateNav();

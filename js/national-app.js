@@ -133,49 +133,81 @@ const NationalApp = {
   _loadScaffoldData(campaignKey) {
     const ownerDefs = NATIONAL_CONFIG.owners[campaignKey] || [];
 
-    // Build scaffold data matching what we observed in the sheets
-    this.state.owners = ownerDefs.map(def => ({
-      name: def.name,
-      tab: def.tab,
-      // Office Health (Section 1 of Campaign Tracker)
-      health: {
-        current: { active: '—', leaders: '—', dist: '—', training: '—', productionLW: '—', dtv: '—', goals: '—' },
-        trend: [] // Array of { date, active, leaders, dist, training, productionLW, dtv, goals }
-      },
-      // Status codes
-      statusCode: null,
-      statusLabel: '',
-      // Recruiting Pipeline (Section 2 + All Campaigns Stats Tracker)
-      recruiting: {
-        funnel: {
-          firstRoundsBooked: '—', firstRoundsShowed: '—', turnedTo2nd: '—',
-          retention1: '—', conversion: '—',
-          secondRoundsBooked: '—', secondRoundsShowed: '—', retention2: '—',
-          newStartScheduled: '—', newStartsShowed: '—', retention3: '—',
-          activeHeadcount: '—'
-        },
-        weekly: [], // Array of { week, projected, actual } for the recruiting section
-        reps: []    // Per-rep recruiting from All Campaigns Stats Tracker
-      },
-      // Sales (Section 3 of Campaign Tracker — Tableau data)
-      sales: {
-        summary: { totalSales: '—', newInternet: '—', upgrades: '—', videoSales: '—', abpMix: '—', gigMix: '—' },
-        reps: [] // Per-rep sales table
-      },
-      // Online Presence (Performance Audit)
-      audit: {
-        grades: { reviews: '—', website: '—', social: '—', seo: '—' },
-        details: {}
-      }
-    }));
+    // Demo data per owner (based on real spreadsheet patterns)
+    const demoData = {
+      'Jay T':            { active: 12, leaders: 3, dist: 5,  training: 4, prodLW: 18, dtv: 3, goals: 22, status: 11, statusLabel: 'Growing', headcount: 12, fb: 28, fs: 22, t2: 15, r1: '79%', conv: '68%', sb: 10, ss: 8, r2: '80%', ns: 6, nss: 5, r3: '83%', sales: 42, newI: 18, upg: 14, vid: 10, abp: '72%', gig: '45%', revG: 'A', webG: 'B+', socG: 'B', seoG: 'A-' },
+      'Mason':            { active: 8,  leaders: 2, dist: 3,  training: 3, prodLW: 14, dtv: 2, goals: 18, status: 22, statusLabel: 'All Leaders', headcount: 8, fb: 20, fs: 16, t2: 11, r1: '80%', conv: '69%', sb: 7, ss: 5, r2: '71%', ns: 4, nss: 3, r3: '75%', sales: 31, newI: 14, upg: 10, vid: 7, abp: '68%', gig: '38%', revG: 'B+', webG: 'B', socG: 'C+', seoG: 'B' },
+      'Steven Sykes':     { active: 15, leaders: 4, dist: 6,  training: 5, prodLW: 24, dtv: 5, goals: 28, status: 11, statusLabel: 'Growing', headcount: 15, fb: 35, fs: 28, t2: 20, r1: '80%', conv: '71%', sb: 14, ss: 11, r2: '79%', ns: 8, nss: 7, r3: '88%', sales: 56, newI: 24, upg: 18, vid: 14, abp: '75%', gig: '52%', revG: 'A', webG: 'A-', socG: 'A', seoG: 'A' },
+      'Olin Salter':      { active: 6,  leaders: 1, dist: 2,  training: 3, prodLW: 8,  dtv: 1, goals: 14, status: 44, statusLabel: 'Training Only', headcount: 6, fb: 14, fs: 10, t2: 6, r1: '71%', conv: '60%', sb: 4, ss: 3, r2: '75%', ns: 2, nss: 2, r3: '100%', sales: 18, newI: 8, upg: 6, vid: 4, abp: '62%', gig: '30%', revG: 'C+', webG: 'C', socG: 'D+', seoG: 'C' },
+      'Eric Martinez':    { active: 10, leaders: 2, dist: 4,  training: 4, prodLW: 16, dtv: 3, goals: 20, status: 22, statusLabel: 'All Leaders', headcount: 10, fb: 24, fs: 18, t2: 13, r1: '75%', conv: '72%', sb: 8, ss: 6, r2: '75%', ns: 5, nss: 4, r3: '80%', sales: 36, newI: 16, upg: 12, vid: 8, abp: '70%', gig: '42%', revG: 'B', webG: 'B+', socG: 'B-', seoG: 'B+' },
+      'Natalia Gwarda':   { active: 9,  leaders: 2, dist: 3,  training: 4, prodLW: 12, dtv: 2, goals: 16, status: 33, statusLabel: 'Interviewing Only', headcount: 9, fb: 22, fs: 17, t2: 12, r1: '77%', conv: '71%', sb: 7, ss: 5, r2: '71%', ns: 4, nss: 3, r3: '75%', sales: 28, newI: 12, upg: 9, vid: 7, abp: '66%', gig: '36%', revG: 'B-', webG: 'C+', socG: 'B', seoG: 'C+' },
+      'Nigel Gilbert':    { active: 7,  leaders: 1, dist: 3,  training: 3, prodLW: 10, dtv: 1, goals: 14, status: 55, statusLabel: 'Leaders Busy', headcount: 7, fb: 16, fs: 12, t2: 8, r1: '75%', conv: '67%', sb: 5, ss: 4, r2: '80%', ns: 3, nss: 2, r3: '67%', sales: 22, newI: 10, upg: 7, vid: 5, abp: '64%', gig: '32%', revG: 'C', webG: 'C-', socG: 'D', seoG: 'C-' }
+    };
 
-    // Campaign-level totals
+    // Build scaffold data matching what we observed in the sheets
+    this.state.owners = ownerDefs.map(def => {
+      const d = demoData[def.name] || {};
+      return {
+        name: def.name,
+        tab: def.tab,
+        // Office Health (Section 1 of Campaign Tracker)
+        health: {
+          current: {
+            active: d.active || '—', leaders: d.leaders || '—', dist: d.dist || '—',
+            training: d.training || '—', productionLW: d.prodLW || '—',
+            dtv: d.dtv || '—', goals: d.goals || '—'
+          },
+          trend: [
+            { date: '2/17', active: (d.active||0)-3, leaders: d.leaders, dist: (d.dist||0)-1, training: (d.training||0)-1, productionLW: (d.prodLW||0)-4, dtv: (d.dtv||0)-1, goals: d.goals },
+            { date: '2/24', active: (d.active||0)-1, leaders: d.leaders, dist: d.dist, training: d.training, productionLW: (d.prodLW||0)-2, dtv: d.dtv, goals: d.goals },
+            { date: '3/3',  active: d.active, leaders: d.leaders, dist: d.dist, training: d.training, productionLW: d.prodLW, dtv: d.dtv, goals: d.goals }
+          ]
+        },
+        statusCode: d.status || null,
+        statusLabel: d.statusLabel || '',
+        // Recruiting Pipeline
+        recruiting: {
+          funnel: {
+            firstRoundsBooked: d.fb || '—', firstRoundsShowed: d.fs || '—',
+            turnedTo2nd: d.t2 || '—', retention1: d.r1 || '—', conversion: d.conv || '—',
+            secondRoundsBooked: d.sb || '—', secondRoundsShowed: d.ss || '—', retention2: d.r2 || '—',
+            newStartScheduled: d.ns || '—', newStartsShowed: d.nss || '—', retention3: d.r3 || '—',
+            activeHeadcount: d.headcount || '—'
+          },
+          weekly: [],
+          reps: []
+        },
+        // Sales (Tableau data)
+        sales: {
+          summary: {
+            totalSales: d.sales || '—', newInternet: d.newI || '—', upgrades: d.upg || '—',
+            videoSales: d.vid || '—', abpMix: d.abp || '—', gigMix: d.gig || '—'
+          },
+          reps: []
+        },
+        // Online Presence (Performance Audit)
+        audit: {
+          grades: { reviews: d.revG || '—', website: d.webG || '—', social: d.socG || '—', seo: d.seoG || '—' },
+          details: {}
+        }
+      };
+    });
+
+    // Campaign-level totals (aggregated)
+    const totals = this.state.owners.reduce((acc, o) => {
+      acc.headcount += (typeof o.health.current.active === 'number' ? o.health.current.active : 0);
+      acc.firstBooked += (typeof o.recruiting.funnel.firstRoundsBooked === 'number' ? o.recruiting.funnel.firstRoundsBooked : 0);
+      acc.newStarts += (typeof o.recruiting.funnel.newStartScheduled === 'number' ? o.recruiting.funnel.newStartScheduled : 0);
+      acc.production += (typeof o.health.current.productionLW === 'number' ? o.health.current.productionLW : 0);
+      return acc;
+    }, { headcount: 0, firstBooked: 0, newStarts: 0, production: 0 });
+
     this.state.campaignTotals = {
-      headcount: '—',
-      firstBooked: '—',
-      newStarts: '—',
-      retention: '—',
-      production: '—'
+      headcount: totals.headcount,
+      firstBooked: totals.firstBooked,
+      newStarts: totals.newStarts,
+      retention: '78%',
+      production: totals.production
     };
   },
 

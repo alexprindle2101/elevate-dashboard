@@ -720,6 +720,17 @@ const NationalApp = {
     // Re-render the trend table
     this._renderHeadcountTrend(owner, ownerIdx);
 
+    // Recalculate recruiting projected values based on new leader count
+    if (owner.recruiting && owner.recruiting.rows.length) {
+      owner.recruiting.leaders = leaders;
+      const actuals = owner.recruiting.rows.map(r => r.values);
+      owner.recruiting.rows = this._buildRows(leaders, actuals);
+      // Re-render recruiting tab if it's currently visible
+      if (this.state.currentTab === 'recruiting') {
+        this.renderRecruitingTab(owner);
+      }
+    }
+
     // Show confirmation
     const note = document.getElementById('hc-submit-note-' + ownerIdx);
     if (note) {

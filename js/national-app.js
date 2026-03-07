@@ -174,9 +174,14 @@ const NationalApp = {
     const weeks = ['Feb-9', 'Feb-16', 'Feb-23', 'Mar-2'];
 
     // Per-owner demo data (compact: health, status, recruiting projected/actuals, sales, audit)
+    // h = headcount: active, leaders, training
+    // p = production: totalGoal, totalActual, wirelessGoal, wirelessActual (goal = set last week, actual = from Tableau)
+    // g = next week goals: totalUnits, wirelessUnits
     const demo = {
       'Jay T': {
-        h: { active: 12, leaders: 3, dist: 5, training: 4, prodLW: 18, dtv: 3, goals: 22 },
+        h: { active: 12, leaders: 3, training: 4 },
+        p: { totalGoal: 22, totalActual: 18, wirelessGoal: 15, wirelessActual: 12 },
+        g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 55,
         rLeaders: 3,
         rP: [40, 30, 20, 16, 80, 50, 10, 8, 80, 5, 4, 80],
@@ -185,7 +190,9 @@ const NationalApp = {
         a: { reviews: 'A', website: 'B+', social: 'B', seo: 'A-' }
       },
       'Mason': {
-        h: { active: 8, leaders: 2, dist: 3, training: 3, prodLW: 14, dtv: 2, goals: 18 },
+        h: { active: 8, leaders: 2, training: 3 },
+        p: { totalGoal: 18, totalActual: 14, wirelessGoal: 12, wirelessActual: 9 },
+        g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 22,
         rLeaders: 2,
         rP: [30, 22, 15, 12, 80, 50, 7, 6, 83, 4, 3, 80],
@@ -194,7 +201,9 @@ const NationalApp = {
         a: { reviews: 'B+', website: 'B', social: 'C+', seo: 'B' }
       },
       'Steven Sykes': {
-        h: { active: 15, leaders: 4, dist: 6, training: 5, prodLW: 24, dtv: 5, goals: 28 },
+        h: { active: 15, leaders: 4, training: 5 },
+        p: { totalGoal: 28, totalActual: 24, wirelessGoal: 20, wirelessActual: 18 },
+        g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 66,
         rLeaders: 4,
         rP: [55, 42, 28, 22, 80, 50, 14, 11, 80, 7, 6, 83],
@@ -203,7 +212,9 @@ const NationalApp = {
         a: { reviews: 'A', website: 'A-', social: 'A', seo: 'A' }
       },
       'Olin Salter': {
-        h: { active: 6, leaders: 1, dist: 2, training: 3, prodLW: 8, dtv: 1, goals: 14 },
+        h: { active: 6, leaders: 1, training: 3 },
+        p: { totalGoal: 14, totalActual: 8, wirelessGoal: 10, wirelessActual: 5 },
+        g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 44,
         rLeaders: 1,
         rP: [20, 15, 10, 8, 80, 50, 5, 4, 80, 3, 2, 80],
@@ -212,7 +223,9 @@ const NationalApp = {
         a: { reviews: 'C+', website: 'C', social: 'D+', seo: 'C' }
       },
       'Eric Martinez': {
-        h: { active: 10, leaders: 2, dist: 4, training: 4, prodLW: 16, dtv: 3, goals: 20 },
+        h: { active: 10, leaders: 2, training: 4 },
+        p: { totalGoal: 20, totalActual: 16, wirelessGoal: 14, wirelessActual: 11 },
+        g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 55,
         rLeaders: 2,
         rP: [35, 26, 18, 14, 80, 50, 9, 7, 80, 5, 4, 80],
@@ -221,7 +234,9 @@ const NationalApp = {
         a: { reviews: 'B', website: 'B+', social: 'B-', seo: 'B+' }
       },
       'Natalia Gwarda': {
-        h: { active: 9, leaders: 2, dist: 3, training: 4, prodLW: 12, dtv: 2, goals: 16 },
+        h: { active: 9, leaders: 2, training: 4 },
+        p: { totalGoal: 16, totalActual: 12, wirelessGoal: 11, wirelessActual: 8 },
+        g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 33,
         rLeaders: 2,
         rP: [32, 24, 16, 13, 80, 50, 8, 6, 80, 4, 3, 80],
@@ -230,7 +245,9 @@ const NationalApp = {
         a: { reviews: 'B-', website: 'C+', social: 'B', seo: 'C+' }
       },
       'Nigel Gilbert': {
-        h: { active: 7, leaders: 1, dist: 3, training: 3, prodLW: 10, dtv: 1, goals: 14 },
+        h: { active: 7, leaders: 1, training: 3 },
+        p: { totalGoal: 14, totalActual: 10, wirelessGoal: 10, wirelessActual: 6 },
+        g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 22,
         rLeaders: 1,
         rP: [22, 16, 12, 10, 80, 50, 6, 5, 80, 3, 2, 80],
@@ -244,22 +261,29 @@ const NationalApp = {
     this.state.owners = ownerDefs.map(def => {
       const d = demo[def.name] || {};
       const h = d.h || {};
+      const p = d.p || {};
+      const g = d.g || {};
       return {
         name: def.name,
         tab: def.tab,
         statusCode: d.sc || null,
-        // Office Health
-        health: {
-          current: {
-            active: h.active || 0, leaders: h.leaders || 0, dist: h.dist || 0,
-            training: h.training || 0, productionLW: h.prodLW || 0,
-            dtv: h.dtv || 0, goals: h.goals || 0
-          },
-          trend: [
-            { date: '2/17', active: (h.active||0)-3, leaders: h.leaders, dist: (h.dist||0)-1, training: (h.training||0)-1, productionLW: (h.prodLW||0)-4, dtv: (h.dtv||0)-1, goals: h.goals },
-            { date: '2/24', active: (h.active||0)-1, leaders: h.leaders, dist: h.dist, training: h.training, productionLW: (h.prodLW||0)-2, dtv: h.dtv, goals: h.goals },
-            { date: '3/3',  active: h.active, leaders: h.leaders, dist: h.dist, training: h.training, productionLW: h.prodLW, dtv: h.dtv, goals: h.goals }
-          ]
+        // 1-on-1 Coaching: Headcount (editable during call)
+        headcount: {
+          active: h.active || 0,
+          leaders: h.leaders || 0,
+          training: h.training || 0
+        },
+        // 1-on-1 Coaching: Production Review (goal set last week vs actual from Tableau)
+        production: {
+          totalGoal: p.totalGoal || 0,
+          totalActual: p.totalActual || 0,
+          wirelessGoal: p.wirelessGoal || 0,
+          wirelessActual: p.wirelessActual || 0
+        },
+        // 1-on-1 Coaching: Next week goals (set during call)
+        nextGoals: {
+          totalUnits: g.totalUnits || 0,
+          wirelessUnits: g.wirelessUnits || 0
         },
         // Recruiting (spreadsheet format)
         recruiting: {
@@ -282,9 +306,9 @@ const NationalApp = {
 
     // Campaign-level totals
     const totals = this.state.owners.reduce((acc, o) => {
-      acc.headcount += o.health.current.active;
-      acc.leaders += o.health.current.leaders;
-      acc.production += o.health.current.productionLW;
+      acc.headcount += o.headcount.active;
+      acc.leaders += o.headcount.leaders;
+      acc.production += o.production.totalActual;
       return acc;
     }, { headcount: 0, leaders: 0, production: 0 });
 
@@ -483,85 +507,126 @@ const NationalApp = {
   },
 
   // ══════════════════════════════════════════════════
-  // RENDER: Health Tab
+  // RENDER: Health Tab (1-on-1 Coaching Flow)
   // ══════════════════════════════════════════════════
 
   renderHealthTab(owner) {
-    const h = owner.health;
+    const hc = owner.headcount;
+    const prod = owner.production;
+    const goals = owner.nextGoals;
+    const ownerIdx = this.state.owners.indexOf(owner);
 
-    // KPI cards
-    const kpis = document.getElementById('health-kpis');
-    kpis.innerHTML = [
-      { label: 'Active Reps', value: h.current.active },
-      { label: 'Leaders', value: h.current.leaders },
-      { label: 'Distribution', value: h.current.dist },
-      { label: 'In Training', value: h.current.training },
-      { label: 'Production LW', value: h.current.productionLW },
-      { label: 'DTV', value: h.current.dtv },
-      { label: 'Goals', value: h.current.goals }
-    ].map(k => `
-      <div class="health-kpi">
-        <div class="health-kpi-value">${k.value}</div>
-        <div class="health-kpi-label">${k.label}</div>
-      </div>
-    `).join('');
-
-    // Week-over-week trend table
-    const trend = document.getElementById('health-trend');
-    if (h.trend.length) {
-      trend.innerHTML = `
-        <div class="section-label">Week-over-Week Progression</div>
-        <div class="data-table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th class="num">Active</th>
-                <th class="num">Leaders</th>
-                <th class="num">Dist</th>
-                <th class="num">Training</th>
-                <th class="num">Production</th>
-                <th class="num">DTV</th>
-                <th>Goals</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${h.trend.map(r => `
-                <tr>
-                  <td class="bold">${this._esc(r.date)}</td>
-                  <td class="num">${r.active}</td>
-                  <td class="num">${r.leaders}</td>
-                  <td class="num">${r.dist}</td>
-                  <td class="num">${r.training}</td>
-                  <td class="num">${r.productionLW}</td>
-                  <td class="num">${r.dtv}</td>
-                  <td>${this._esc(String(r.goals))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>`;
-    } else {
-      trend.innerHTML = `
-        <div class="section-label">Week-over-Week Progression</div>
-        <div class="empty-state">
-          <div class="empty-state-text">Trend data will appear once NationalCode.gs is connected.</div>
-        </div>`;
-    }
-
-    // Status codes legend for this owner
-    const statusEl = document.getElementById('health-status');
-    const sc = this.STATUS_CODES[owner.statusCode];
-    const currentLabel = sc ? `Current: <span class="status-badge ${sc.css}">${owner.statusCode} — ${sc.label}</span>` : '';
-
-    statusEl.innerHTML = `
-      <div class="section-label">Leader Status Codes</div>
-      ${currentLabel ? `<div style="margin-bottom:10px">${currentLabel}</div>` : ''}
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${Object.entries(this.STATUS_CODES).map(([code, def]) =>
-          `<span class="status-badge ${def.css}">${code} — ${def.label}</span>`
-        ).join('')}
+    // ── Section 1: Headcount Check ──
+    const dist = (hc.active || 0) - (hc.leaders || 0);
+    const headcountEl = document.getElementById('health-headcount');
+    headcountEl.innerHTML = `
+      <div class="coaching-label">Headcount</div>
+      <div class="hc-grid">
+        <div class="hc-field">
+          <label class="hc-field-label">Active Reps</label>
+          <input type="number" class="hc-input" value="${hc.active}" min="0"
+            onchange="NationalApp._updateHeadcount(${ownerIdx}, 'active', this.value)">
+        </div>
+        <div class="hc-field">
+          <label class="hc-field-label">Leaders</label>
+          <input type="number" class="hc-input" value="${hc.leaders}" min="0"
+            onchange="NationalApp._updateHeadcount(${ownerIdx}, 'leaders', this.value)">
+        </div>
+        <div class="hc-field hc-field-calc">
+          <label class="hc-field-label">Distributors</label>
+          <div class="hc-value" id="hc-dist-${ownerIdx}">${dist}</div>
+          <div class="hc-calc-note">Active − Leaders</div>
+        </div>
+        <div class="hc-field">
+          <label class="hc-field-label">In Training</label>
+          <input type="number" class="hc-input" value="${hc.training}" min="0"
+            onchange="NationalApp._updateHeadcount(${ownerIdx}, 'training', this.value)">
+        </div>
       </div>`;
+
+    // ── Section 2: Production Review (Goal vs Actual) ──
+    const totalDelta = prod.totalActual - prod.totalGoal;
+    const wirelessDelta = prod.wirelessActual - prod.wirelessGoal;
+    const totalPct = prod.totalGoal ? Math.round((prod.totalActual / prod.totalGoal) * 100) : 0;
+    const wirelessPct = prod.wirelessGoal ? Math.round((prod.wirelessActual / prod.wirelessGoal) * 100) : 0;
+
+    const prodEl = document.getElementById('health-production');
+    prodEl.innerHTML = `
+      <div class="coaching-label">Production Review <span class="coaching-sublabel">Last Week Goal vs Actual</span></div>
+      <div class="prod-table-wrap">
+        <table class="prod-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Goal</th>
+              <th>Actual</th>
+              <th>+/−</th>
+              <th>%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="prod-metric">Total Units</td>
+              <td class="prod-goal">${prod.totalGoal}</td>
+              <td class="prod-actual">${prod.totalActual}</td>
+              <td class="prod-delta ${totalDelta >= 0 ? 'delta-pos' : 'delta-neg'}">${totalDelta >= 0 ? '+' : ''}${totalDelta}</td>
+              <td class="prod-pct ${this._pctClass(totalPct)}">${totalPct}%</td>
+            </tr>
+            <tr>
+              <td class="prod-metric">Wireless Units</td>
+              <td class="prod-goal">${prod.wirelessGoal}</td>
+              <td class="prod-actual">${prod.wirelessActual}</td>
+              <td class="prod-delta ${wirelessDelta >= 0 ? 'delta-pos' : 'delta-neg'}">${wirelessDelta >= 0 ? '+' : ''}${wirelessDelta}</td>
+              <td class="prod-pct ${this._pctClass(wirelessPct)}">${wirelessPct}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+
+    // ── Section 3: Set Goals (Next Week) ──
+    const goalsEl = document.getElementById('health-goals');
+    goalsEl.innerHTML = `
+      <div class="coaching-label">Set Goals <span class="coaching-sublabel">Next Week</span></div>
+      <div class="goals-grid">
+        <div class="goal-field">
+          <label class="goal-field-label">Total Units</label>
+          <input type="number" class="goal-input" value="${goals.totalUnits || ''}" min="0"
+            placeholder="—"
+            onchange="NationalApp._updateGoal(${ownerIdx}, 'totalUnits', this.value)">
+        </div>
+        <div class="goal-field">
+          <label class="goal-field-label">Wireless Units</label>
+          <input type="number" class="goal-input" value="${goals.wirelessUnits || ''}" min="0"
+            placeholder="—"
+            onchange="NationalApp._updateGoal(${ownerIdx}, 'wirelessUnits', this.value)">
+        </div>
+      </div>`;
+  },
+
+  // ── Headcount input handler ──
+  _updateHeadcount(ownerIdx, field, value) {
+    const owner = this.state.owners[ownerIdx];
+    if (!owner) return;
+    owner.headcount[field] = parseInt(value) || 0;
+    // Recalc distributors display
+    const dist = owner.headcount.active - owner.headcount.leaders;
+    const distEl = document.getElementById('hc-dist-' + ownerIdx);
+    if (distEl) distEl.textContent = dist;
+  },
+
+  // ── Goal input handler ──
+  _updateGoal(ownerIdx, field, value) {
+    const owner = this.state.owners[ownerIdx];
+    if (!owner) return;
+    owner.nextGoals[field] = parseInt(value) || 0;
+  },
+
+  // ── Production percentage → class ──
+  _pctClass(pct) {
+    if (pct >= 100) return 'pct-green';
+    if (pct >= 80) return 'pct-yellow';
+    if (pct >= 60) return 'pct-orange';
+    return 'pct-red';
   },
 
   // ══════════════════════════════════════════════════

@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="css/national.css?v=3">
+  <link rel="stylesheet" href="css/national.css?v=4">
 </head>
 <body>
 
@@ -150,16 +150,19 @@
       <button class="detail-tab" data-tab="audit" onclick="NationalApp.switchDetailTab('audit')">Online Presence</button>
     </div>
 
-    <!-- HEALTH TAB -->
+    <!-- HEALTH TAB (1-on-1 Coaching Flow) -->
     <div id="tab-health" class="detail-tab-content">
-      <div class="health-kpis" id="health-kpis">
-        <!-- KPI cards for this owner's office health -->
+      <!-- Section 1: Headcount Check -->
+      <div id="health-headcount" class="coaching-section">
+        <!-- Active Reps, Leaders, Dist (calc), In Training -->
       </div>
-      <div class="health-chart" id="health-trend">
-        <!-- Week-over-week trend table (Section 1 of Campaign Tracker) -->
+      <!-- Section 2: Production Review (Goal vs Actual) -->
+      <div id="health-production" class="coaching-section">
+        <!-- Total Units + Wireless Units: Goal vs Achieved -->
       </div>
-      <div class="health-status" id="health-status">
-        <!-- Leader status codes (color-coded) -->
+      <!-- Section 3: Set Goals (Next Week) -->
+      <div id="health-goals" class="coaching-section">
+        <!-- Total Units + Wireless Units goals for next week -->
       </div>
     </div>
 
@@ -196,9 +199,9 @@
 <!-- ═══════════════════════════════════════════════════════
      SCRIPTS
      ═══════════════════════════════════════════════════════ -->
-<script src="js/national-config.js?v=3"></script>
-<script src="js/sheets-api.js?v=3"></script>
-<script src="js/national-app.js?v=3"></script>
+<script src="js/national-config.js?v=4"></script>
+<script src="js/sheets-api.js?v=4"></script>
+<script src="js/national-app.js?v=4"></script>
 
 </body>
 </html>

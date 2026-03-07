@@ -397,30 +397,164 @@ input, select, textarea { font-family: inherit; }
 .detail-tab-content { min-height: 300px; }
 
 /* ═══════════════════════════════════════════════════════
-   HEALTH TAB
+   HEALTH TAB — 1-on-1 Coaching Flow
    ═══════════════════════════════════════════════════════ */
-.health-kpis {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.health-kpi {
+
+/* Coaching section wrapper */
+.coaching-section {
   background: var(--white);
   border: 1px solid var(--gray-100);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  text-align: center;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
 }
-.health-kpi-value { font-size: 22px; font-weight: 800; color: var(--gray-800); }
-.health-kpi-label {
-  font-size: 10px; font-weight: 600; color: var(--gray-400);
-  text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px;
+.coaching-label {
+  font-size: 15px; font-weight: 800; color: var(--gray-800);
+  margin-bottom: 16px;
+  display: flex; align-items: baseline; gap: 8px;
+}
+.coaching-sublabel {
+  font-size: 12px; font-weight: 500; color: var(--gray-400);
 }
 
-.health-status {
-  margin-top: 20px;
+/* ── Headcount Grid ── */
+.hc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
 }
+.hc-field {
+  text-align: center;
+}
+.hc-field-label {
+  display: block;
+  font-size: 11px; font-weight: 600; color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+.hc-input {
+  width: 100%;
+  padding: 10px 8px;
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: 22px; font-weight: 800;
+  text-align: center;
+  color: var(--gray-800);
+  background: var(--gray-50);
+  outline: none;
+  transition: border-color var(--transition);
+  -moz-appearance: textfield;
+}
+.hc-input::-webkit-outer-spin-button,
+.hc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.hc-input:focus { border-color: var(--teal); background: var(--white); }
+
+/* Calculated (Distributors) field */
+.hc-field-calc {
+  position: relative;
+}
+.hc-value {
+  padding: 10px 8px;
+  border: 2px dashed var(--gray-200);
+  border-radius: var(--radius);
+  font-size: 22px; font-weight: 800;
+  text-align: center;
+  color: var(--teal);
+  background: var(--teal-light);
+}
+.hc-calc-note {
+  font-size: 10px; font-weight: 500; color: var(--gray-400);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* ── Production Review Table ── */
+.prod-table-wrap {
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.prod-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.prod-table thead th {
+  padding: 10px 16px;
+  background: var(--gray-50);
+  font-size: 11px; font-weight: 700;
+  color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: 0.4px;
+  text-align: center;
+  border-bottom: 2px solid var(--gray-200);
+}
+.prod-table thead th:first-child { text-align: left; }
+.prod-table tbody td {
+  padding: 14px 16px;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--gray-100);
+}
+.prod-table tbody tr:last-child td { border-bottom: none; }
+.prod-metric {
+  text-align: left !important;
+  font-size: 14px; font-weight: 700; color: var(--gray-800);
+}
+.prod-goal {
+  color: var(--gray-500);
+  font-size: 18px;
+}
+.prod-actual {
+  font-size: 20px; font-weight: 800; color: var(--gray-800);
+}
+.prod-delta {
+  font-size: 16px; font-weight: 800;
+}
+.delta-pos { color: var(--green); }
+.delta-neg { color: var(--red); }
+.prod-pct {
+  font-size: 14px; font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+.pct-green  { background: #d1fae5; color: #065f46; }
+.pct-yellow { background: #fef9c3; color: #854d0e; }
+.pct-orange { background: #ffedd5; color: #9a3412; }
+.pct-red    { background: #fecaca; color: #991b1b; }
+
+/* ── Goals Grid ── */
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.goal-field {
+  text-align: center;
+}
+.goal-field-label {
+  display: block;
+  font-size: 11px; font-weight: 600; color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+.goal-input {
+  width: 100%;
+  padding: 12px 8px;
+  border: 2px solid var(--teal);
+  border-radius: var(--radius);
+  font-size: 24px; font-weight: 800;
+  text-align: center;
+  color: var(--teal-dark);
+  background: var(--teal-light);
+  outline: none;
+  transition: all var(--transition);
+  -moz-appearance: textfield;
+}
+.goal-input::-webkit-outer-spin-button,
+.goal-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.goal-input:focus { background: var(--white); box-shadow: 0 0 0 3px rgba(14,165,160,0.15); }
+.goal-input::placeholder { color: var(--gray-300); font-weight: 600; }
 
 /* ═══════════════════════════════════════════════════════
    TABLES (shared)
@@ -673,4 +807,6 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .top-bar-title { display: none; }
   .top-bar-divider { display: none; }
+  .hc-grid { grid-template-columns: repeat(2, 1fr); }
+  .coaching-section { padding: 16px; }
 }

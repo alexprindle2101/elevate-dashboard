@@ -725,11 +725,11 @@ td.rt-total {
   background: #fffef0 !important;
 }
 
-/* Conditional cell colors (matches 2nd Rounds gauge) */
-td.cell-green  { background: #22c55e !important; color: #fff !important; }
-td.cell-yellow { background: #f0b429 !important; color: #fff !important; }
-td.cell-orange { background: #f97316 !important; color: #fff !important; }
-td.cell-red    { background: #e53535 !important; color: #fff !important; }
+/* Conditional cell colors (pastel — matches status badge palette) */
+td.cell-green  { background: #bbf7d0 !important; color: #065f46 !important; }
+td.cell-yellow { background: #fef08a !important; color: #854d0e !important; }
+td.cell-orange { background: #fed7aa !important; color: #9a3412 !important; }
+td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
 
 /* Section divider rows in table */
 .rt-table tbody tr.rt-section-row td {

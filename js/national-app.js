@@ -152,8 +152,41 @@ const NationalApp = {
     this._loadScaffoldData(campaignKey);
   },
 
-  // ── Build recruiting rows from projected + actuals arrays ──
-  _buildRows(projected, actuals) {
+  // ── Calculate projected weekly numbers from leader count ──
+  _calcProjected(leaders) {
+    const RET_1 = 0.50;        // 1st Retention
+    const RET_2 = 0.60;        // 2nd Retention
+    const RET_NS = 0.60;       // New Start Retention
+    const CALL_LIST_BOOKED = 0.45;
+
+    const secondsBooked = leaders * 5;
+    const firstShowed   = secondsBooked / RET_1;
+    const firstBooked   = firstShowed / RET_1;
+    const sentToList    = Math.round(firstBooked / CALL_LIST_BOOKED);
+    const secondsShowed = secondsBooked * RET_2;
+    const newStartsBook = Math.round(secondsShowed * RET_2);
+    const newStartsShow = Math.round(newStartsBook * RET_NS);
+
+    // Row order matches RECRUITING_LABELS
+    return [
+      sentToList,                           // 0  Applies Received
+      sentToList,                           // 1  Sent to List
+      Math.round(firstBooked),              // 2  1st Rounds Booked
+      Math.round(firstShowed),              // 3  1st Rounds Showed
+      Math.round(RET_1 * 100),             // 4  Retention (%)
+      Math.round(CALL_LIST_BOOKED * 100),  // 5  % Call List Booked (%)
+      secondsBooked,                        // 6  2nd Rounds Booked
+      Math.round(secondsShowed),            // 7  2nd Rounds Showed
+      Math.round(RET_2 * 100),             // 8  Retention (%)
+      newStartsBook,                        // 9  New Starts Booked
+      newStartsShow,                        // 10 New Starts Showed
+      Math.round(RET_NS * 100)             // 11 New Start Retention (%)
+    ];
+  },
+
+  // ── Build recruiting rows from leader count + actuals arrays ──
+  _buildRows(leaders, actuals) {
+    const projected = this._calcProjected(leaders);
     return this.RECRUITING_LABELS.map((def, i) => {
       const vals = actuals[i] || [];
       const p = projected[i];
@@ -194,7 +227,7 @@ const NationalApp = {
         g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 55,
         rLeaders: 3,
-        rP: [40, 30, 20, 16, 80, 50, 10, 8, 80, 5, 4, 80],
+
         rA: [[36,44,32,42],[28,35,25,32],[18,22,15,20],[14,18,12,17],[78,82,80,85],[47,52,42,50],[8,12,7,10],[7,10,5,8],[88,83,71,80],[4,6,3,5],[3,5,3,4],[75,83,100,80]],
         s: { totalSales: 42, newInternet: 18, upgrades: 14, videoSales: 10, abpMix: '72%', gigMix: '45%' },
         a: { reviews: 'A', website: 'B+', social: 'B', seo: 'A-' }
@@ -215,7 +248,7 @@ const NationalApp = {
         g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 22,
         rLeaders: 2,
-        rP: [30, 22, 15, 12, 80, 50, 7, 6, 83, 4, 3, 80],
+
         rA: [[24,28,20,26],[18,22,15,20],[12,16,10,14],[9,12,7,11],[75,75,70,79],[40,53,33,47],[5,8,4,6],[4,6,3,5],[80,75,75,83],[3,4,2,3],[2,3,2,3],[67,75,100,100]],
         s: { totalSales: 31, newInternet: 14, upgrades: 10, videoSales: 7, abpMix: '68%', gigMix: '38%' },
         a: { reviews: 'B+', website: 'B', social: 'C+', seo: 'B' }
@@ -236,7 +269,7 @@ const NationalApp = {
         g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 66,
         rLeaders: 4,
-        rP: [55, 42, 28, 22, 80, 50, 14, 11, 80, 7, 6, 83],
+
         rA: [[52,60,48,58],[40,48,36,44],[26,32,22,30],[22,26,18,24],[85,81,82,80],[47,53,46,52],[12,16,10,14],[10,14,8,12],[83,88,80,86],[6,8,5,7],[5,7,4,6],[83,88,80,86]],
         s: { totalSales: 56, newInternet: 24, upgrades: 18, videoSales: 14, abpMix: '75%', gigMix: '52%' },
         a: { reviews: 'A', website: 'A-', social: 'A', seo: 'A' }
@@ -257,7 +290,7 @@ const NationalApp = {
         g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 44,
         rLeaders: 1,
-        rP: [20, 15, 10, 8, 80, 50, 5, 4, 80, 3, 2, 80],
+
         rA: [[14,18,12,16],[10,14,8,12],[7,10,6,8],[5,7,4,6],[71,70,67,75],[35,50,30,40],[3,5,2,4],[2,4,2,3],[67,80,100,75],[1,3,1,2],[1,2,1,2],[100,67,100,100]],
         s: { totalSales: 18, newInternet: 8, upgrades: 6, videoSales: 4, abpMix: '62%', gigMix: '30%' },
         a: { reviews: 'C+', website: 'C', social: 'D+', seo: 'C' }
@@ -278,7 +311,7 @@ const NationalApp = {
         g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 55,
         rLeaders: 2,
-        rP: [35, 26, 18, 14, 80, 50, 9, 7, 80, 5, 4, 80],
+
         rA: [[30,38,28,34],[24,30,20,26],[16,20,12,18],[12,16,10,14],[75,80,83,78],[46,53,43,50],[7,10,5,8],[6,8,4,7],[86,80,80,88],[4,5,3,4],[3,4,3,4],[75,80,100,100]],
         s: { totalSales: 36, newInternet: 16, upgrades: 12, videoSales: 8, abpMix: '70%', gigMix: '42%' },
         a: { reviews: 'B', website: 'B+', social: 'B-', seo: 'B+' }
@@ -299,7 +332,7 @@ const NationalApp = {
         g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 33,
         rLeaders: 2,
-        rP: [32, 24, 16, 13, 80, 50, 8, 6, 80, 4, 3, 80],
+
         rA: [[26,34,24,30],[20,26,18,22],[14,18,10,16],[10,14,8,12],[71,78,80,75],[44,53,38,50],[6,9,4,7],[5,7,3,6],[83,78,75,86],[3,5,2,4],[2,4,2,3],[67,80,100,75]],
         s: { totalSales: 28, newInternet: 12, upgrades: 9, videoSales: 7, abpMix: '66%', gigMix: '36%' },
         a: { reviews: 'B-', website: 'C+', social: 'B', seo: 'C+' }
@@ -320,7 +353,7 @@ const NationalApp = {
         g: { totalUnits: 0, wirelessUnits: 0 },
         sc: 22,
         rLeaders: 1,
-        rP: [22, 16, 12, 10, 80, 50, 6, 5, 80, 3, 2, 80],
+
         rA: [[16,20,14,18],[12,16,10,14],[8,12,7,10],[6,9,5,8],[75,75,71,80],[36,50,32,42],[4,6,3,5],[3,5,2,4],[75,83,67,80],[2,3,1,3],[1,2,1,2],[50,67,100,67]],
         s: { totalSales: 22, newInternet: 10, upgrades: 7, videoSales: 5, abpMix: '64%', gigMix: '32%' },
         a: { reviews: 'C', website: 'C-', social: 'D', seo: 'C-' }
@@ -363,7 +396,7 @@ const NationalApp = {
         recruiting: {
           leaders: d.rLeaders || 0,
           weeks: weeks,
-          rows: d.rP ? this._buildRows(d.rP, d.rA) : []
+          rows: d.rA ? this._buildRows(d.rLeaders || 0, d.rA) : []
         },
         // Sales
         sales: {
@@ -386,14 +419,12 @@ const NationalApp = {
       return acc;
     }, { headcount: 0, leaders: 0, production: 0 });
 
-    // Campaign-level recruiting (aggregate all owners)
-    const aggP = new Array(12).fill(0);
+    // Campaign-level recruiting (aggregate actuals across all owners)
     const aggA = Array.from({ length: 12 }, () => new Array(4).fill(0));
 
     this.state.owners.forEach(o => {
       if (!o.recruiting.rows.length) return;
       o.recruiting.rows.forEach((row, ri) => {
-        aggP[ri] += row.projected;
         row.values.forEach((v, wi) => { aggA[ri][wi] += v; });
       });
     });
@@ -402,7 +433,6 @@ const NationalApp = {
     this.RECRUITING_LABELS.forEach((def, i) => {
       if (def.isRate) {
         const cnt = this.state.owners.filter(o => o.recruiting.rows.length).length || 1;
-        aggP[i] = Math.round(aggP[i] / cnt);
         aggA[i] = aggA[i].map(v => Math.round(v / cnt));
       }
     });
@@ -410,7 +440,7 @@ const NationalApp = {
     this.state.campaignRecruiting = {
       leaders: totals.leaders,
       weeks: weeks,
-      rows: this._buildRows(aggP, aggA),
+      rows: this._buildRows(totals.leaders, aggA),
       showLegend: true
     };
 

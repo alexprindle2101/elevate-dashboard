@@ -341,5 +341,8 @@ const Auth = {
   hideLoading() {
     const screen = document.getElementById('loading-screen');
     if (screen) screen.style.display = 'none';
+    // Reveal main container (starts hidden to prevent branding flash)
+    const container = document.querySelector('.container');
+    if (container) container.style.display = '';
   }
 };

@@ -57,7 +57,7 @@
 <!-- ═══════════════════════════════════════════════════════
      LOADING SCREEN
      ═══════════════════════════════════════════════════════ -->
-<div id="loading-screen" style="display:none;position:fixed;inset:0;z-index:9000;background:#FEFAF3;align-items:center;justify-content:center;flex-direction:column">
+<div id="loading-screen" style="display:flex;position:fixed;inset:0;z-index:9000;background:#FEFAF3;align-items:center;justify-content:center;flex-direction:column">
   <img src="references/logos/aptel-full-black.png" alt="Aptel" style="height:40px;width:auto;margin-bottom:28px;opacity:0.85">
   <div class="loading-spinner"></div>
   <div id="loading-text" style="margin-top:20px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#708090">Loading...</div>
@@ -66,13 +66,13 @@
 <!-- ═══════════════════════════════════════════════════════
      MAIN CONTAINER
      ═══════════════════════════════════════════════════════ -->
-<div class="container">
+<div class="container" style="display:none">
 
   <!-- HEADER (sticky) -->
   <header>
     <div class="header-top">
       <div class="logo-area">
-        <img id="header-office-logo" src="references/logos/elevate-logo-full-standard-blue.png" alt="Office Logo" style="height:44px;width:auto;">
+        <img id="header-office-logo" src="references/logos/aptel-full-black.png" alt="Office Logo" style="height:44px;width:auto;">
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
           <span class="week-label">Weekly Leaderboard</span>
           <div class="live-badge">
@@ -834,7 +834,7 @@
 <script src="js/config.js?v=20260306a"></script>
 <script src="js/sheets-api.js?v=20260306a"></script>
 <script src="js/data.js?v=20260305h"></script>
-<script src="js/auth.js?v=20260305h"></script>
+<script src="js/auth.js?v=20260307a"></script>
 <script src="js/roster.js?v=20260305h"></script>
 <script src="js/teams-manager.js?v=20260305h"></script>
 <script src="js/render.js?v=20260305h"></script>

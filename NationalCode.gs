@@ -1090,49 +1090,28 @@ function _safeNum(v) {
 }
 
 // ── Instagram column parser — handles header/data misalignment ──
-// The Performance Audit sheet sometimes has extra columns in data rows
-// that shift IG values right of where the headers say they should be.
-// Fix: scan from the header-detected igLink position for the actual
-// instagram.com URL, then read relative columns from that anchor.
+// Uses _rs() with header-detected column positions + per-row shift.
+// The IG columns are NOT contiguous (notes col sits between link and shared),
+// so we can't use anchor-relative offsets. Instead, read each metric from
+// its proper header-defined column position with shift applied.
 function _parseInstagram(row, cols, notesCols, shift, shiftStart) {
-  var igStart = cols.igLink;
-  if (igStart < 0) return { link: '', shared: 0, generated: 0, followers: 0, following: 0, notes: '' };
+  if (cols.igLink < 0) return { link: '', shared: 0, generated: 0, followers: 0, following: 0, notes: '' };
+
+  var s  = shift || 0;
+  var ss = shiftStart || 9999;
 
   // IG notes — apply shift if the notes column is in the shifted region
   var igNotes = '';
   if (notesCols.length > 4 && notesCols[4] >= 0) {
-    igNotes = _str(_rs(row, notesCols[4], shift || 0, shiftStart || 9999));
+    igNotes = _str(_rs(row, notesCols[4], s, ss));
   }
 
-  // Scan from header position to up to 3 cols right looking for the actual IG URL
-  var anchor = -1;
-  for (var offset = 0; offset <= 3; offset++) {
-    var cellVal = String(row[igStart + offset] || '').toLowerCase();
-    if (cellVal.indexOf('instagram.com') >= 0 || cellVal.indexOf('ig.com') >= 0) {
-      anchor = igStart + offset;
-      break;
-    }
-  }
-
-  if (anchor >= 0) {
-    // Found the URL — read relative: anchor=link, +1=shared, +2=generated, +3=followers, +4=following
-    return {
-      link:      _str(row[anchor]),
-      shared:    num(row[anchor + 1]),
-      generated: num(row[anchor + 2]),
-      followers: num(row[anchor + 3]),
-      following: num(row[anchor + 4]),
-      notes:     igNotes
-    };
-  }
-
-  // No URL found — fall back to header-based positions
   return {
-    link:      _str(row[cols.igLink]),
-    shared:    num(row[cols.shared]),
-    generated: num(row[cols.generated]),
-    followers: num(row[cols.followers]),
-    following: num(row[cols.following]),
+    link:      _str(_rs(row, cols.igLink, s, ss)),
+    shared:    num(_rs(row, cols.shared, s, ss)),
+    generated: num(_rs(row, cols.generated, s, ss)),
+    followers: num(_rs(row, cols.followers, s, ss)),
+    following: num(_rs(row, cols.following, s, ss)),
     notes:     igNotes
   };
 }

@@ -142,6 +142,17 @@ const NationalApp = {
       }
     }
 
+    // Step 1b: Fetch online presence data from Cam's Performance Audit sheet
+    let auditData = null;
+    if (NATIONAL_CONFIG.appsScriptUrl) {
+      try {
+        auditData = await this._fetchOnlinePresence();
+        console.log('[NationalApp] Loaded online presence:', auditData);
+      } catch (err) {
+        console.warn('[NationalApp] Online presence fetch failed:', err.message);
+      }
+    }
+
     // Step 2: Build owners — from sheet if available, otherwise scaffold
     if (sheetData && sheetData.owners && sheetData.owners.length) {
       this._buildOwnersFromSheet(campaignKey, sheetData);
@@ -157,7 +168,6 @@ const NationalApp = {
         this.state.owners = data.owners || [];
         this.state.campaignTotals = data.totals || {};
         this.state.campaignRecruiting = data.campaignRecruiting || null;
-        return;
       } catch (err) {
         console.warn('[NationalApp] API fetch failed, using scaffold data:', err.message);
         this._loadScaffoldData(campaignKey);
@@ -165,6 +175,11 @@ const NationalApp = {
     } else {
       console.log('[NationalApp] Using scaffold data for', campaignKey);
       this._loadScaffoldData(campaignKey);
+    }
+
+    // Step 3: Map online presence data to owners (if we have it)
+    if (auditData && auditData.businesses && auditData.businesses.length) {
+      this._mapAuditToOwners(auditData.businesses);
     }
   },
 
@@ -187,6 +202,148 @@ const NationalApp = {
       weeks: campaignData.weeks || [],
       label: campaignData.label || ''
     };
+  },
+
+  // ── Fetch online presence data from Cam's Performance Audit sheet ──
+  async _fetchOnlinePresence() {
+    const url = NATIONAL_CONFIG.appsScriptUrl +
+      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+      '&action=onlinePresence';
+    const resp = await fetch(url);
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
+
+  // ── Map online presence businesses to owners ──
+  // Uses Client Name → owner name matching with alias fallback
+  _mapAuditToOwners(businesses) {
+    const aliases = NATIONAL_CONFIG.ownerAliases || {};
+
+    // Build a lookup: lowercase canonical name → owner object
+    const ownerMap = {};
+    for (const owner of this.state.owners) {
+      ownerMap[owner.name.toLowerCase()] = owner;
+    }
+
+    // Also index by tab name (sometimes different)
+    for (const owner of this.state.owners) {
+      if (owner.tab && owner.tab.toLowerCase() !== owner.name.toLowerCase()) {
+        ownerMap[owner.tab.toLowerCase()] = owner;
+      }
+    }
+
+    const unmatched = [];
+
+    for (const biz of businesses) {
+      const clientKey = biz.clientName.toLowerCase().trim();
+
+      // Try: exact match → alias → partial match
+      let owner = ownerMap[clientKey]
+        || (aliases[clientKey] && ownerMap[aliases[clientKey].toLowerCase()])
+        || null;
+
+      // Partial match fallback: check if clientName contains or is contained by any owner name
+      if (!owner) {
+        for (const o of this.state.owners) {
+          const oLower = o.name.toLowerCase();
+          if (clientKey.indexOf(oLower) >= 0 || oLower.indexOf(clientKey) >= 0) {
+            owner = o;
+            break;
+          }
+        }
+      }
+
+      if (owner) {
+        if (!owner.audit.businesses) owner.audit.businesses = [];
+        owner.audit.businesses.push(biz);
+      } else {
+        unmatched.push(biz.clientName);
+      }
+    }
+
+    if (unmatched.length) {
+      console.warn('[NationalApp] Unmatched audit businesses — add these to ownerAliases in national-config.js:', unmatched);
+    }
+
+    // Calculate grades for each owner from their businesses
+    for (const owner of this.state.owners) {
+      if (owner.audit.businesses && owner.audit.businesses.length) {
+        this._calculateAuditGrades(owner);
+      }
+    }
+  },
+
+  // ── Calculate audit grades from business data ──
+  _calculateAuditGrades(owner) {
+    const bizList = owner.audit.businesses;
+    const total = bizList.length;
+
+    // Reviews: average GBL rating
+    let ratingSum = 0, ratingCount = 0;
+    for (const b of bizList) {
+      if (b.gbl && b.gbl.rating != null && b.gbl.rating > 0) {
+        ratingSum += b.gbl.rating;
+        ratingCount++;
+      }
+    }
+    if (ratingCount > 0) {
+      const avg = ratingSum / ratingCount;
+      owner.audit.grades.reviews = this._ratingToGrade(avg);
+      owner.audit.reviewsAvg = Math.round(avg * 10) / 10;
+      owner.audit.reviewsCount = ratingCount;
+    }
+
+    // Website: % updated this month
+    let websiteUpdated = 0;
+    for (const b of bizList) {
+      const val = (b.website?.updatedMonth || '').toLowerCase();
+      if (val === 'yes' || val === 'y' || val === '✓' || val === 'true' || val === 'x') {
+        websiteUpdated++;
+      }
+    }
+    owner.audit.grades.website = this._pctToGrade(websiteUpdated, total);
+    owner.audit.websiteUpdated = websiteUpdated;
+
+    // Social: has IG presence (link or followers > 0)
+    let hasIG = 0;
+    for (const b of bizList) {
+      if (b.instagram && (b.instagram.link || b.instagram.followers > 0)) {
+        hasIG++;
+      }
+    }
+    owner.audit.grades.social = this._pctToGrade(hasIG, total);
+    owner.audit.igCount = hasIG;
+
+    // SEO: % passing
+    let seoPassing = 0;
+    for (const b of bizList) {
+      const val = (b.seo?.check || '').toLowerCase();
+      if (val === 'pass' || val === 'yes' || val === 'y' || val === '✓' || val === 'true' || val === 'x' || val === 'good') {
+        seoPassing++;
+      }
+    }
+    owner.audit.grades.seo = this._pctToGrade(seoPassing, total);
+    owner.audit.seoPassing = seoPassing;
+  },
+
+  _ratingToGrade(rating) {
+    if (rating >= 4.5) return 'A+';
+    if (rating >= 4.0) return 'A';
+    if (rating >= 3.5) return 'B';
+    if (rating >= 3.0) return 'C';
+    if (rating >= 2.0) return 'D';
+    return 'F';
+  },
+
+  _pctToGrade(count, total) {
+    if (!total) return '—';
+    const pct = count / total;
+    if (pct >= 0.9) return 'A';
+    if (pct >= 0.7) return 'B';
+    if (pct >= 0.5) return 'C';
+    if (pct >= 0.3) return 'D';
+    return 'F';
   },
 
   // ── Build owner objects from national sheet data ──
@@ -1213,51 +1370,171 @@ const NationalApp = {
 
   renderAuditTab(owner) {
     const a = owner.audit;
+    const bizList = a.businesses || [];
+    const total = bizList.length;
 
+    // ── Grade Cards with sub-labels ──
     const grades = document.getElementById('audit-grades');
-    grades.innerHTML = [
-      { title: 'Google Reviews', grade: a.grades.reviews, icon: '⭐' },
-      { title: 'Website', grade: a.grades.website, icon: '🌐' },
-      { title: 'Social Media', grade: a.grades.social, icon: '📱' },
-      { title: 'SEO', grade: a.grades.seo, icon: '🔍' }
-    ].map(g => `
+    const gradeCards = [
+      {
+        title: 'Google Reviews', grade: a.grades.reviews, icon: '⭐',
+        sub: a.reviewsAvg ? `Avg ${a.reviewsAvg} / ${a.reviewsCount} biz` : 'No data'
+      },
+      {
+        title: 'Website', grade: a.grades.website, icon: '🌐',
+        sub: total ? `${a.websiteUpdated || 0} of ${total} updated` : 'No data'
+      },
+      {
+        title: 'Social Media', grade: a.grades.social, icon: '📱',
+        sub: total ? `${a.igCount || 0} of ${total} with IG` : 'No data'
+      },
+      {
+        title: 'SEO', grade: a.grades.seo, icon: '🔍',
+        sub: total ? `${a.seoPassing || 0} of ${total} passing` : 'No data'
+      }
+    ];
+    grades.innerHTML = gradeCards.map(g => `
       <div class="audit-grade-card">
         <div class="audit-grade-title">${g.icon} ${g.title}</div>
         <div class="audit-grade-value ${this._gradeClass(g.grade)}">${g.grade}</div>
+        <div class="audit-grade-sub">${g.sub}</div>
       </div>
     `).join('');
 
+    // ── Business Cards ──
     const details = document.getElementById('audit-details');
-    if (a.details && Object.keys(a.details).length) {
+    if (!bizList.length) {
       details.innerHTML = `
-        <div class="section-label">Audit Details</div>
-        <div class="data-table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>Value</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${Object.entries(a.details).map(([key, val]) => `
-                <tr>
-                  <td class="bold">${this._esc(key)}</td>
-                  <td>${this._esc(String(val.value || '—'))}</td>
-                  <td>${this._esc(String(val.notes || ''))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>`;
-    } else {
-      details.innerHTML = `
-        <div class="section-label">Audit Details</div>
         <div class="empty-state">
-          <div class="empty-state-text">Online presence audit data will populate from the Performance Audit sheet.</div>
+          <div class="empty-state-icon">🏢</div>
+          <div class="empty-state-text">No businesses matched for this owner.<br>
+          Check <code>ownerAliases</code> in national-config.js if Client Name differs.</div>
         </div>`;
+      return;
     }
+
+    details.innerHTML = `
+      <div class="section-label">${total} Business${total > 1 ? 'es' : ''}</div>
+      <div class="audit-biz-grid">
+        ${bizList.map(b => this._renderBizCard(b)).join('')}
+      </div>`;
+  },
+
+  // ── Render a single business card ──
+  _renderBizCard(b) {
+    const e = s => this._esc(s || '');
+
+    // Review platforms row
+    const platforms = [
+      { name: 'GBL', data: b.gbl },
+      { name: 'Glassdoor', data: b.glassdoor },
+      { name: 'Indeed', data: b.indeed },
+      { name: b.other?.platform || 'Other', data: b.other }
+    ].filter(p => p.data && (p.data.rating != null || p.data.reviews > 0 || p.data.link));
+
+    const reviewsHtml = platforms.length ? `
+      <div class="biz-section">
+        <div class="biz-section-title">⭐ Reviews</div>
+        <div class="biz-platforms">
+          ${platforms.map(p => `
+            <div class="biz-platform">
+              <span class="biz-platform-name">${e(p.name)}</span>
+              <span class="biz-platform-rating ${this._ratingColor(p.data.rating)}">${p.data.rating != null ? p.data.rating.toFixed(1) : '—'}</span>
+              <span class="biz-platform-reviews">${p.data.reviews || 0} reviews</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : '';
+
+    // Instagram
+    const ig = b.instagram;
+    const hasIG = ig && (ig.link || ig.followers > 0);
+    const igHtml = hasIG ? `
+      <div class="biz-section">
+        <div class="biz-section-title">📱 Instagram</div>
+        <div class="biz-metrics-row">
+          ${this._metricPill('Followers', this._fmtNum(ig.followers))}
+          ${this._metricPill('Shared', ig.shared)}
+          ${this._metricPill('Generated', ig.generated)}
+        </div>
+      </div>` : '';
+
+    // Website
+    const ws = b.website;
+    const hasWebsite = ws && ws.url;
+    const wsUpdated = (ws?.updatedMonth || '').toLowerCase();
+    const wsIsUpdated = wsUpdated === 'yes' || wsUpdated === 'y' || wsUpdated === '✓' || wsUpdated === 'true' || wsUpdated === 'x';
+    const websiteHtml = hasWebsite ? `
+      <div class="biz-section">
+        <div class="biz-section-title">🌐 Website</div>
+        <div class="biz-metrics-row">
+          ${this._metricPill('Updated', wsIsUpdated ? '✓ Yes' : '✗ No', wsIsUpdated ? 'green' : 'red')}
+          ${ws.sitePhotos ? this._metricPill('Photos', e(ws.sitePhotos)) : ''}
+          ${ws.lastUpdated ? this._metricPill('Last Update', e(ws.lastUpdated)) : ''}
+        </div>
+      </div>` : '';
+
+    // Blog
+    const blog = b.blog;
+    const hasBlog = blog && blog.url;
+    const blogHtml = hasBlog ? `
+      <div class="biz-section">
+        <div class="biz-section-title">📝 Blog</div>
+        <div class="biz-metrics-row">
+          ${this._metricPill('3-Mo Count', blog.threeMonthCount)}
+          ${this._metricPill('This Month', blog.currentMonth)}
+          ${this._metricPill('On Queue', blog.onQueue)}
+        </div>
+      </div>` : '';
+
+    // SEO
+    const seoVal = (b.seo?.check || '').toLowerCase();
+    const seoPass = seoVal === 'pass' || seoVal === 'yes' || seoVal === 'y' || seoVal === '✓' || seoVal === 'true' || seoVal === 'x' || seoVal === 'good';
+    const seoHtml = b.seo?.check ? `
+      <div class="biz-section biz-section-inline">
+        <span class="biz-section-title">🔍 SEO</span>
+        <span class="biz-seo-badge ${seoPass ? 'seo-pass' : 'seo-fail'}">${seoPass ? '✓ Passing' : '✗ Needs Work'}</span>
+      </div>` : '';
+
+    // Status
+    const st = b.serviceStatus;
+    const statusHtml = (st?.status || st?.full || st?.lite) ? `
+      <div class="biz-section biz-section-inline">
+        <span class="biz-section-title">Status</span>
+        <span class="biz-status-text">${e(st.status || (st.full ? 'Full' : st.lite ? 'Lite' : ''))}</span>
+      </div>` : '';
+
+    return `
+      <div class="audit-biz-card">
+        <div class="biz-card-header">
+          <div class="biz-card-name">${e(b.businessName || b.clientName)}</div>
+          ${b.accountManager ? `<div class="biz-card-manager">${e(b.accountManager)}</div>` : ''}
+          ${b.services ? `<div class="biz-card-services">${e(b.services)}</div>` : ''}
+        </div>
+        <div class="biz-card-body">
+          ${reviewsHtml}${igHtml}${websiteHtml}${blogHtml}${seoHtml}${statusHtml}
+        </div>
+        ${b.otherNotes ? `<div class="biz-card-footer">${e(b.otherNotes)}</div>` : ''}
+      </div>`;
+  },
+
+  _metricPill(label, value, color) {
+    const cls = color ? ` pill-${color}` : '';
+    return `<div class="biz-metric-pill${cls}"><span class="pill-label">${label}</span><span class="pill-value">${value ?? '—'}</span></div>`;
+  },
+
+  _ratingColor(rating) {
+    if (rating == null) return '';
+    if (rating >= 4.5) return 'rating-great';
+    if (rating >= 4.0) return 'rating-good';
+    if (rating >= 3.0) return 'rating-ok';
+    return 'rating-bad';
+  },
+
+  _fmtNum(n) {
+    if (n == null || n === 0) return '0';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return String(n);
   },
 
   // ══════════════════════════════════════════════════

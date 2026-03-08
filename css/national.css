@@ -899,6 +899,135 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
   margin-top: 6px;
 }
 
+/* ── Business Cards Grid ── */
+.audit-biz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+}
+.audit-biz-card {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* Card header */
+.biz-card-header {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--gray-100);
+  background: var(--gray-50);
+}
+.biz-card-name {
+  font-size: 15px; font-weight: 800; color: var(--gray-800);
+}
+.biz-card-manager {
+  font-size: 12px; font-weight: 500; color: var(--gray-500);
+  margin-top: 2px;
+}
+.biz-card-services {
+  font-size: 11px; font-weight: 600; color: var(--teal);
+  margin-top: 4px;
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+
+/* Card body */
+.biz-card-body {
+  padding: 6px 18px 14px;
+}
+
+/* Card footer (notes) */
+.biz-card-footer {
+  padding: 10px 18px;
+  border-top: 1px solid var(--gray-100);
+  font-size: 12px; color: var(--gray-500);
+  background: var(--gray-50);
+}
+
+/* ── Business Sections ── */
+.biz-section {
+  padding: 10px 0 6px;
+  border-bottom: 1px solid var(--gray-50);
+}
+.biz-section:last-child { border-bottom: none; }
+.biz-section-title {
+  font-size: 11px; font-weight: 700; color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+.biz-section-inline {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0;
+}
+.biz-section-inline .biz-section-title {
+  margin-bottom: 0;
+}
+
+/* ── Review Platforms ── */
+.biz-platforms {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.biz-platform {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  background: var(--gray-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-100);
+}
+.biz-platform-name {
+  font-size: 11px; font-weight: 700; color: var(--gray-600);
+}
+.biz-platform-rating {
+  font-size: 15px; font-weight: 800;
+}
+.biz-platform-rating.rating-great { color: var(--green); }
+.biz-platform-rating.rating-good { color: var(--teal); }
+.biz-platform-rating.rating-ok { color: var(--yellow); }
+.biz-platform-rating.rating-bad { color: var(--red); }
+.biz-platform-reviews {
+  font-size: 11px; color: var(--gray-400);
+}
+
+/* ── Metric Pills ── */
+.biz-metrics-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.biz-metric-pill {
+  display: inline-flex; flex-direction: column;
+  padding: 6px 12px;
+  background: var(--gray-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-100);
+  text-align: center;
+  min-width: 70px;
+}
+.pill-label {
+  font-size: 10px; font-weight: 600; color: var(--gray-400);
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.pill-value {
+  font-size: 16px; font-weight: 800; color: var(--gray-800);
+  margin-top: 2px;
+}
+.biz-metric-pill.pill-green .pill-value { color: var(--green); }
+.biz-metric-pill.pill-red .pill-value { color: var(--red); }
+
+/* ── SEO Badge ── */
+.biz-seo-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12px; font-weight: 700;
+}
+.biz-seo-badge.seo-pass { background: var(--green-light); color: #15803d; }
+.biz-seo-badge.seo-fail { background: var(--red-light); color: #dc2626; }
+
+/* ── Status text ── */
+.biz-status-text {
+  font-size: 13px; font-weight: 600; color: var(--gray-700);
+}
+
 /* ═══════════════════════════════════════════════════════
    UTILITIES
    ═══════════════════════════════════════════════════════ */
@@ -930,4 +1059,5 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
   .hc-grid { grid-template-columns: repeat(2, 1fr); }
   .prod-cards { grid-template-columns: 1fr; }
   .coaching-section { padding: 16px; }
+  .audit-biz-grid { grid-template-columns: 1fr; }
 }

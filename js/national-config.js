@@ -76,6 +76,22 @@ const NATIONAL_CONFIG = {
     ]
   },
 
+  // ── Owner Name Aliases ──
+  // Maps variations/nicknames from Cam's Performance Audit sheet (Client Name column)
+  // to canonical owner names used in the recruiting/campaign data.
+  // Key = lowercase alias, Value = canonical owner name from owners list.
+  // Add entries here as mismatches are discovered.
+  ownerAliases: {
+    // Examples — update these once you see the actual Client Name values in Cam's sheet:
+    // 'jay':            'Jay T',
+    // 'jay thurston':   'Jay T',
+    // 'steve':          'Steven Sykes',
+    // 'steve sykes':    'Steven Sykes',
+    // 'nat':            'Natalia Gwarda',
+    // 'nigel':          'Nigel Gilbert',
+    // 'nigel gil':      'Nigel Gilbert',
+  },
+
   // ── Login ──
   // NC dashboard uses admin portal SSO (o4 role) or direct PIN login.
   // For now, simple alias-based access like admin portal.

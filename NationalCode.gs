@@ -53,6 +53,11 @@ function doGet(e) {
       return jsonResp(readNationalRecruiting(weeks));
     }
 
+    // ── Online presence / audit data from Cam's sheet ──
+    if (action === 'onlinePresence') {
+      return jsonResp(readOnlinePresence());
+    }
+
     if (owner) {
       // Single owner detail request
       const data = loadOwnerDetail(campaign, owner);
@@ -845,6 +850,218 @@ function _campaignSlug(label) {
   // Known mappings
   if (s.indexOf('at&t') >= 0 || s.indexOf('att') >= 0 || s === 'at-t' || s === 'at-t-b2b') return 'att-b2b';
   return s || 'unknown';
+}
+
+// ══════════════════════════════════════════════════
+// ONLINE PRESENCE — Read Cam's Performance Audit sheet
+// Returns all business rows with review platforms,
+// Instagram, website, blog, and SEO data
+// ══════════════════════════════════════════════════
+
+function readOnlinePresence() {
+  if (!SHEETS.PERFORMANCE_AUDIT) return { businesses: [] };
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.PERFORMANCE_AUDIT);
+  } catch (err) {
+    return { error: 'Cannot open Performance Audit sheet: ' + err.message, businesses: [] };
+  }
+
+  // Find the tab with audit data (look for "Client Name" header)
+  var allSheets = ss.getSheets();
+  var sheet = null;
+  var data = null;
+  var headerRowIdx = -1;
+
+  for (var si = 0; si < allSheets.length; si++) {
+    var d = allSheets[si].getDataRange().getValues();
+    for (var r = 0; r < Math.min(5, d.length); r++) {
+      for (var c = 0; c < d[r].length; c++) {
+        if (String(d[r][c]).toLowerCase().trim() === 'client name') {
+          sheet = allSheets[si];
+          data = d;
+          headerRowIdx = r;
+          break;
+        }
+      }
+      if (sheet) break;
+    }
+    if (sheet) break;
+  }
+
+  if (!sheet || headerRowIdx < 0) return { businesses: [] };
+
+  var headers = data[headerRowIdx].map(function(h) { return String(h).toLowerCase().trim(); });
+
+  // ── Column mapping using anchor columns + Nth-occurrence for repeating headers ──
+  var cols = {
+    clientName:      findCol(headers, ['client name']),
+    businessName:    findCol(headers, ['business name']),
+    accountManager:  findCol(headers, ['account manager']),
+    services:        findCol(headers, ['services']),
+    auditMonth:      findCol(headers, ['audit month and year', 'audit month']),
+    // Platform link anchors
+    gblLink:         findCol(headers, ['gbl link']),
+    glassdoorLink:   findCol(headers, ['glassdoor link']),
+    indeedLink:      findCol(headers, ['indeed link']),
+    igLink:          findCol(headers, ['ig link']),
+    // Non-repeating columns
+    shared:          findCol(headers, ['shared']),
+    generated:       findCol(headers, ['generated']),
+    followers:       findCol(headers, ['followers']),
+    following:       findCol(headers, ['following']),
+    website:         findCol(headers, ['website']),
+    updatedMonth:    findCol(headers, ['updated this month']),
+    sitePhotos:      findCol(headers, ['site photos']),
+    lastUpdated:     findCol(headers, ['last updated']),
+    blog:            findCol(headers, ['blog']),
+    lastBlogPost:    findCol(headers, ['last blog post']),
+    threeMonthCount: findCol(headers, ['3 month count']),
+    currentMonth:    findCol(headers, ['current month']),
+    onQueue:         findCol(headers, ['on queue']),
+    seoCheck:        findCol(headers, ['seo check']),
+    otherNotes:      findCol(headers, ['other notes / follow-up', 'other notes']),
+    full:            findCol(headers, ['full']),
+    lite:            findCol(headers, ['lite']),
+    status:          findCol(headers, ['status'])
+  };
+
+  // 4th review site: its "Link" column is the plain "link" (not prefixed)
+  var otherLinkCol = -1;
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i] === 'link') { otherLinkCol = i; break; }
+  }
+
+  // Repeating columns: Rating (×4), # of Reviews (×4), Notes (×8)
+  var ratingCols  = _findAllExact(headers, 'rating');        // [GBL, Glassdoor, Indeed, Other]
+  var reviewCols  = _findAllExact(headers, '# of reviews');  // same order
+  var notesCols   = _findAllExact(headers, 'notes');         // [GBL, GD, Indeed, Other, IG, Website, Blog, Final]
+
+  // ── Parse each business row ──
+  var businesses = [];
+
+  for (var i = headerRowIdx + 1; i < data.length; i++) {
+    var row = data[i];
+    var clientName = String(row[cols.clientName] || '').trim();
+    if (!clientName) continue;
+
+    var biz = {
+      clientName: clientName,
+      businessName: _str(row[cols.businessName]),
+      accountManager: _str(row[cols.accountManager]),
+      services: _str(row[cols.services]),
+      auditMonth: _str(row[cols.auditMonth]),
+
+      gbl: {
+        link:    _str(row[cols.gblLink]),
+        rating:  _safeNum(row[ratingCols[0]]),
+        reviews: num(row[reviewCols[0]]),
+        notes:   _str(row[notesCols[0]])
+      },
+      glassdoor: {
+        link:    _str(row[cols.glassdoorLink]),
+        rating:  _safeNum(row[ratingCols[1]]),
+        reviews: num(row[reviewCols[1]]),
+        notes:   _str(row[notesCols[1]])
+      },
+      indeed: {
+        link:    _str(row[cols.indeedLink]),
+        rating:  _safeNum(row[ratingCols[2]]),
+        reviews: num(row[reviewCols[2]]),
+        notes:   _str(row[notesCols[2]])
+      },
+      other: {
+        link:     _str(row[otherLinkCol]),
+        rating:   _safeNum(row[ratingCols[3]]),
+        reviews:  num(row[reviewCols[3]]),
+        notes:    _str(row[notesCols[3]]),
+        platform: _detectPlatform(_str(row[otherLinkCol]))
+      },
+
+      instagram: {
+        link:      _str(row[cols.igLink]),
+        shared:    num(row[cols.shared]),
+        generated: num(row[cols.generated]),
+        followers: num(row[cols.followers]),
+        following: num(row[cols.following]),
+        notes:     notesCols.length > 4 ? _str(row[notesCols[4]]) : ''
+      },
+
+      website: {
+        url:          _str(row[cols.website]),
+        updatedMonth: _str(row[cols.updatedMonth]),
+        sitePhotos:   _str(row[cols.sitePhotos]),
+        lastUpdated:  _str(row[cols.lastUpdated]),
+        notes:        notesCols.length > 5 ? _str(row[notesCols[5]]) : ''
+      },
+
+      blog: {
+        url:             _str(row[cols.blog]),
+        lastPost:        _str(row[cols.lastBlogPost]),
+        threeMonthCount: num(row[cols.threeMonthCount]),
+        currentMonth:    num(row[cols.currentMonth]),
+        onQueue:         num(row[cols.onQueue]),
+        notes:           notesCols.length > 6 ? _str(row[notesCols[6]]) : ''
+      },
+
+      seo: {
+        check: _str(row[cols.seoCheck])
+      },
+
+      serviceStatus: {
+        full:  _str(row[cols.full]),
+        lite:  _str(row[cols.lite]),
+        status: _str(row[cols.status]),
+        notes: notesCols.length > 7 ? _str(row[notesCols[7]]) : ''
+      },
+
+      otherNotes: _str(row[cols.otherNotes])
+    };
+
+    businesses.push(biz);
+  }
+
+  return { businesses: businesses, tabName: sheet.getName() };
+}
+
+// ── Find ALL exact occurrences of a header text ──
+function _findAllExact(headers, text) {
+  var indices = [];
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i] === text) indices.push(i);
+  }
+  return indices;
+}
+
+// ── Safe string extraction ──
+function _str(v) {
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date) return formatDate(v);
+  return String(v).trim();
+}
+
+// ── Number or null (for ratings where 0 means "no rating") ──
+function _safeNum(v) {
+  if (v === null || v === undefined || v === '') return null;
+  var n = Number(v);
+  return isNaN(n) ? null : Math.round(n * 10) / 10;
+}
+
+// ── Detect platform from URL ──
+function _detectPlatform(url) {
+  if (!url) return '';
+  var u = url.toLowerCase();
+  if (u.indexOf('yelp') >= 0) return 'Yelp';
+  if (u.indexOf('bbb') >= 0 || u.indexOf('betterbusiness') >= 0) return 'BBB';
+  if (u.indexOf('facebook') >= 0 || u.indexOf('fb.com') >= 0) return 'Facebook';
+  if (u.indexOf('google') >= 0) return 'Google';
+  if (u.indexOf('trustpilot') >= 0) return 'Trustpilot';
+  if (u.indexOf('angi') >= 0 || u.indexOf('angieslist') >= 0) return 'Angi';
+  if (u.indexOf('nextdoor') >= 0) return 'Nextdoor';
+  if (u.indexOf('linkedin') >= 0) return 'LinkedIn';
+  if (u.indexOf('twitter') >= 0 || u.indexOf('x.com') >= 0) return 'X';
+  return 'Other';
 }
 
 // ══════════════════════════════════════════════════

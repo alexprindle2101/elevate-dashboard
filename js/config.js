@@ -86,6 +86,9 @@ const OFFICE_CONFIG = {
   weeklyGreenThreshold: 10, // weekly units >= 10 → green
   weeklyYellowThreshold: 9, // weekly units >= 1..9 → yellow, else red (10+ = green)
 
+  // ── Payroll ──
+  payrollMode: "commission-split",  // "commission-split" | "flat-rate"
+
   // ── Refresh ──
   refreshInterval: 5 * 60 * 1000,  // 5 minutes
 
@@ -137,6 +140,7 @@ const WEEK_PERIODS = new Set([7, 8, 9, 10, 11]);
       if (cfg.logoIconUrl) OFFICE_CONFIG.logoIconUrl = cfg.logoIconUrl;
       if (cfg.headerLogoStyle) OFFICE_CONFIG.headerLogoStyle = cfg.headerLogoStyle;
       if (cfg.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = cfg.payrollManagerEmail;
+      if (cfg.payrollMode) OFFICE_CONFIG.payrollMode = cfg.payrollMode;
       if (cfg.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = cfg.discordWebhookUrl;
       console.log('[Multi-Office] Config overridden for:', cfg.officeName || 'Unknown office', '| officeId:', cfg.officeId || 'default');
     } catch(e) {

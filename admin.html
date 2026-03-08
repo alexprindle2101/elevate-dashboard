@@ -181,6 +181,15 @@
       <div class="hint">Admin who manages payroll for this office.</div>
     </div>
 
+    <div class="form-group">
+      <label for="office-payroll-mode">Payroll Mode</label>
+      <select id="office-payroll-mode">
+        <option value="commission-split">Commission Split (trainee orders on payroll)</option>
+        <option value="flat-rate">Flat Rate (trainee status not payroll-relevant)</option>
+      </select>
+      <div class="hint">Commission Split includes trainee orders in payroll; Flat Rate only shows codes-swap orders.</div>
+    </div>
+
     <div class="advanced-settings-wrap">
       <button type="button" id="advanced-toggle-btn" class="advanced-toggle" onclick="this.classList.toggle('open'); document.getElementById('advanced-fields').classList.toggle('collapsed')">
         Advanced Settings

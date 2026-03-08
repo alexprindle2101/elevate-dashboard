@@ -1424,11 +1424,302 @@ body.has-role-switcher header { top: 44px; }
   display: flex; gap: 12px; justify-content: center;
 }
 
-/* Responsive */
+/* Responsive — Post Sale small screen */
 @media (max-width: 500px) {
   .product-cards { grid-template-columns: 1fr; }
   .campaign-cards { flex-direction: column; }
   .wizard-nav { flex-direction: column-reverse; gap: 10px; }
   .wizard-nav .wizard-btn { width: 100%; text-align: center; }
   .success-actions { flex-direction: column; }
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — Tablet & Phone (≤768px)
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── Nav tabs — horizontal scroll strip ── */
+  #main-nav {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;       /* Firefox */
+    padding-bottom: 8px;
+    gap: 3px;
+  }
+  #main-nav::-webkit-scrollbar { display: none; }  /* Chrome/Safari */
+
+  .nav-tab {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    font-size: 12px;
+    min-height: 44px;
+  }
+  .nav-tab-edit { padding: 8px 10px; }
+  .nav-separator { width: 1px; height: 16px; margin: 0 3px; }
+
+  /* ── Header — compact ── */
+  header {
+    padding: 8px 0 0;
+    margin: 0 -16px 20px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .header-top {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .header-office-icon { height: 28px; width: 28px; }
+  .header-office-icon.header-logo-full { height: 32px; max-width: 140px; }
+  .header-office-name { font-size: 14px; }
+  .logo-area { gap: 10px; }
+
+  .header-label-group {
+    display: none;  /* Hide week label + live badge on mobile */
+  }
+
+  .header-right { gap: 6px; }
+  #last-updated { font-size: 9px; letter-spacing: 0.5px; }
+  #header-user-info { font-size: 11px !important; }
+  .refresh-btn { padding: 3px 8px; font-size: 9px; }
+
+  /* ── Container — reduce padding ── */
+  .container {
+    padding: 0 16px 40px;
+  }
+
+  /* ── Hero bar — stack on small screens ── */
+  .hero-bar {
+    flex-wrap: wrap;
+    border-radius: 12px;
+    margin-bottom: 20px;
+  }
+  .hero-stat {
+    padding: 16px 20px;
+    min-width: 45%;
+    flex: 1 1 45%;
+  }
+  .hero-stat-value { font-size: 40px; }
+  .hero-stat-label { font-size: 10px; letter-spacing: 2px; }
+  .hero-divider {
+    height: 1px;
+    width: 40px;
+    background: rgba(0,0,0,0.2);
+  }
+
+  /* ── Podium — already handled at 700px ── */
+
+  /* ── Leaderboard table — touch-friendly ── */
+  .table-scroll { border-radius: 10px; }
+  th { padding: 6px 10px; font-size: 10px; }
+  th.name-col { padding-left: 12px; }
+  .name-cell { padding: 6px 10px 6px 4px; }
+  .name-text { font-size: 13px; }
+  td.val { padding: 5px 4px; font-size: 13px; min-width: 28px; }
+  td.val-weekly { padding: 6px 6px; font-size: 14px; min-width: 44px; }
+  td.val-4w { padding: 6px 6px; font-size: 14px; min-width: 50px; }
+  .rank { padding: 0 4px 0 8px; font-size: 12px; width: 28px; }
+
+  /* ── Section headers ── */
+  .section { margin-bottom: 32px; }
+  .section-title { font-size: 16px; letter-spacing: 2px; }
+  .section-icon { font-size: 18px; }
+
+  /* ── Login — compact card ── */
+  .login-card {
+    padding: 32px 24px;
+    border-radius: 16px;
+  }
+  .login-logo-wrap img { height: 60px; }
+  .login-step-title { font-size: 20px; }
+  .login-input { font-size: 16px; padding: 14px 16px; }  /* 16px prevents iOS zoom */
+  .login-btn { min-height: 44px; font-size: 15px; padding: 14px; }
+
+  /* ── Post Sale wizard — touch targets ── */
+  #post-sale-page { padding: 16px; }
+  .wizard-btn { min-height: 44px; padding: 12px 20px; }
+  .wizard-input { font-size: 16px; min-height: 44px; }  /* Prevent iOS zoom */
+  .toggle-btn { min-height: 44px; font-size: 12px; padding: 10px 12px; }
+
+  /* ── Profile page — compact ── */
+  .profile-page-inner { padding: 0 16px 60px; }
+  .profile-topbar { padding: 12px 16px; margin: 0 -16px 20px; }
+  .profile-page-name { font-size: 24px; }
+  .profile-page-sub { font-size: 12px; }
+  .profile-stat { padding: 14px 8px; }
+  .profile-stat-val { font-size: 26px; }
+  .profile-stat-lbl { font-size: 9px; }
+
+  /* ── Breakdown grid ── */
+  .breakdown-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .breakdown-val { font-size: 18px; }
+
+  /* ── Charts ── */
+  .charts-row { grid-template-columns: 1fr; gap: 10px; }
+
+  /* ── Churn buckets ── */
+  .churn-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .churn-label { font-size: 10px; }
+  .churn-pct { font-size: 16px; }
+
+  /* ── Team grid ── */
+  .team-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .team-card { padding: 14px 12px; }
+  .team-name { font-size: 15px; }
+  .team-score { font-size: 28px; }
+
+  /* ── Orders tables ── */
+  #all-orders-body td,
+  #my-orders-body td { font-size: 12px; padding: 8px 8px; }
+
+  /* ── Modals — full-width on mobile ── */
+  .modal-overlay .modal {
+    width: min(95vw, 500px);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* ── Toast — bottom center ── */
+  .toast {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    text-align: center;
+  }
+
+  /* ── Global touch targets ── */
+  button, .nav-tab, select, .toggle-btn, .wizard-btn, .campaign-card {
+    min-height: 44px;
+  }
+  select, textarea {
+    font-size: 16px;  /* Prevent iOS zoom */
+  }
+
+  /* ── Role switcher — compact ── */
+  #role-switcher { padding: 6px 16px; flex-wrap: wrap; gap: 8px; }
+  .role-switcher-label { font-size: 10px; }
+  .role-pill { padding: 4px 10px; font-size: 10px; }
+  body.has-role-switcher .container { padding-top: 36px; }
+  body.has-role-switcher header { top: 36px; }
+
+  /* ── View toggle group ── */
+  .view-toggle-group { margin-right: 6px; }
+  .view-toggle { padding: 6px 10px; font-size: 10px; }
+
+  /* ── Full-page overlays ── */
+  #roster-page,
+  #team-roster-page,
+  #teams-page,
+  #all-orders-page,
+  #my-orders-page,
+  #office-page,
+  #payroll-page { padding: 16px; }
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — Small Phones (≤480px)
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+
+  /* ── Nav — extra compact ── */
+  .nav-tab { padding: 6px 10px; font-size: 11px; }
+  .nav-tab-edit { padding: 6px 8px; font-size: 12px; }
+  .nav-separator { margin: 0 2px; }
+
+  /* ── Container ── */
+  .container { padding: 0 12px 32px; }
+
+  /* ── Header ── */
+  header {
+    margin: 0 -12px 16px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .header-office-icon { height: 24px; width: 24px; }
+  .header-office-icon.header-logo-full { height: 28px; max-width: 120px; }
+  .header-office-name { font-size: 13px; }
+  .logo-area { gap: 8px; }
+
+  /* ── Hero stats — single column ── */
+  .hero-bar {
+    flex-direction: column;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .hero-stat {
+    min-width: 100%;
+    flex: 1 1 100%;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .hero-stat:last-child { border-bottom: none; }
+  .hero-stat-value { font-size: 36px; }
+  .hero-divider { display: none; }
+
+  /* ── Login ── */
+  .login-card { padding: 24px 16px; }
+  .login-logo-wrap img { height: 48px; }
+  .login-step-title { font-size: 18px; }
+  .login-step-subtitle { font-size: 12px; margin-bottom: 20px; }
+
+  /* ── Profile ── */
+  .profile-page-inner { padding: 0 12px 50px; }
+  .profile-topbar { padding: 10px 12px; margin: 0 -12px 16px; }
+  .profile-page-name { font-size: 20px; }
+  .profile-stats-bar { flex-wrap: wrap; }
+  .profile-stat {
+    flex: 1 1 45%;
+    min-width: 45%;
+    border-right: none;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+  .profile-stat:nth-child(odd) { border-right: 1px solid rgba(0,0,0,0.1); }
+  .profile-stat-val { font-size: 22px; }
+  .breakdown-grid { grid-template-columns: 1fr 1fr; }
+  .churn-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* ── Podium — stack and compact ── */
+  .podium-name { font-size: 18px; }
+  .podium-stat-val { font-size: 26px; }
+  .podium-card { padding: 18px 14px 16px; }
+
+  /* ── Post Sale — full-width buttons ── */
+  .wizard-steps { gap: 0; }
+  .wizard-step-dot { width: 28px; height: 28px; font-size: 12px; }
+  .wizard-step-line { width: 24px; }
+  .wizard-btn { font-size: 13px; }
+
+  /* ── Team cards ── */
+  .team-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .team-card { padding: 12px 8px; border-radius: 8px; }
+  .team-name { font-size: 13px; letter-spacing: 0; }
+  .team-score { font-size: 24px; }
+  .team-label { font-size: 9px; }
+
+  /* ── Section ── */
+  .section { margin-bottom: 24px; }
+  .section-title { font-size: 14px; letter-spacing: 1.5px; }
+  .section-header { gap: 8px; margin-bottom: 10px; }
+
+  /* ── Role switcher ── */
+  #role-switcher { padding: 4px 12px; gap: 6px; }
+  .role-pill { padding: 3px 8px; font-size: 9px; }
+  body.has-role-switcher .container { padding-top: 32px; }
+  body.has-role-switcher header { top: 32px; }
+
+  /* ── Orders ── */
+  #all-orders-body td,
+  #my-orders-body td { font-size: 11px; padding: 6px 6px; }
+
+  /* ── Full-page overlays ── */
+  #roster-page,
+  #team-roster-page,
+  #teams-page,
+  #all-orders-page,
+  #my-orders-page,
+  #office-page,
+  #payroll-page { padding: 12px; }
 }

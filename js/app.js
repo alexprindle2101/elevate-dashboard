@@ -88,6 +88,7 @@ const App = {
         if (session.officeConfig.headerLogoStyle) OFFICE_CONFIG.headerLogoStyle = session.officeConfig.headerLogoStyle;
         if (session.officeConfig.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = session.officeConfig.payrollManagerEmail;
         if (session.officeConfig.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = session.officeConfig.discordWebhookUrl;
+        if (session.officeConfig.payrollMode) OFFICE_CONFIG.payrollMode = session.officeConfig.payrollMode;
         console.log('[Session] Restored officeConfig:', session.officeConfig.officeName || session.officeConfig.officeId);
       }
       // Fetch discordWebhookUrl if missing (old URLs without ?office= param)
@@ -147,6 +148,7 @@ const App = {
         if (oc.headerLogoStyle) OFFICE_CONFIG.headerLogoStyle = oc.headerLogoStyle;
         if (oc.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = oc.payrollManagerEmail;
         if (oc.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = oc.discordWebhookUrl;
+        if (oc.payrollMode) OFFICE_CONFIG.payrollMode = oc.payrollMode;
         console.log('[Multi-Office] Resolved to:', oc.name);
       } else {
         console.warn('[Multi-Office] Office not found:', officeId, '— using defaults');
@@ -803,7 +805,9 @@ const App = {
     Orders._orders = this._payrollOrders;
     Orders._mode = 'payroll';
 
-    if (subtitle) subtitle.textContent = `${this._payrollOrders.length} trainee orders · Past 2 months`;
+    const mode = OFFICE_CONFIG.payrollMode || 'commission-split';
+    const modeLabel = mode === 'flat-rate' ? 'codes-swap orders' : 'payroll orders';
+    if (subtitle) subtitle.textContent = `${this._payrollOrders.length} ${modeLabel} · Past 2 months`;
     this._filterPayrollOrders();
   },
 
@@ -834,7 +838,7 @@ const App = {
     tbody.innerHTML = '';
 
     if (orders.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Cerebri Sans\',\'DM Sans\',\'Inter\',sans-serif;font-size:14px">No trainee orders found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--silver-dim);padding:32px;font-family:\'Cerebri Sans\',\'DM Sans\',\'Inter\',sans-serif;font-size:14px">No payroll-relevant orders found</td></tr>';
       return;
     }
 
@@ -864,7 +868,7 @@ const App = {
       const tr = document.createElement('tr');
       tr.style.cssText = 'border-bottom:1px solid rgba(0,0,0,0.06)';
       tr.innerHTML = `
-        <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white)">${o.repName}</td>
+        <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white)">${o.repName}${o.codesUsedBy ? `<div style="font-size:10px;font-weight:700;color:var(--orange);margin-top:2px">⚠ Codes: ${this._escapeHtml((this.state.roster?.[o.codesUsedBy]?.name) || o.codesUsedBy)}</div>` : ''}</td>
         <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;font-weight:600;color:var(--sc-cyan)">${o.traineeName || '—'}</td>
         <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--silver)">${o.dsi}</td>
         <td style="padding:10px 16px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--silver)">${o.dateOfSale}</td>

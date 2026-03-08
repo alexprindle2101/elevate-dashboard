@@ -314,6 +314,14 @@ const Orders = {
         soldParts.push(dtvLabel);
       }
       const soldStr = soldParts.length > 0 ? soldParts.join(', ') : '\u2014';
+      // Tower badge (tracked but excluded from leaderboard)
+      const towerBadge = (o.orderChannel === 'Tower')
+        ? '<span style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:var(--orange);background:rgba(249,115,22,0.12);border:1px solid rgba(249,115,22,0.3);border-radius:4px;padding:1px 5px;margin-right:4px;text-transform:uppercase">TOWER</span>'
+        : '';
+      // Codes-used indicator
+      const codesIndicator = o.codesUsedBy
+        ? `<div style="font-size:10px;color:var(--orange);margin-top:2px">Codes: ${this._escapeHtml((App.state?.roster?.[o.codesUsedBy]?.name) || o.codesUsedBy)}</div>`
+        : '';
       // Campaign badge (e.g., Ooma orders get a distinct badge)
       const campaignBadge = (o.campaign && o.campaign !== 'attb2b')
         ? `<span style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:var(--sc-teal);background:rgba(0,229,204,0.12);border:1px solid rgba(0,229,204,0.3);border-radius:4px;padding:1px 5px;margin-right:4px;text-transform:uppercase">${this._escapeHtml(o.campaign)}</span>`
@@ -353,7 +361,7 @@ const Orders = {
         ${mode === 'all' ? `<td style="padding:10px 12px;font-weight:700;color:var(--white)">${this._escapeHtml(o.repName)}</td>` : ''}
         <td style="padding:10px 12px">${dsiClickable}</td>
         <td style="padding:10px 12px;color:var(--silver)">${o.dateOfSale}</td>
-        <td style="padding:10px 12px;color:var(--white)">${campaignBadge}${soldStr}</td>
+        <td style="padding:10px 12px;color:var(--white)">${towerBadge}${campaignBadge}${soldStr}${codesIndicator}</td>
         <td style="padding:10px 12px;text-align:center">${statusHtml}</td>
         <td style="padding:10px 12px;font-size:11px;color:var(--silver-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._escapeHtml(notePreview)}${noteCount > 1 ? ` <span style="color:var(--blue-core)">(${noteCount})</span>` : ''}</td>
         <td style="padding:10px 8px;text-align:right;white-space:nowrap">

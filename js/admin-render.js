@@ -284,6 +284,10 @@ const AdminRender = {
     if (headerLogoStyleSelect) headerLogoStyleSelect.value = office ? (office.headerLogoStyle || 'icon') : 'icon';
     if (statusSelect) statusSelect.value = office ? office.status : 'setup';
 
+    // Payroll mode dropdown
+    const payrollModeSelect = document.getElementById('office-payroll-mode');
+    if (payrollModeSelect) payrollModeSelect.value = office ? (office.payrollMode || 'commission-split') : 'commission-split';
+
     // Advanced Settings: auto-expand when editing (fields have values), collapse for new
     const advancedToggle = document.getElementById('advanced-toggle-btn');
     const advancedFields = document.getElementById('advanced-fields');

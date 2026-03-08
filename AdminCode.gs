@@ -42,7 +42,7 @@ function getOrCreateSheet(name) {
           'officeId', 'name', 'templateType', 'sheetId', 'appsScriptUrl',
           'apiKey', 'status', 'ownerEmail', 'ownerName', 'ownerLevel',
           'logoUrl', 'logoIconUrl', 'brandColors', 'createdDate', 'discordWebhookUrl',
-          'headerLogoStyle', 'payrollManagerEmail'
+          'headerLogoStyle', 'payrollManagerEmail', 'payrollMode'
         ]);
         break;
       case OWNERS_TAB:
@@ -208,7 +208,8 @@ function doGet(e) {
                 logoIconUrl: o.logoIconUrl || '',
                 discordWebhookUrl: o.discordWebhookUrl || '',
                 headerLogoStyle: o.headerLogoStyle || 'icon',
-                payrollManagerEmail: o.payrollManagerEmail || ''
+                payrollManagerEmail: o.payrollManagerEmail || '',
+                payrollMode: o.payrollMode || 'commission-split'
               }
             });
           }
@@ -345,7 +346,8 @@ function doPost(e) {
           new Date().toISOString(),
           body.discordWebhookUrl || '',
           body.headerLogoStyle || 'icon',
-          body.payrollManagerEmail || ''
+          body.payrollManagerEmail || '',
+          body.payrollMode || 'commission-split'
         ]);
         return jsonResponse({ success: true, officeId: officeId });
       }
@@ -370,6 +372,7 @@ function doPost(e) {
         if (body.brandColors !== undefined) sheet.getRange(row, 13).setValue(body.brandColors);
         if (body.headerLogoStyle !== undefined) sheet.getRange(row, 16).setValue(body.headerLogoStyle);
         if (body.payrollManagerEmail !== undefined) sheet.getRange(row, 17).setValue(body.payrollManagerEmail);
+        if (body.payrollMode !== undefined) sheet.getRange(row, 18).setValue(body.payrollMode);
         return jsonResponse({ success: true });
       }
 
@@ -546,7 +549,8 @@ function readOffices() {
       createdDate: (data[i][13] || '').toString(),
       discordWebhookUrl: (data[i][14] || '').toString().trim(),
       headerLogoStyle: (data[i][15] || '').toString().trim() || 'icon',
-      payrollManagerEmail: (data[i][16] || '').toString().trim().toLowerCase()
+      payrollManagerEmail: (data[i][16] || '').toString().trim().toLowerCase(),
+      payrollMode: (data[i][17] || 'commission-split').toString().trim()
     });
   }
   return offices;

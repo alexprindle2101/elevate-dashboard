@@ -86,7 +86,9 @@ const OL = {
   STATUS: 26,
   NOTES: 27,
   PAID_OUT: 28,
-  TICKETS: 29
+  TICKETS: 29,
+  ORDER_CHANNEL: 30,
+  CODES_USED_BY: 31
 };
 
 // Legacy Order Log column indices (for migration only — remove after migration)
@@ -234,7 +236,8 @@ function getOrCreateSheet(ss, tabName, baseName) {
           'Air', 'New Phones', 'BYODs', 'Cell', 'Fiber',
           'Fiber Package', 'Install Date', 'VoIP Qty', 'DTV', 'DTV Package',
           'Ooma Package', 'Account Notes', 'Activation Support', 'Team Emoji',
-          'Yeses', 'Units', 'Status', 'Notes', 'Paid Out', 'Tickets'
+          'Yeses', 'Units', 'Status', 'Notes', 'Paid Out', 'Tickets',
+          'Order Channel', 'Codes Used By'
         ]);
         break;
       case TAB.ROSTER:
@@ -312,9 +315,10 @@ function doGet(e) {
       return jsonResponse({ orders: orders });
     }
 
-    // Payroll orders — trainee=Yes, past 2 months
+    // Payroll orders — filtered by payrollMode (commission-split or flat-rate)
     if (action === 'readPayrollOrders') {
-      const orders = readPayrollOrders(ss, officeId);
+      var payrollMode = params.payrollMode || 'commission-split';
+      const orders = readPayrollOrders(ss, officeId, payrollMode);
       return jsonResponse({ orders: orders });
     }
 
@@ -513,6 +517,10 @@ function readPeople(ss, officeId, roster, teamNameToEmoji) {
     if (!email) { _dbg.noEmail++; continue; }
     if (!roster[email]) { _dbg.emailNotInRoster++; continue; }
 
+    // Skip Tower orders — tracked but excluded from leaderboard
+    var orderChannel = String(row[OL.ORDER_CHANNEL] || 'Sara').trim();
+    if (orderChannel === 'Tower') continue;
+
     // Parse date — always force new Date() to handle Apps Script Date-like objects
     let rawDate = row[OL.DATE_OF_SALE];
     if (!rawDate) { _dbg.noDate++; continue; }
@@ -683,7 +691,9 @@ function readOrders(ss, officeId, filterEmail) {
       units: Number(row[OL.UNITS]) || 0,
       status: String(row[OL.STATUS] || 'Pending').trim(),
       notes:  String(row[OL.NOTES] || '').trim(),
-      tickets: (function() { try { return JSON.parse(row[OL.TICKETS] || '[]'); } catch(e) { return []; } })()
+      tickets: (function() { try { return JSON.parse(row[OL.TICKETS] || '[]'); } catch(e) { return []; } })(),
+      orderChannel: String(row[OL.ORDER_CHANNEL] || 'Sara').trim(),
+      codesUsedBy: String(row[OL.CODES_USED_BY] || '').trim().toLowerCase()
     });
   }
 
@@ -694,7 +704,7 @@ function readOrders(ss, officeId, filterEmail) {
 
 // === readPayrollOrders() — Trainee orders past 2 months ===
 
-function readPayrollOrders(ss, officeId) {
+function readPayrollOrders(ss, officeId, payrollMode) {
   const olSheet = ss.getSheetByName(officeTab(TAB.SALES, officeId));
   if (!olSheet) return [];
 
@@ -705,6 +715,7 @@ function readPayrollOrders(ss, officeId) {
   cutoff.setDate(cutoff.getDate() - 60);
   cutoff.setHours(0, 0, 0, 0);
 
+  var mode = String(payrollMode || 'commission-split').trim();
   const orders = [];
 
   for (let i = 1; i < olData.length; i++) {
@@ -712,9 +723,19 @@ function readPayrollOrders(ss, officeId) {
     const email = String(row[OL.EMAIL] || '').trim().toLowerCase();
     if (!email) continue;
 
-    // Only include rows where Trainee = Yes
+    // Determine if this row is payroll-relevant based on mode
     const trainee = String(row[OL.TRAINEE] || '').trim().toLowerCase();
-    if (trainee !== 'yes') continue;
+    const codesUsedBy = String(row[OL.CODES_USED_BY] || '').trim().toLowerCase();
+    var isTraineeOrder = (trainee === 'yes');
+    var isCodesSwap = (codesUsedBy !== '');
+
+    if (mode === 'flat-rate') {
+      // Flat rate: only codes-swap orders go to payroll (trainee irrelevant)
+      if (!isCodesSwap) continue;
+    } else {
+      // Commission split (default): trainee orders AND codes-swap orders
+      if (!isTraineeOrder && !isCodesSwap) continue;
+    }
 
     const rawDate = row[OL.DATE_OF_SALE];
     if (!rawDate) continue;
@@ -744,7 +765,9 @@ function readPayrollOrders(ss, officeId) {
       units: Number(row[OL.UNITS]) || 0,
       status: String(row[OL.STATUS] || 'Pending').trim(),
       notes:  String(row[OL.NOTES] || '').trim(),
-      paidOut: paidOut
+      paidOut: paidOut,
+      orderChannel: String(row[OL.ORDER_CHANNEL] || 'Sara').trim(),
+      codesUsedBy: codesUsedBy
     });
   }
 
@@ -2049,7 +2072,9 @@ function writeAddSale(body, ss, officeId) {
     'Pending',                                                     // 26 Status
     '',                                                            // 27 Notes
     '',                                                            // 28 Paid Out
-    '[]'                                                           // 29 Tickets
+    '[]',                                                          // 29 Tickets
+    String(body.orderChannel || 'Sara').trim(),                     // 30 Order Channel
+    String(body.codesUsedBy || '').trim().toLowerCase()             // 31 Codes Used By
   ];
 
   sheet.appendRow(newRow);
@@ -2464,4 +2489,182 @@ function migrateFromExternal(body, ss) {
   Logger.log(log.join('\n'));
 
   return summary;
+}
+
+
+// ═══════════════════════════════════════════════════════
+// LUNA DATA MIGRATION — Run ONCE from Apps Script editor
+// ═══════════════════════════════════════════════════════
+// Source: Luna's legacy sheet 1pOi6p5gsHCdn_SZpNwWJLzwLmLCn5D-6gKAHccAaqqU
+// Target: _Sales_off_003 in campaign sheet
+//
+// Luna's source columns (0-indexed):
+//  0: Production Post       1: Timestamp         2: Email Address
+//  3: Date of Sale          4: Representative's Name
+//  5: Was this sale made under someone else's codes?
+//  6: Whose codes were used for the sale?
+//  7: Which Campaign?       8: How was the order processed?
+//  9: DSI Number           10: Ticket Number     11: Type of Account
+// 12: Additional Account Notes      13: Was Internet Air Sold?
+// 14: Were Wireless Lines Sold?     15: Quantity of New Phones
+// 16: Quantity of BYODs             17: Was Fiber Optic Internet Sold?
+// 18: Which Package Was Sold?       19: Install Date
+// 20: Were VoIP Lines Sold?        21: Quantity Sold (VoIP)
+// 22: Was DIRECTV Sold?            23: Package Sold (DTV)
+// 24: Client Name                  25: Which package was sold? (Ooma)
+// 26: Sale Screenshot              27: #'s
+// 28: Package                      29: Rep and Trainee
+// 30: AT&T Order    31: Vonage Order    32: Fiber Counter
+// 33: Air Counter   34: DTV Counter     35: Yes Counter
+// 36: # of Lines    37: VoIP Counter    38: Units    39: Units Today
+
+function migrateLunaData() {
+  var SOURCE_SHEET_ID = '1pOi6p5gsHCdn_SZpNwWJLzwLmLCn5D-6gKAHccAaqqU';
+  var SOURCE_TAB = 'Production Post';
+  var TARGET_OFFICE_ID = 'off_003';
+
+  // Open source sheet
+  var sourceSS = SpreadsheetApp.openById(SOURCE_SHEET_ID);
+  var sourceSheet = sourceSS.getSheetByName(SOURCE_TAB);
+  if (!sourceSheet) {
+    sourceSheet = sourceSS.getSheets()[0];
+    Logger.log('[Luna] Tab not found, using first sheet: ' + sourceSheet.getName());
+  }
+
+  var sourceData = sourceSheet.getDataRange().getValues();
+  Logger.log('[Luna] Source rows (incl header): ' + sourceData.length);
+
+  // Target campaign sheet
+  var targetSS = SpreadsheetApp.getActiveSpreadsheet();
+  var salesTabName = officeTab(TAB.SALES, TARGET_OFFICE_ID);
+  var targetSheet = getOrCreateSheet(targetSS, salesTabName, TAB.SALES);
+  Logger.log('[Luna] Target tab: ' + salesTabName);
+
+  // Build roster email → emoji map from _Roster_off_003
+  var rosterSheet = targetSS.getSheetByName(officeTab(TAB.ROSTER, TARGET_OFFICE_ID));
+  var emojiByEmail = {};
+  if (rosterSheet) {
+    var rosterData = rosterSheet.getDataRange().getValues();
+    var teamMaps = buildTeamEmojiMaps(targetSS, TARGET_OFFICE_ID);
+    for (var r = 1; r < rosterData.length; r++) {
+      var rEmail = String(rosterData[r][0] || '').trim().toLowerCase();
+      var tName = String(rosterData[r][2] || '').trim();
+      if (rEmail && tName && teamMaps.nameMap[tName]) {
+        emojiByEmail[rEmail] = teamMaps.nameMap[tName];
+      }
+    }
+    Logger.log('[Luna] Built emoji map for ' + Object.keys(emojiByEmail).length + ' reps');
+  }
+
+  var newRows = [];
+  var skipped = 0;
+
+  for (var i = 1; i < sourceData.length; i++) {
+    var row = sourceData[i];
+
+    var timestamp = row[1] || '';
+    var email = String(row[2] || '').trim().toLowerCase();
+    if (!timestamp && !email) { skipped++; continue; }
+
+    // Parse trainee from "Rep and Trainee" (col 29)
+    var repAndTrainee = String(row[29] || '').trim();
+    var isTrainee = 'No';
+    var traineeName = '';
+    if (repAndTrainee) {
+      var rtLow = repAndTrainee.toLowerCase();
+      if (rtLow.indexOf('trainee') !== -1 || rtLow.indexOf('training') !== -1) {
+        isTrainee = 'Yes';
+        var tMatch = repAndTrainee.match(/trainee[:\s]+(.+)/i);
+        if (tMatch) traineeName = tMatch[1].replace(/[()]/g, '').trim();
+      }
+    }
+
+    // Order channel from "How was the order processed?" (col 8)
+    var ocRaw = String(row[8] || '').trim();
+    var orderChannel = (ocRaw.toLowerCase().indexOf('tower') !== -1) ? 'Tower' : 'Sara';
+
+    // Codes used by (col 5 = yes/no, col 6 = whose codes)
+    var cuAnswer = String(row[5] || '').trim().toLowerCase();
+    var codesUsedBy = '';
+    if (cuAnswer === 'yes' || cuAnswer === 'true') {
+      codesUsedBy = String(row[6] || '').trim().toLowerCase();
+    }
+
+    // Numeric fields
+    var air       = parseInt(row[33]) || 0;
+    var newPhones = parseInt(row[15]) || 0;
+    var byods     = parseInt(row[16]) || 0;
+    var cell      = parseInt(row[36]) || 0;
+    if (cell === 0) cell = newPhones + byods;
+    var fiber     = parseInt(row[32]) || 0;
+    var voipQty   = parseInt(row[37]) || 0;
+    var dtv       = parseInt(row[34]) || 0;
+    var yeses     = parseInt(row[35]) || 0;
+    var units     = parseInt(row[38]) || 0;
+
+    var teamEmoji = emojiByEmail[email] || '';
+
+    // Build 32-column target row
+    newRows.push([
+      timestamp,                                         //  0 Timestamp
+      email,                                             //  1 Email
+      String(row[4] || '').trim(),                      //  2 Rep Name
+      row[3] || '',                                     //  3 Date of Sale
+      String(row[7] || 'attb2b').trim() || 'attb2b',   //  4 Campaign
+      String(row[9] || '').trim(),                      //  5 DSI
+      String(row[11] || '').trim(),                     //  6 Account Type
+      String(row[24] || '').trim(),                     //  7 Client Name
+      isTrainee,                                        //  8 Trainee
+      traineeName,                                      //  9 Trainee Name
+      air,                                              // 10 Air
+      newPhones,                                        // 11 New Phones
+      byods,                                            // 12 BYODs
+      cell,                                             // 13 Cell
+      fiber,                                            // 14 Fiber
+      String(row[18] || '').trim(),                     // 15 Fiber Package
+      row[19] || '',                                    // 16 Install Date
+      voipQty,                                          // 17 VoIP Qty
+      dtv,                                              // 18 DTV
+      String(row[23] || '').trim(),                     // 19 DTV Package
+      '',                                               // 20 Ooma Package
+      String(row[12] || '').trim(),                     // 21 Account Notes
+      '',                                               // 22 Activation Support
+      teamEmoji,                                        // 23 Team Emoji
+      yeses,                                            // 24 Yeses
+      units,                                            // 25 Units
+      'Pending',                                        // 26 Status
+      '',                                               // 27 Notes
+      '',                                               // 28 Paid Out
+      '[]',                                             // 29 Tickets
+      orderChannel,                                     // 30 Order Channel
+      codesUsedBy                                       // 31 Codes Used By
+    ]);
+  }
+
+  Logger.log('[Luna] Rows to migrate: ' + newRows.length + ', Skipped empty: ' + skipped);
+
+  if (newRows.length === 0) {
+    Logger.log('[Luna] No data rows found! Check source tab name.');
+    return { success: false, error: 'No data rows found' };
+  }
+
+  // Append all rows after existing data
+  var startRow = targetSheet.getLastRow() + 1;
+  targetSheet.getRange(startRow, 1, newRows.length, 32).setValues(newRows);
+
+  Logger.log('[Luna] Complete! Migrated ' + newRows.length + ' rows to ' + salesTabName);
+  Logger.log('[Luna] Target sheet now has ' + targetSheet.getLastRow() + ' rows total');
+
+  // Spot-check first 3 rows
+  for (var j = 0; j < Math.min(3, newRows.length); j++) {
+    Logger.log('[Spot ' + (j+1) + '] ' + newRows[j][2] + ' | ' + newRows[j][3] + ' | Units:' + newRows[j][25] + ' | ' + newRows[j][30]);
+  }
+
+  return {
+    success: true,
+    rowsMigrated: newRows.length,
+    rowsSkipped: skipped,
+    targetTab: salesTabName,
+    totalRows: targetSheet.getLastRow() - 1
+  };
 }

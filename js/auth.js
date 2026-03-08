@@ -101,7 +101,8 @@ const Auth = {
         logoIconUrl: OFFICE_CONFIG.logoIconUrl || '',
         headerLogoStyle: OFFICE_CONFIG.headerLogoStyle || 'icon',
         payrollManagerEmail: OFFICE_CONFIG.payrollManagerEmail || '',
-        discordWebhookUrl: OFFICE_CONFIG.discordWebhookUrl || ''
+        discordWebhookUrl: OFFICE_CONFIG.discordWebhookUrl || '',
+        payrollMode: OFFICE_CONFIG.payrollMode || 'commission-split'
       },
       loginTime: Date.now()
     };
@@ -133,7 +134,8 @@ const Auth = {
         logoIconUrl: OFFICE_CONFIG.logoIconUrl || '',
         headerLogoStyle: OFFICE_CONFIG.headerLogoStyle || 'icon',
         payrollManagerEmail: OFFICE_CONFIG.payrollManagerEmail || '',
-        discordWebhookUrl: OFFICE_CONFIG.discordWebhookUrl || ''
+        discordWebhookUrl: OFFICE_CONFIG.discordWebhookUrl || '',
+        payrollMode: OFFICE_CONFIG.payrollMode || 'commission-split'
       },
       loginTime: Date.now(),
       source: 'admin-portal',

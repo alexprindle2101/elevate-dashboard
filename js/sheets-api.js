@@ -79,9 +79,9 @@ const SheetsAPI = {
     return data.orders || [];
   },
 
-  // ── Fetch payroll orders (trainee=Yes, past 2 months) ──
+  // ── Fetch payroll orders (filtered by payrollMode) ──
   async fetchPayrollOrders(config) {
-    const url = this._buildUrl(config, { action: 'readPayrollOrders' });
+    const url = this._buildUrl(config, { action: 'readPayrollOrders', payrollMode: OFFICE_CONFIG.payrollMode || 'commission-split' });
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Apps Script HTTP ${resp.status}`);
     const data = await resp.json();

@@ -37,6 +37,10 @@ const PostSale = {
       accountNotes: '',
       trainee: false,
       traineeName: '',
+      orderChannel: 'Sara',
+      codesUsed: false,
+      codesUsedBy: '',
+      codesUsedByName: '',
       activationSupport: false,
       newPhones: 0,
       byods: 0,
@@ -101,6 +105,13 @@ const PostSale = {
       this._formData.clientName = v('ps-client-name');
     }
     this._formData.traineeName = v('ps-trainee-name');
+    // Codes-used-by dropdown
+    const codesSelect = document.getElementById('ps-codes-used-by');
+    if (codesSelect && this._formData.codesUsed) {
+      this._formData.codesUsedBy = codesSelect.value;
+      const opt = codesSelect.options[codesSelect.selectedIndex];
+      this._formData.codesUsedByName = opt && opt.value ? opt.textContent : '';
+    }
     this._formData.hashtags = v('ps-hashtags');
     this._saveDraft();
   },
@@ -215,6 +226,33 @@ const PostSale = {
         <div class="wizard-field">
           <label class="wizard-label">Trainee's Name</label>
           <input type="text" class="wizard-input" id="ps-trainee-name" value="${this._esc(d.traineeName)}" placeholder="Trainee's full name">
+        </div>
+      </div>
+
+      <div class="wizard-field">
+        <label class="wizard-label">How was this order processed?</label>
+        <div class="toggle-group" id="ps-order-channel-toggle">
+          <button class="toggle-btn ${d.orderChannel === 'Sara' ? 'active' : ''}" onclick="PostSale.setOrderChannel('Sara')">Sara</button>
+          <button class="toggle-btn ${d.orderChannel === 'Tower' ? 'active' : ''}" onclick="PostSale.setOrderChannel('Tower')">Tower</button>
+        </div>
+        ${d.orderChannel === 'Tower' ? '<div class="wizard-hint" style="color:var(--orange);margin-top:4px">Tower orders are tracked but excluded from the leaderboard.</div>' : ''}
+      </div>
+
+      <div class="wizard-field">
+        <label class="wizard-label">Was this sale made under someone else's codes?</label>
+        <div class="toggle-group" id="ps-codes-used-toggle">
+          <button class="toggle-btn ${d.codesUsed ? 'active' : ''}" onclick="PostSale.setCodesUsed(true)">Yes</button>
+          <button class="toggle-btn ${!d.codesUsed ? 'active' : ''}" onclick="PostSale.setCodesUsed(false)">No</button>
+        </div>
+      </div>
+
+      <div id="ps-codes-used-wrap" style="display:${d.codesUsed ? 'block' : 'none'}">
+        <div class="wizard-field">
+          <label class="wizard-label">Whose codes were used?</label>
+          <select class="wizard-input" id="ps-codes-used-by">
+            <option value="">Select rep...</option>
+            ${this._buildRepOptions(d.codesUsedBy)}
+          </select>
         </div>
       </div>
 
@@ -375,6 +413,8 @@ const PostSale = {
           <div class="review-row"><span class="review-row-label">Package</span><span class="review-row-value">${d.oomaPackage}</span></div>
         `}
         ${d.trainee ? `<div class="review-row"><span class="review-row-label">Trainee</span><span class="review-row-value">${this._esc(d.traineeName)}</span></div>` : ''}
+        <div class="review-row"><span class="review-row-label">Processed Via</span><span class="review-row-value${d.orderChannel === 'Tower' ? '" style="color:var(--orange);font-weight:700' : ''}">${d.orderChannel}${d.orderChannel === 'Tower' ? ' (no leaderboard)' : ''}</span></div>
+        ${d.codesUsed && d.codesUsedBy ? `<div class="review-row"><span class="review-row-label">Codes Used</span><span class="review-row-value" style="color:var(--orange)">${this._esc(d.codesUsedByName || d.codesUsedBy)}</span></div>` : ''}
         ${d.accountNotes ? `<div class="review-row"><span class="review-row-label">Notes</span><span class="review-row-value" style="max-width:60%;text-align:right">${this._esc(d.accountNotes)}</span></div>` : ''}
         ${d.hashtags ? `<div class="review-row"><span class="review-row-label">Hashtags</span><span class="review-row-value" style="color:var(--sc-cyan)">${this._esc(d.hashtags)}</span></div>` : ''}
       </div>
@@ -504,6 +544,16 @@ const PostSale = {
 
     if (d.trainee && !d.traineeName.trim()) {
       // Trainee name is nice-to-have, don't block
+    }
+
+    // Codes-used-by: if "Yes" was selected, a rep must be chosen
+    if (d.codesUsed && !d.codesUsedBy) {
+      valid = false;
+      const codesWrap = document.getElementById('ps-codes-used-wrap');
+      if (codesWrap) {
+        const selectField = codesWrap.querySelector('.wizard-field');
+        if (selectField) selectField.classList.add('has-error');
+      }
     }
 
     return valid;
@@ -700,7 +750,10 @@ const PostSale = {
       dtvPackage: prods.dtv.on ? d.dtvPackage : '',
       // Ooma
       clientName: this._campaign === 'ooma' ? d.clientName : '',
-      oomaPackage: this._campaign === 'ooma' ? d.oomaPackage : ''
+      oomaPackage: this._campaign === 'ooma' ? d.oomaPackage : '',
+      // Order channel & codes
+      orderChannel: d.orderChannel || 'Sara',
+      codesUsedBy: d.codesUsed ? (d.codesUsedBy || '') : ''
     };
   },
 
@@ -742,6 +795,46 @@ const PostSale = {
         });
       }
     });
+  },
+
+  setOrderChannel(val) {
+    this._formData.orderChannel = val;
+    this._saveDraft();
+    // Update toggle buttons
+    const toggle = document.getElementById('ps-order-channel-toggle');
+    if (toggle) toggle.querySelectorAll('.toggle-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.textContent.trim() === val);
+    });
+    // Re-render to show/hide Tower hint
+    this._renderBody();
+  },
+
+  setCodesUsed(val) {
+    this._formData.codesUsed = val;
+    if (!val) {
+      this._formData.codesUsedBy = '';
+      this._formData.codesUsedByName = '';
+    }
+    this._saveDraft();
+    const wrap = document.getElementById('ps-codes-used-wrap');
+    if (wrap) wrap.style.display = val ? 'block' : 'none';
+    // Update toggle buttons
+    const toggle = document.getElementById('ps-codes-used-toggle');
+    if (toggle) toggle.querySelectorAll('.toggle-btn').forEach(btn => {
+      btn.classList.toggle('active', (btn.textContent.trim() === 'Yes') === val);
+    });
+  },
+
+  _buildRepOptions(selectedEmail) {
+    const roster = App.state?.roster || {};
+    const session = Auth.getSession();
+    const myEmail = (session?.email || '').toLowerCase();
+    return Object.entries(roster)
+      .filter(([email, r]) => !r.deactivated && email !== myEmail)
+      .sort((a, b) => (a[1].name || a[0]).localeCompare(b[1].name || b[0]))
+      .map(([email, r]) =>
+        `<option value="${email}" ${email === selectedEmail ? 'selected' : ''}>${this._esc(r.name || email)}</option>`)
+      .join('');
   },
 
   setField(key, val) {

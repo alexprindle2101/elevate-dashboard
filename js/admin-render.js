@@ -261,11 +261,53 @@ const AdminRender = {
       });
     }
 
+    // Populate payroll manager dropdown with eligible admins
+    const payrollSelect = document.getElementById('office-payroll-manager');
+    if (payrollSelect) {
+      payrollSelect.innerHTML = '<option value="">(None)</option>';
+      const officeOwnerEmail = (office ? (office.ownerEmail || '') : (ownerSelect?.value || '')).toLowerCase();
+      const officeId = office ? office.officeId : '';
+
+      // Collect eligible admins: a3 (all offices), a2 (assigned to this owner), a1 (assigned to this office)
+      const eligible = [];
+      Object.values(AdminApp.state.adminRoster).forEach(admin => {
+        if (admin.deactivated) return;
+        if (admin.role === 'a3') { eligible.push(admin); return; }
+        if (admin.role === 'a2' && officeOwnerEmail && admin.assignedOwner === officeOwnerEmail) { eligible.push(admin); return; }
+        if (admin.role === 'a1' && officeId) {
+          const ids = (admin.assignedOffices || '').split(',').map(s => s.trim().toLowerCase());
+          if (ids.includes(officeId.toLowerCase())) eligible.push(admin);
+        }
+      });
+      eligible.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+      eligible.forEach(admin => {
+        const opt = document.createElement('option');
+        opt.value = admin.email;
+        opt.textContent = `${admin.name || admin.email} (${ADMIN_CONFIG.adminRoles[admin.role]?.label || admin.role})`;
+        if (office && (office.payrollManagerEmail || '').toLowerCase() === admin.email) opt.selected = true;
+        payrollSelect.appendChild(opt);
+      });
+    }
+
     if (logoUrlInput) logoUrlInput.value = office ? office.logoUrl : '';
     if (logoIconUrlInput) logoIconUrlInput.value = office ? office.logoIconUrl : '';
     const headerLogoStyleSelect = document.getElementById('office-header-logo-style');
     if (headerLogoStyleSelect) headerLogoStyleSelect.value = office ? (office.headerLogoStyle || 'icon') : 'icon';
     if (statusSelect) statusSelect.value = office ? office.status : 'setup';
+
+    // Advanced Settings: auto-expand when editing (fields have values), collapse for new
+    const advancedToggle = document.getElementById('advanced-toggle-btn');
+    const advancedFields = document.getElementById('advanced-fields');
+    if (advancedToggle && advancedFields) {
+      const hasValues = office && (office.sheetId || office.appsScriptUrl || office.apiKey);
+      if (hasValues) {
+        advancedToggle.classList.add('open');
+        advancedFields.classList.remove('collapsed');
+      } else {
+        advancedToggle.classList.remove('open');
+        advancedFields.classList.add('collapsed');
+      }
+    }
   },
 
 

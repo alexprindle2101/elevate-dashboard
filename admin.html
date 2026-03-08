@@ -166,28 +166,43 @@
     </div>
 
     <div class="form-group">
-      <label for="office-sheet-id">Google Sheet ID</label>
-      <input id="office-sheet-id" type="text" placeholder="Paste the sheet ID from the URL">
-      <div class="hint">Found in the Google Sheet URL: docs.google.com/spreadsheets/d/<strong>[THIS PART]</strong>/edit</div>
-    </div>
-
-    <div class="form-group">
-      <label for="office-script-url">Apps Script URL</label>
-      <input id="office-script-url" type="text" placeholder="Deployed Code.gs web app URL">
-      <div class="hint">Deploy the office's Code.gs as a web app and paste the URL here</div>
-    </div>
-
-    <div class="form-group">
-      <label for="office-api-key">API Key</label>
-      <input id="office-api-key" type="text" placeholder="API key matching Script Properties">
-    </div>
-
-    <div class="form-group">
       <label for="office-owner-select">Office Owner</label>
       <select id="office-owner-select">
         <!-- Populated dynamically from _Owners tab -->
       </select>
       <div class="hint">Select from the Owners tab. Add new owners in the Owners page first.</div>
+    </div>
+
+    <div class="form-group">
+      <label for="office-payroll-manager">Payroll Manager</label>
+      <select id="office-payroll-manager">
+        <!-- Populated with admins eligible for this office -->
+      </select>
+      <div class="hint">Admin who manages payroll for this office.</div>
+    </div>
+
+    <div class="advanced-settings-wrap">
+      <button type="button" id="advanced-toggle-btn" class="advanced-toggle" onclick="this.classList.toggle('open'); document.getElementById('advanced-fields').classList.toggle('collapsed')">
+        Advanced Settings
+      </button>
+      <div id="advanced-fields" class="advanced-fields collapsed">
+        <div class="form-group">
+          <label for="office-sheet-id">Google Sheet ID</label>
+          <input id="office-sheet-id" type="text" placeholder="Paste the sheet ID from the URL">
+          <div class="hint">Found in the Google Sheet URL: docs.google.com/spreadsheets/d/<strong>[THIS PART]</strong>/edit</div>
+        </div>
+
+        <div class="form-group">
+          <label for="office-script-url">Apps Script URL</label>
+          <input id="office-script-url" type="text" placeholder="Deployed Code.gs web app URL">
+          <div class="hint">Deploy the office's Code.gs as a web app and paste the URL here</div>
+        </div>
+
+        <div class="form-group">
+          <label for="office-api-key">API Key</label>
+          <input id="office-api-key" type="text" placeholder="API key matching Script Properties">
+        </div>
+      </div>
     </div>
 
     <div class="form-group">

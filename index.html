@@ -477,12 +477,8 @@
 
       <div style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:12px;padding:24px;margin-bottom:16px">
         <div style="font-family:'Helvetica Neue','Inter',sans-serif;font-size:13px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim);margin-bottom:12px">Payroll Manager</div>
-        <div style="font-size:12px;color:var(--silver-dim);margin-bottom:12px;line-height:1.5">Assign an admin to manage payroll. They will gain access to the Payroll tab.</div>
-        <select id="office-payroll-select" onchange="App._setPayrollManager(this.value)"
-          style="width:100%;max-width:360px;background:#F5F2EE;border:1px solid rgba(0,0,0,0.25);border-radius:8px;color:var(--white);padding:10px 14px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;cursor:pointer;outline:none">
-          <option value="">— None —</option>
-        </select>
-        <div id="office-payroll-saved" style="display:none;font-size:11px;color:var(--green);margin-top:8px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase">Saved</div>
+        <div style="font-size:12px;color:var(--silver-dim);margin-bottom:12px;line-height:1.5">Managed from the admin portal. Contact your admin to change.</div>
+        <div id="office-payroll-info" style="font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;color:var(--white);padding:10px 14px;background:#F5F2EE;border-radius:8px;max-width:360px">Not assigned</div>
       </div>
 
       <div style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:12px;padding:24px;margin-bottom:16px">

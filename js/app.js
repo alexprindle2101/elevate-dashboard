@@ -86,6 +86,7 @@ const App = {
         if (session.officeConfig.logoUrl) OFFICE_CONFIG.logoUrl = session.officeConfig.logoUrl;
         if (session.officeConfig.logoIconUrl) OFFICE_CONFIG.logoIconUrl = session.officeConfig.logoIconUrl;
         if (session.officeConfig.headerLogoStyle) OFFICE_CONFIG.headerLogoStyle = session.officeConfig.headerLogoStyle;
+        if (session.officeConfig.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = session.officeConfig.payrollManagerEmail;
         if (session.officeConfig.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = session.officeConfig.discordWebhookUrl;
         console.log('[Session] Restored officeConfig:', session.officeConfig.officeName || session.officeConfig.officeId);
       }
@@ -144,6 +145,7 @@ const App = {
         if (oc.logoUrl) OFFICE_CONFIG.logoUrl = oc.logoUrl;
         if (oc.logoIconUrl) OFFICE_CONFIG.logoIconUrl = oc.logoIconUrl;
         if (oc.headerLogoStyle) OFFICE_CONFIG.headerLogoStyle = oc.headerLogoStyle;
+        if (oc.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = oc.payrollManagerEmail;
         if (oc.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = oc.discordWebhookUrl;
         console.log('[Multi-Office] Resolved to:', oc.name);
       } else {
@@ -538,7 +540,7 @@ const App = {
     const showLeaderboard = true;
     const showOffice = isSA || (role === 'owner');
     const curEmail = (this.state.currentEmail || '').toLowerCase();
-    const payrollMgr = (this.state.settings.payrollManager || '').toLowerCase();
+    const payrollMgr = (OFFICE_CONFIG.payrollManagerEmail || this.state.settings.payrollManager || '').toLowerCase();
     const showPayroll = isSA || (role === 'owner') || (payrollMgr && curEmail === payrollMgr);
 
     // ── Separator visibility ──
@@ -698,25 +700,16 @@ const App = {
     const page = document.getElementById('office-page');
     if (page) page.style.display = 'block';
 
-    // Populate payroll manager dropdown with all admins
-    const sel = document.getElementById('office-payroll-select');
-    if (sel) {
-      const admins = [];
-      Object.entries(this.state.roster).forEach(([email, r]) => {
-        if (r.rank === 'admin' && !r.deactivated) {
-          admins.push({ email: email.toLowerCase(), name: r.name || email });
-        }
-      });
-      admins.sort((a, b) => a.name.localeCompare(b.name));
-
-      sel.innerHTML = '<option value="">— None —</option>'
-        + admins.map(a => `<option value="${a.email}">${a.name}</option>`).join('');
-
-      const current = (this.state.settings.payrollManager || '').toLowerCase();
-      if (current) sel.value = current;
-
-      const saved = document.getElementById('office-payroll-saved');
-      if (saved) saved.style.display = 'none';
+    // Show current payroll manager (read-only — set from admin portal)
+    const payrollInfo = document.getElementById('office-payroll-info');
+    if (payrollInfo) {
+      const mgr = (OFFICE_CONFIG.payrollManagerEmail || '').toLowerCase();
+      if (mgr) {
+        const rosterEntry = this.state.roster[mgr];
+        payrollInfo.textContent = rosterEntry ? rosterEntry.name : mgr;
+      } else {
+        payrollInfo.textContent = 'Not assigned';
+      }
     }
 
     // Populate header logo style dropdown
@@ -750,20 +743,6 @@ const App = {
         headerName.textContent = OFFICE_CONFIG.officeName || '';
       }
     }
-  },
-
-  async _setPayrollManager(email) {
-    this.state.settings.payrollManager = email;
-    this.updateNav();
-
-    // Show saved indicator briefly
-    const saved = document.getElementById('office-payroll-saved');
-    if (saved) {
-      saved.style.display = 'block';
-      setTimeout(() => { saved.style.display = 'none'; }, 2000);
-    }
-
-    await SheetsAPI.post(OFFICE_CONFIG, 'setSetting', { key: 'payrollManager', value: email });
   },
 
   async _setHeaderLogoStyle(style) {

@@ -136,6 +136,7 @@ const WEEK_PERIODS = new Set([7, 8, 9, 10, 11]);
       if (cfg.logoUrl) OFFICE_CONFIG.logoUrl = cfg.logoUrl;
       if (cfg.logoIconUrl) OFFICE_CONFIG.logoIconUrl = cfg.logoIconUrl;
       if (cfg.headerLogoStyle) OFFICE_CONFIG.headerLogoStyle = cfg.headerLogoStyle;
+      if (cfg.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = cfg.payrollManagerEmail;
       if (cfg.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = cfg.discordWebhookUrl;
       console.log('[Multi-Office] Config overridden for:', cfg.officeName || 'Unknown office', '| officeId:', cfg.officeId || 'default');
     } catch(e) {

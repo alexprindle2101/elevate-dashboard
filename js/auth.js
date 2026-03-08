@@ -99,6 +99,8 @@ const Auth = {
         officeName: OFFICE_CONFIG.officeName,
         logoUrl: OFFICE_CONFIG.logoUrl || '',
         logoIconUrl: OFFICE_CONFIG.logoIconUrl || '',
+        headerLogoStyle: OFFICE_CONFIG.headerLogoStyle || 'icon',
+        payrollManagerEmail: OFFICE_CONFIG.payrollManagerEmail || '',
         discordWebhookUrl: OFFICE_CONFIG.discordWebhookUrl || ''
       },
       loginTime: Date.now()
@@ -129,6 +131,8 @@ const Auth = {
         officeName: OFFICE_CONFIG.officeName,
         logoUrl: OFFICE_CONFIG.logoUrl || '',
         logoIconUrl: OFFICE_CONFIG.logoIconUrl || '',
+        headerLogoStyle: OFFICE_CONFIG.headerLogoStyle || 'icon',
+        payrollManagerEmail: OFFICE_CONFIG.payrollManagerEmail || '',
         discordWebhookUrl: OFFICE_CONFIG.discordWebhookUrl || ''
       },
       loginTime: Date.now(),

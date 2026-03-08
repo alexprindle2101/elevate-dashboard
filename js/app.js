@@ -297,6 +297,11 @@ const App = {
     this.state.teamsData = apiData.teams || {};
     this.state.settings = apiData.settings || {};
 
+    // Per-office headerLogoStyle from _Settings overrides admin/config default
+    if (this.state.settings.headerLogoStyle) {
+      OFFICE_CONFIG.headerLogoStyle = this.state.settings.headerLogoStyle;
+    }
+
     // Extract Tableau summary (included in default doGet response)
     if (apiData.tableauSummary) {
       this.state.tableauDsi = apiData.tableauSummary.dsiSummary || {};
@@ -324,28 +329,7 @@ const App = {
     TeamsManager.init(this.state.teamsData);
 
     // Apply dynamic office branding in header
-    const style = OFFICE_CONFIG.headerLogoStyle || 'icon';
-    const headerIcon = document.getElementById('header-office-icon');
-    const headerName = document.getElementById('header-office-name');
-
-    if (style === 'full') {
-      // Full logo mode — show the wide horizontal logo, hide name text
-      if (headerIcon) {
-        headerIcon.src = OFFICE_CONFIG.logoUrl || OFFICE_CONFIG.logoIconUrl || 'references/logos/aptel-full-black.png';
-        headerIcon.alt = OFFICE_CONFIG.officeName || 'Office';
-        headerIcon.classList.add('header-logo-full');
-      }
-      if (headerName) headerName.style.display = 'none';
-    } else {
-      // Icon + text mode — small symbol icon + office name as text
-      if (headerIcon) {
-        headerIcon.src = OFFICE_CONFIG.logoIconUrl || OFFICE_CONFIG.logoUrl || 'references/logos/aptel-symbol-black.png';
-        headerIcon.alt = OFFICE_CONFIG.officeName || 'Office';
-      }
-      if (headerName && OFFICE_CONFIG.officeName) {
-        headerName.textContent = OFFICE_CONFIG.officeName;
-      }
-    }
+    this._applyHeaderBranding();
 
     // Set browser tab title + favicon to match the office
     if (OFFICE_CONFIG.officeName) {
@@ -716,26 +700,56 @@ const App = {
 
     // Populate payroll manager dropdown with all admins
     const sel = document.getElementById('office-payroll-select');
-    if (!sel) return;
+    if (sel) {
+      const admins = [];
+      Object.entries(this.state.roster).forEach(([email, r]) => {
+        if (r.rank === 'admin' && !r.deactivated) {
+          admins.push({ email: email.toLowerCase(), name: r.name || email });
+        }
+      });
+      admins.sort((a, b) => a.name.localeCompare(b.name));
 
-    const admins = [];
-    Object.entries(this.state.roster).forEach(([email, r]) => {
-      if (r.rank === 'admin' && !r.deactivated) {
-        admins.push({ email: email.toLowerCase(), name: r.name || email });
+      sel.innerHTML = '<option value="">— None —</option>'
+        + admins.map(a => `<option value="${a.email}">${a.name}</option>`).join('');
+
+      const current = (this.state.settings.payrollManager || '').toLowerCase();
+      if (current) sel.value = current;
+
+      const saved = document.getElementById('office-payroll-saved');
+      if (saved) saved.style.display = 'none';
+    }
+
+    // Populate header logo style dropdown
+    const logoStyleSel = document.getElementById('office-header-logo-style');
+    if (logoStyleSel) {
+      logoStyleSel.value = OFFICE_CONFIG.headerLogoStyle || 'icon';
+      const logoSaved = document.getElementById('office-logo-style-saved');
+      if (logoSaved) logoSaved.style.display = 'none';
+    }
+  },
+
+  _applyHeaderBranding() {
+    const style = OFFICE_CONFIG.headerLogoStyle || 'icon';
+    const headerIcon = document.getElementById('header-office-icon');
+    const headerName = document.getElementById('header-office-name');
+    if (!headerIcon) return;
+
+    // Reset classes
+    headerIcon.classList.remove('header-logo-full');
+
+    if (style === 'full') {
+      headerIcon.src = OFFICE_CONFIG.logoUrl || OFFICE_CONFIG.logoIconUrl || 'references/logos/aptel-full-black.png';
+      headerIcon.alt = OFFICE_CONFIG.officeName || 'Office';
+      headerIcon.classList.add('header-logo-full');
+      if (headerName) { headerName.style.display = 'none'; headerName.textContent = ''; }
+    } else {
+      headerIcon.src = OFFICE_CONFIG.logoIconUrl || OFFICE_CONFIG.logoUrl || 'references/logos/aptel-symbol-black.png';
+      headerIcon.alt = OFFICE_CONFIG.officeName || 'Office';
+      if (headerName) {
+        headerName.style.display = '';
+        headerName.textContent = OFFICE_CONFIG.officeName || '';
       }
-    });
-    admins.sort((a, b) => a.name.localeCompare(b.name));
-
-    sel.innerHTML = '<option value="">— None —</option>'
-      + admins.map(a => `<option value="${a.email}">${a.name}</option>`).join('');
-
-    // Set current selection
-    const current = (this.state.settings.payrollManager || '').toLowerCase();
-    if (current) sel.value = current;
-
-    // Hide saved indicator
-    const saved = document.getElementById('office-payroll-saved');
-    if (saved) saved.style.display = 'none';
+    }
   },
 
   async _setPayrollManager(email) {
@@ -750,6 +764,23 @@ const App = {
     }
 
     await SheetsAPI.post(OFFICE_CONFIG, 'setSetting', { key: 'payrollManager', value: email });
+  },
+
+  async _setHeaderLogoStyle(style) {
+    OFFICE_CONFIG.headerLogoStyle = style;
+    this.state.settings.headerLogoStyle = style;
+
+    // Re-apply header branding immediately
+    this._applyHeaderBranding();
+
+    // Show saved indicator
+    const saved = document.getElementById('office-logo-style-saved');
+    if (saved) {
+      saved.style.display = 'block';
+      setTimeout(() => { saved.style.display = 'none'; }, 2000);
+    }
+
+    await SheetsAPI.post(OFFICE_CONFIG, 'setSetting', { key: 'headerLogoStyle', value: style });
   },
 
   async _bustTableauCache() {

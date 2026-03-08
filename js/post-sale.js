@@ -624,7 +624,6 @@ const PostSale = {
   },
 
   // ── Submission ──
-  _DEFAULT_WEBHOOK_URL: 'https://hook.us2.make.com/rqxy9beu6ybplh8axdq4p6euuv4mc8jj',
 
   async submit() {
     this._collectCurrentStep();
@@ -695,14 +694,14 @@ const PostSale = {
 
       const finalMsg = msg.trim();
 
-      // Per-office webhook URL (from _Offices tab), fallback to default Make.com webhook
-      const webhookUrl = OFFICE_CONFIG.discordWebhookUrl || this._DEFAULT_WEBHOOK_URL;
+      // Per-office Discord webhook URL (from _Offices tab) — no fallback
+      const webhookUrl = OFFICE_CONFIG.discordWebhookUrl;
+      if (!webhookUrl) {
+        console.warn('[PostSale] No Discord webhook configured for this office');
+        return;
+      }
 
-      // Direct Discord webhooks use { content }, Make.com uses { message }
-      const isDiscordDirect = webhookUrl.includes('discord.com/api/webhooks');
-      const webhookBody = isDiscordDirect
-        ? JSON.stringify({ content: finalMsg })
-        : JSON.stringify({ message: finalMsg });
+      const webhookBody = JSON.stringify({ content: finalMsg });
 
       const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: webhookBody };
       fetch(webhookUrl, opts)

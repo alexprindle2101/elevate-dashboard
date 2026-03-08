@@ -979,14 +979,7 @@ function readOnlinePresence() {
         platform: _detectPlatform(_str(row[otherLinkCol]))
       },
 
-      instagram: {
-        link:      _str(row[cols.igLink]),
-        shared:    num(row[cols.shared]),
-        generated: num(row[cols.generated]),
-        followers: num(row[cols.followers]),
-        following: num(row[cols.following]),
-        notes:     notesCols.length > 4 ? _str(row[notesCols[4]]) : ''
-      },
+      instagram: _parseInstagram(row, cols, notesCols),
 
       website: {
         url:          _str(row[cols.website]),
@@ -1036,7 +1029,55 @@ function readOnlinePresence() {
     if (deduped.hasOwnProperty(key)) uniqueBiz.push(deduped[key]);
   }
 
-  return { businesses: uniqueBiz, tabName: sheet.getName() };
+  // Debug: include column mapping + sample raw data for troubleshooting
+  var _debug = {
+    headerRow: headerRowIdx,
+    headerCount: headers.length,
+    colIndices: {
+      clientName: cols.clientName,
+      businessName: cols.businessName,
+      igLink: cols.igLink,
+      shared: cols.shared,
+      generated: cols.generated,
+      followers: cols.followers,
+      following: cols.following,
+      website: cols.website,
+      blog: cols.blog,
+      seoCheck: cols.seoCheck
+    },
+    headers: headers.slice(0, 50),  // first 50 headers for inspection
+    sampleRow: null
+  };
+  // Find "Long Beach" row for debugging
+  for (var dbg = 0; dbg < businesses.length; dbg++) {
+    if (businesses[dbg].businessName.toLowerCase().indexOf('long beach') >= 0) {
+      _debug.sampleRow = {
+        businessName: businesses[dbg].businessName,
+        clientName: businesses[dbg].clientName,
+        instagram: businesses[dbg].instagram,
+        rawRowLength: data[headerRowIdx + 1 + dbg] ? data[headerRowIdx + 1 + dbg].length : 'N/A'
+      };
+      // Also grab the raw cell values at the IG column indices
+      var rawRow = null;
+      for (var ri = headerRowIdx + 1; ri < data.length; ri++) {
+        if (String(data[ri][cols.businessName] || '').toLowerCase().indexOf('long beach') >= 0) {
+          rawRow = data[ri];
+          break;
+        }
+      }
+      if (rawRow) {
+        _debug.sampleRow.rawIgLink = rawRow[cols.igLink];
+        _debug.sampleRow.rawShared = rawRow[cols.shared];
+        _debug.sampleRow.rawGenerated = rawRow[cols.generated];
+        _debug.sampleRow.rawFollowers = rawRow[cols.followers];
+        _debug.sampleRow.rawFollowing = rawRow[cols.following];
+        _debug.sampleRow.rawRowLength = rawRow.length;
+      }
+      break;
+    }
+  }
+
+  return { businesses: uniqueBiz, tabName: sheet.getName(), _debug: _debug };
 }
 
 // ── Find ALL exact occurrences of a header text ──
@@ -1067,6 +1108,48 @@ function _safeNum(v) {
 }
 
 // ── Detect platform from URL ──
+// ── Instagram column parser — handles header/data misalignment ──
+// The Performance Audit sheet sometimes has extra columns in data rows
+// that shift IG values right of where the headers say they should be.
+// Fix: scan from the header-detected igLink position for the actual
+// instagram.com URL, then read relative columns from that anchor.
+function _parseInstagram(row, cols, notesCols) {
+  var igStart = cols.igLink;
+  if (igStart < 0) return { link: '', shared: 0, generated: 0, followers: 0, following: 0, notes: '' };
+
+  // Scan from header position to up to 3 cols right looking for the actual IG URL
+  var anchor = -1;
+  for (var offset = 0; offset <= 3; offset++) {
+    var cellVal = String(row[igStart + offset] || '').toLowerCase();
+    if (cellVal.indexOf('instagram.com') >= 0 || cellVal.indexOf('ig.com') >= 0) {
+      anchor = igStart + offset;
+      break;
+    }
+  }
+
+  if (anchor >= 0) {
+    // Found the URL — read relative: anchor=link, +1=shared, +2=generated, +3=followers, +4=following
+    return {
+      link:      _str(row[anchor]),
+      shared:    num(row[anchor + 1]),
+      generated: num(row[anchor + 2]),
+      followers: num(row[anchor + 3]),
+      following: num(row[anchor + 4]),
+      notes:     notesCols.length > 4 ? _str(row[notesCols[4]]) : ''
+    };
+  }
+
+  // No URL found — fall back to header-based positions
+  return {
+    link:      _str(row[cols.igLink]),
+    shared:    num(row[cols.shared]),
+    generated: num(row[cols.generated]),
+    followers: num(row[cols.followers]),
+    following: num(row[cols.following]),
+    notes:     notesCols.length > 4 ? _str(row[notesCols[4]]) : ''
+  };
+}
+
 function _detectPlatform(url) {
   if (!url) return '';
   var u = url.toLowerCase();

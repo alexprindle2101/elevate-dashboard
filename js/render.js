@@ -262,7 +262,13 @@ const Render = {
     const wrap = document.getElementById(id);
     if (!wrap) return;
     wrap.innerHTML = '';
-    const sorted = [...items].sort((a, b) => getU(b) - getU(a));
+    const sorted = [...items].sort((a, b) => {
+      let diff = getU(b) - getU(a);
+      if (diff !== 0) return diff;
+      diff = getY(b) - getY(a);
+      if (diff !== 0) return diff;
+      return (a.name || '').localeCompare(b.name || '');
+    });
     const top3 = sorted.slice(0, 3);
     if (top3.length === 0) {
       wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--silver-dim);font-size:13px">No data yet</div>';

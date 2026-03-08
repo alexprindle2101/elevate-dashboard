@@ -510,12 +510,38 @@ function readPeople(ss, officeId, roster, teamNameToEmoji) {
     };
   });
 
+  // Track non-roster people who have sales (e.g. owners selling)
+  var nonRosterPeople = {};  // email → { name, teamEmoji }
+
   // Process each sale row (skip header at index 0)
   for (let i = 1; i < olData.length; i++) {
     const row = olData[i];
     const email = String(row[OL.EMAIL] || '').trim().toLowerCase();
     if (!email) { _dbg.noEmail++; continue; }
-    if (!roster[email]) { _dbg.emailNotInRoster++; continue; }
+
+    // Auto-create aggregation bucket for non-roster people with sales
+    if (!roster[email] && !agg[email]) {
+      agg[email] = {
+        days: Array.from({ length: 7 }, () => emptyPeriod()),
+        lwDays: Array.from({ length: 7 }, () => emptyPeriod()),
+        w2Days: Array.from({ length: 7 }, () => emptyPeriod()),
+        w3Days: Array.from({ length: 7 }, () => emptyPeriod()),
+        w4Days: Array.from({ length: 7 }, () => emptyPeriod()),
+        w5Days: Array.from({ length: 7 }, () => emptyPeriod()),
+        priorWeek: emptyPeriod(),
+        twoWkPrior: emptyPeriod(),
+        threeWkPrior: emptyPeriod(),
+        fourWkPrior: emptyPeriod(),
+        fiveWkPrior: emptyPeriod(),
+        recentTime: [0, 0, 0, 0],
+        fw4Time: [0, 0, 0, 0]
+      };
+      nonRosterPeople[email] = {
+        name: String(row[OL.REP_NAME] || email).trim(),
+        teamEmoji: String(row[OL.TEAM_EMOJI] || '').trim()
+      };
+      _dbg.emailNotInRoster++;
+    }
 
     // Skip Tower orders — tracked but excluded from leaderboard
     var orderChannel = String(row[OL.ORDER_CHANNEL] || 'Sara').trim();
@@ -617,6 +643,36 @@ function readPeople(ss, officeId, roster, teamNameToEmoji) {
       teamEmoji: teamEmoji,
       team: info.team,
       deactivated: info.deactivated || false,
+      days: pa.days,
+      lwDays: pa.lwDays,
+      w2Days: pa.w2Days,
+      w3Days: pa.w3Days,
+      w4Days: pa.w4Days,
+      w5Days: pa.w5Days,
+      thisWeek: sumDays(pa.days),
+      priorWeek: pa.priorWeek,
+      twoWkPrior: pa.twoWkPrior,
+      threeWkPrior: pa.threeWkPrior,
+      fourWkPrior: pa.fourWkPrior,
+      fiveWkPrior: pa.fiveWkPrior,
+      fourWkRunning: sumAllPeriods(pa),
+      recentTime: pa.recentTime,
+      fw4Time: pa.fw4Time
+    });
+  });
+
+  // Include non-roster people who had sales (owners, etc.)
+  Object.entries(nonRosterPeople).forEach(([email, info]) => {
+    const pa = agg[email];
+    if (!pa) return;
+    people.push({
+      name: info.name,
+      type: 'leader',
+      email: email,
+      rank: 'owner',
+      teamEmoji: info.teamEmoji,
+      team: '',
+      deactivated: false,
       days: pa.days,
       lwDays: pa.lwDays,
       w2Days: pa.w2Days,

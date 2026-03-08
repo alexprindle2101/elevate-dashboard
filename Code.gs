@@ -537,7 +537,7 @@ function readPeople(ss, officeId, roster, teamNameToEmoji) {
         fw4Time: [0, 0, 0, 0]
       };
       nonRosterPeople[email] = {
-        name: String(row[OL.REP_NAME] || email).trim(),
+        name: String(row[OL.REP_NAME] || email).trim().replace(/\b\w/g, function(c){ return c.toUpperCase(); }),
         teamEmoji: String(row[OL.TEAM_EMOJI] || '').trim()
       };
       _dbg.emailNotInRoster++;

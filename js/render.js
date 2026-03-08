@@ -228,7 +228,7 @@ const Render = {
     const active = people.filter(p => !Roster.deactivated.has(p.name) && !this._isExcludedFromLeaderboard(p));
 
     // Split by role: leaders (manager, jd, l1) and reps
-    const leaderRoles = new Set(['manager', 'jd', 'l1']);
+    const leaderRoles = new Set(['owner', 'manager', 'jd', 'l1']);
     const leaders = active.filter(p => leaderRoles.has(p._roleKey));
     const reps = active.filter(p => !leaderRoles.has(p._roleKey));
 

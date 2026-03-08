@@ -7,7 +7,7 @@
 const NATIONAL_CONFIG = {
   // ── NationalCode.gs Deployment ──
   // Create a new Google Sheet, add NationalCode.gs, deploy as web app.
-  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbw30u5YrlZZVaih1n1dTO5gJ95bovBu_giyGiV1_y7rOE0EFEmdCnLt7SbU05aevxtL/exec',
+  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbzX68JL0htLcwtyQYN7dttltwcEyHNQW3lcPeWzkS4PqKycCnvzDD6RQFbFvCvUcPfH/exec',
   apiKey: 'national-dash-2026-secret',
 
   // ── Session ──

@@ -911,7 +911,7 @@ function readOnlinePresence() {
     generated:       findCol(headers, ['generated']),
     followers:       findCol(headers, ['followers']),
     following:       findCol(headers, ['following']),
-    website:         findCol(headers, ['website']),
+    website:         findCol(headers, ['website', 'web site', 'site url', 'company website', 'homepage']),
     updatedMonth:    findCol(headers, ['updated this month']),
     sitePhotos:      findCol(headers, ['site photos']),
     lastUpdated:     findCol(headers, ['last updated']),
@@ -939,12 +939,19 @@ function readOnlinePresence() {
   var notesCols   = _findAllExact(headers, 'notes');         // [GBL, GD, Indeed, Other, IG, Website, Blog, Final]
 
   // ── Parse each business row ──
+  // Detect per-row column shift: the Performance Audit sheet sometimes has extra
+  // cells in data rows that shift values right of where the headers say they are.
+  // We detect this from the Instagram URL anchor and apply the shift to ALL
+  // columns at or after the IG section (website, blog, SEO, etc).
   var businesses = [];
+  var shiftStart = cols.igLink >= 0 ? cols.igLink : 9999;
 
   for (var i = headerRowIdx + 1; i < data.length; i++) {
     var row = data[i];
     var clientName = String(row[cols.clientName] || '').trim();
     if (!clientName) continue;
+
+    var shift = _getColumnShift(row, cols);
 
     var biz = {
       clientName: clientName,
@@ -953,6 +960,7 @@ function readOnlinePresence() {
       services: _str(row[cols.services]),
       auditMonth: _str(row[cols.auditMonth]),
 
+      // Reviews — before the IG section, unaffected by shift
       gbl: {
         link:    _str(row[cols.gblLink]),
         rating:  _safeNum(row[ratingCols[0]]),
@@ -979,37 +987,39 @@ function readOnlinePresence() {
         platform: _detectPlatform(_str(row[otherLinkCol]))
       },
 
-      instagram: _parseInstagram(row, cols, notesCols),
+      // Instagram — uses anchor-based parsing (handles shift internally)
+      instagram: _parseInstagram(row, cols, notesCols, shift, shiftStart),
 
+      // Post-IG sections — all use _rs() to apply detected shift
       website: {
-        url:          _str(row[cols.website]),
-        updatedMonth: _str(row[cols.updatedMonth]),
-        sitePhotos:   _str(row[cols.sitePhotos]),
-        lastUpdated:  _str(row[cols.lastUpdated]),
-        notes:        notesCols.length > 5 ? _str(row[notesCols[5]]) : ''
+        url:          _str(_rs(row, cols.website, shift, shiftStart)),
+        updatedMonth: _str(_rs(row, cols.updatedMonth, shift, shiftStart)),
+        sitePhotos:   _str(_rs(row, cols.sitePhotos, shift, shiftStart)),
+        lastUpdated:  _str(_rs(row, cols.lastUpdated, shift, shiftStart)),
+        notes:        notesCols.length > 5 ? _str(_rs(row, notesCols[5], shift, shiftStart)) : ''
       },
 
       blog: {
-        url:             _str(row[cols.blog]),
-        lastPost:        _str(row[cols.lastBlogPost]),
-        threeMonthCount: num(row[cols.threeMonthCount]),
-        currentMonth:    num(row[cols.currentMonth]),
-        onQueue:         num(row[cols.onQueue]),
-        notes:           notesCols.length > 6 ? _str(row[notesCols[6]]) : ''
+        url:             _str(_rs(row, cols.blog, shift, shiftStart)),
+        lastPost:        _str(_rs(row, cols.lastBlogPost, shift, shiftStart)),
+        threeMonthCount: num(_rs(row, cols.threeMonthCount, shift, shiftStart)),
+        currentMonth:    num(_rs(row, cols.currentMonth, shift, shiftStart)),
+        onQueue:         num(_rs(row, cols.onQueue, shift, shiftStart)),
+        notes:           notesCols.length > 6 ? _str(_rs(row, notesCols[6], shift, shiftStart)) : ''
       },
 
       seo: {
-        check: _str(row[cols.seoCheck])
+        check: _str(_rs(row, cols.seoCheck, shift, shiftStart))
       },
 
       serviceStatus: {
-        full:  _str(row[cols.full]),
-        lite:  _str(row[cols.lite]),
-        status: _str(row[cols.status]),
-        notes: notesCols.length > 7 ? _str(row[notesCols[7]]) : ''
+        full:   _str(_rs(row, cols.full, shift, shiftStart)),
+        lite:   _str(_rs(row, cols.lite, shift, shiftStart)),
+        status: _str(_rs(row, cols.status, shift, shiftStart)),
+        notes:  notesCols.length > 7 ? _str(_rs(row, notesCols[7], shift, shiftStart)) : ''
       },
 
-      otherNotes: _str(row[cols.otherNotes])
+      otherNotes: _str(_rs(row, cols.otherNotes, shift, shiftStart))
     };
 
     businesses.push(biz);
@@ -1029,53 +1039,25 @@ function readOnlinePresence() {
     if (deduped.hasOwnProperty(key)) uniqueBiz.push(deduped[key]);
   }
 
-  // Debug: include column mapping + sample raw data for troubleshooting
+  // Debug: column mapping, shift detection, and header info for troubleshooting
+  var firstShift = 0;
+  for (var dbg = headerRowIdx + 1; dbg < Math.min(data.length, headerRowIdx + 20); dbg++) {
+    var testShift = _getColumnShift(data[dbg], cols);
+    if (testShift > 0) { firstShift = testShift; break; }
+  }
   var _debug = {
     headerRow: headerRowIdx,
     headerCount: headers.length,
-    colIndices: {
-      clientName: cols.clientName,
-      businessName: cols.businessName,
-      igLink: cols.igLink,
-      shared: cols.shared,
-      generated: cols.generated,
-      followers: cols.followers,
-      following: cols.following,
-      website: cols.website,
-      blog: cols.blog,
-      seoCheck: cols.seoCheck
-    },
-    headers: headers.slice(0, 50),  // first 50 headers for inspection
-    sampleRow: null
+    shiftDetected: firstShift,
+    shiftStart: shiftStart,
+    colIndices: cols,
+    ratingCols: ratingCols,
+    reviewCols: reviewCols,
+    notesCols: notesCols,
+    headers: headers,  // all headers for inspection
+    totalBiz: uniqueBiz.length,
+    totalRaw: businesses.length
   };
-  // Find "Long Beach" row for debugging
-  for (var dbg = 0; dbg < businesses.length; dbg++) {
-    if (businesses[dbg].businessName.toLowerCase().indexOf('long beach') >= 0) {
-      _debug.sampleRow = {
-        businessName: businesses[dbg].businessName,
-        clientName: businesses[dbg].clientName,
-        instagram: businesses[dbg].instagram,
-        rawRowLength: data[headerRowIdx + 1 + dbg] ? data[headerRowIdx + 1 + dbg].length : 'N/A'
-      };
-      // Also grab the raw cell values at the IG column indices
-      var rawRow = null;
-      for (var ri = headerRowIdx + 1; ri < data.length; ri++) {
-        if (String(data[ri][cols.businessName] || '').toLowerCase().indexOf('long beach') >= 0) {
-          rawRow = data[ri];
-          break;
-        }
-      }
-      if (rawRow) {
-        _debug.sampleRow.rawIgLink = rawRow[cols.igLink];
-        _debug.sampleRow.rawShared = rawRow[cols.shared];
-        _debug.sampleRow.rawGenerated = rawRow[cols.generated];
-        _debug.sampleRow.rawFollowers = rawRow[cols.followers];
-        _debug.sampleRow.rawFollowing = rawRow[cols.following];
-        _debug.sampleRow.rawRowLength = rawRow.length;
-      }
-      break;
-    }
-  }
 
   return { businesses: uniqueBiz, tabName: sheet.getName(), _debug: _debug };
 }
@@ -1107,15 +1089,20 @@ function _safeNum(v) {
   return isNaN(n) ? null : Math.round(n * 10) / 10;
 }
 
-// ── Detect platform from URL ──
 // ── Instagram column parser — handles header/data misalignment ──
 // The Performance Audit sheet sometimes has extra columns in data rows
 // that shift IG values right of where the headers say they should be.
 // Fix: scan from the header-detected igLink position for the actual
 // instagram.com URL, then read relative columns from that anchor.
-function _parseInstagram(row, cols, notesCols) {
+function _parseInstagram(row, cols, notesCols, shift, shiftStart) {
   var igStart = cols.igLink;
   if (igStart < 0) return { link: '', shared: 0, generated: 0, followers: 0, following: 0, notes: '' };
+
+  // IG notes — apply shift if the notes column is in the shifted region
+  var igNotes = '';
+  if (notesCols.length > 4 && notesCols[4] >= 0) {
+    igNotes = _str(_rs(row, notesCols[4], shift || 0, shiftStart || 9999));
+  }
 
   // Scan from header position to up to 3 cols right looking for the actual IG URL
   var anchor = -1;
@@ -1135,7 +1122,7 @@ function _parseInstagram(row, cols, notesCols) {
       generated: num(row[anchor + 2]),
       followers: num(row[anchor + 3]),
       following: num(row[anchor + 4]),
-      notes:     notesCols.length > 4 ? _str(row[notesCols[4]]) : ''
+      notes:     igNotes
     };
   }
 
@@ -1146,8 +1133,35 @@ function _parseInstagram(row, cols, notesCols) {
     generated: num(row[cols.generated]),
     followers: num(row[cols.followers]),
     following: num(row[cols.following]),
-    notes:     notesCols.length > 4 ? _str(row[notesCols[4]]) : ''
+    notes:     igNotes
   };
+}
+
+/**
+ * Detect column shift in data rows vs headers.
+ * The Performance Audit sheet sometimes has extra cells in data rows
+ * that shift values right of where the headers indicate.
+ * Uses the Instagram URL as an anchor to detect the offset.
+ */
+function _getColumnShift(row, cols) {
+  if (cols.igLink < 0) return 0;
+  for (var offset = 0; offset <= 3; offset++) {
+    var val = String(row[cols.igLink + offset] || '').toLowerCase();
+    if (val.indexOf('instagram.com') >= 0 || val.indexOf('ig.com') >= 0) {
+      return offset;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Read a cell value with shift applied for columns at or past the shift start point.
+ * Returns undefined for cols that are -1 (not found in headers).
+ */
+function _rs(row, colIdx, shift, shiftStart) {
+  if (colIdx == null || colIdx < 0) return undefined;
+  var actualIdx = colIdx >= shiftStart ? colIdx + shift : colIdx;
+  return actualIdx < row.length ? row[actualIdx] : undefined;
 }
 
 function _detectPlatform(url) {

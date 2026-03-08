@@ -345,6 +345,28 @@ function doGet(e) {
     }
 
     // Default: return full dashboard data (includes Tableau summary)
+
+    // Auto-add office owner to roster if not already present
+    var ownerEmail = (e.parameter && e.parameter.ownerEmail || '').trim().toLowerCase();
+    var ownerName = (e.parameter && e.parameter.ownerName || '').trim();
+    if (ownerEmail) {
+      var rosterSheet = ss.getSheetByName(officeTab(TAB.ROSTER, officeId));
+      if (rosterSheet) {
+        var rosterData = rosterSheet.getDataRange().getValues();
+        var ownerFound = false;
+        for (var ri = 1; ri < rosterData.length; ri++) {
+          if (String(rosterData[ri][0] || '').trim().toLowerCase() === ownerEmail) {
+            ownerFound = true;
+            break;
+          }
+        }
+        if (!ownerFound) {
+          rosterSheet.appendRow([ownerEmail, ownerName || ownerEmail, '', 'owner', false, new Date().toISOString(), '', '', '']);
+          Logger.log('[AutoRoster] Added owner to roster: ' + ownerEmail);
+        }
+      }
+    }
+
     let roster = readRoster(ss, officeId);
     const teamMaps = buildTeamEmojiMaps(ss, officeId);
     const peopleResult = readPeople(ss, officeId, roster, teamMaps.nameMap);

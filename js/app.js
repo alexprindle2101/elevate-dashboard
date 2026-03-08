@@ -89,6 +89,8 @@ const App = {
         if (session.officeConfig.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = session.officeConfig.payrollManagerEmail;
         if (session.officeConfig.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = session.officeConfig.discordWebhookUrl;
         if (session.officeConfig.payrollMode) OFFICE_CONFIG.payrollMode = session.officeConfig.payrollMode;
+        if (session.officeConfig.ownerEmail) OFFICE_CONFIG.ownerEmail = session.officeConfig.ownerEmail;
+        if (session.officeConfig.ownerName) OFFICE_CONFIG.ownerName = session.officeConfig.ownerName;
         console.log('[Session] Restored officeConfig:', session.officeConfig.officeName || session.officeConfig.officeId);
       }
       // Fetch discordWebhookUrl if missing (old URLs without ?office= param)
@@ -149,6 +151,8 @@ const App = {
         if (oc.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = oc.payrollManagerEmail;
         if (oc.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = oc.discordWebhookUrl;
         if (oc.payrollMode) OFFICE_CONFIG.payrollMode = oc.payrollMode;
+        if (oc.ownerEmail) OFFICE_CONFIG.ownerEmail = oc.ownerEmail;
+        if (oc.ownerName) OFFICE_CONFIG.ownerName = oc.ownerName;
         console.log('[Multi-Office] Resolved to:', oc.name);
       } else {
         console.warn('[Multi-Office] Office not found:', officeId, '— using defaults');

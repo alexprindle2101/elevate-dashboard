@@ -209,7 +209,9 @@ function doGet(e) {
                 discordWebhookUrl: o.discordWebhookUrl || '',
                 headerLogoStyle: o.headerLogoStyle || 'icon',
                 payrollManagerEmail: o.payrollManagerEmail || '',
-                payrollMode: o.payrollMode || 'commission-split'
+                payrollMode: o.payrollMode || 'commission-split',
+                ownerEmail: o.ownerEmail || '',
+                ownerName: o.ownerName || ''
               }
             });
           }

@@ -30,7 +30,10 @@ const SheetsAPI = {
   // ── Fetch all dashboard data via Apps Script doGet ──
   // Returns: { people, roster, teamMap, orderOverrides, teamCustomizations, unlockRequests }
   async fetchAllData(config) {
-    const url = this._buildUrl(config);
+    const params = {};
+    if (OFFICE_CONFIG.ownerEmail) params.ownerEmail = OFFICE_CONFIG.ownerEmail;
+    if (OFFICE_CONFIG.ownerName) params.ownerName = OFFICE_CONFIG.ownerName;
+    const url = this._buildUrl(config, params);
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Apps Script HTTP ${resp.status}`);
     const data = await resp.json();

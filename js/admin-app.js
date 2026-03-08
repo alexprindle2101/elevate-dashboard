@@ -679,7 +679,10 @@ const AdminApp = {
       logoIconUrl: office.logoIconUrl || '',
       headerLogoStyle: office.headerLogoStyle || 'icon',
       payrollManagerEmail: office.payrollManagerEmail || '',
-      payrollMode: office.payrollMode || 'commission-split'
+      payrollMode: office.payrollMode || 'commission-split',
+      ownerEmail: office.ownerEmail || '',
+      ownerName: office.ownerName || '',
+      discordWebhookUrl: office.discordWebhookUrl || ''
     };
 
     const encoded = btoa(JSON.stringify(config));

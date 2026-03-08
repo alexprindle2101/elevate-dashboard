@@ -142,6 +142,8 @@ const WEEK_PERIODS = new Set([7, 8, 9, 10, 11]);
       if (cfg.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = cfg.payrollManagerEmail;
       if (cfg.payrollMode) OFFICE_CONFIG.payrollMode = cfg.payrollMode;
       if (cfg.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = cfg.discordWebhookUrl;
+      if (cfg.ownerEmail) OFFICE_CONFIG.ownerEmail = cfg.ownerEmail;
+      if (cfg.ownerName) OFFICE_CONFIG.ownerName = cfg.ownerName;
       console.log('[Multi-Office] Config overridden for:', cfg.officeName || 'Unknown office', '| officeId:', cfg.officeId || 'default');
     } catch(e) {
       // Not valid base64 JSON — treat as plain office ID (e.g. "off_002")

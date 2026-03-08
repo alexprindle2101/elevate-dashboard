@@ -188,7 +188,8 @@ const NationalApp = {
     const weeks = NATIONAL_CONFIG.campaigns[campaignKey]?.weeksToPull || 6;
     const url = NATIONAL_CONFIG.appsScriptUrl +
       '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
-      '&action=recruiting&weeks=' + weeks;
+      '&action=recruiting&weeks=' + weeks +
+      '&_t=' + Date.now();
     const resp = await fetch(url);
     const result = await resp.json();
     if (result.error) throw new Error(result.error);
@@ -208,7 +209,8 @@ const NationalApp = {
   async _fetchOnlinePresence() {
     const url = NATIONAL_CONFIG.appsScriptUrl +
       '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
-      '&action=onlinePresence';
+      '&action=onlinePresence' +
+      '&_t=' + Date.now();
     const resp = await fetch(url);
     const result = await resp.json();
     if (result.error) throw new Error(result.error);

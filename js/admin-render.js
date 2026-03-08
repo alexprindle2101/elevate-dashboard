@@ -265,20 +265,9 @@ const AdminRender = {
     const payrollSelect = document.getElementById('office-payroll-manager');
     if (payrollSelect) {
       payrollSelect.innerHTML = '<option value="">(None)</option>';
-      const officeOwnerEmail = (office ? (office.ownerEmail || '') : (ownerSelect?.value || '')).toLowerCase();
-      const officeId = office ? office.officeId : '';
 
-      // Collect eligible admins: a3 (all offices), a2 (assigned to this owner), a1 (assigned to this office)
-      const eligible = [];
-      Object.values(AdminApp.state.adminRoster).forEach(admin => {
-        if (admin.deactivated) return;
-        if (admin.role === 'a3') { eligible.push(admin); return; }
-        if (admin.role === 'a2' && officeOwnerEmail && admin.assignedOwner === officeOwnerEmail) { eligible.push(admin); return; }
-        if (admin.role === 'a1' && officeId) {
-          const ids = (admin.assignedOffices || '').split(',').map(s => s.trim().toLowerCase());
-          if (ids.includes(officeId.toLowerCase())) eligible.push(admin);
-        }
-      });
+      // Show all admins visible to the current user (already scoped by readScoped on the server)
+      const eligible = Object.values(AdminApp.state.adminRoster).filter(a => !a.deactivated);
       eligible.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
       eligible.forEach(admin => {
         const opt = document.createElement('option');

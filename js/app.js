@@ -38,6 +38,8 @@ const App = {
   // ── Production Init ──
   async initProduction() {
     Auth.showLoading('Checking session...');
+    // Apply office-specific logos to login + loading screens immediately
+    this._applyLoginBranding();
 
     // ── SSO from Admin Portal ──
     // If adminAuth token is present and valid, create session automatically
@@ -93,6 +95,8 @@ const App = {
         if (session.officeConfig.ownerName) OFFICE_CONFIG.ownerName = session.officeConfig.ownerName;
         console.log('[Session] Restored officeConfig:', session.officeConfig.officeName || session.officeConfig.officeId);
       }
+      // Update loading screen logo with restored office branding
+      this._applyLoginBranding();
       // Fetch discordWebhookUrl if missing (old URLs without ?office= param)
       if (!OFFICE_CONFIG.discordWebhookUrl && OFFICE_CONFIG.officeId) {
         await this._resolveOfficeId(OFFICE_CONFIG.officeId);
@@ -116,6 +120,9 @@ const App = {
       if (!OFFICE_CONFIG.discordWebhookUrl && OFFICE_CONFIG.officeId) {
         await this._resolveOfficeId(OFFICE_CONFIG.officeId);
       }
+
+      // Re-apply branding after office config resolved (logos now available)
+      this._applyLoginBranding();
 
       // Now fetch data and show login
       Auth.showLoading('Connecting...');
@@ -724,6 +731,21 @@ const App = {
       logoStyleSel.value = OFFICE_CONFIG.headerLogoStyle || 'icon';
       const logoSaved = document.getElementById('office-logo-style-saved');
       if (logoSaved) logoSaved.style.display = 'none';
+    }
+  },
+
+  _applyLoginBranding() {
+    const loginLogo = document.getElementById('login-logo');
+    const loadingLogo = document.getElementById('loading-logo');
+    // Login screen: prefer square icon, fall back to full logo
+    if (loginLogo) {
+      loginLogo.src = OFFICE_CONFIG.logoIconUrl || OFFICE_CONFIG.logoUrl || 'references/logos/aptel-symbol-black.png';
+      loginLogo.alt = OFFICE_CONFIG.officeName || 'Aptel';
+    }
+    // Loading screen: prefer full wordmark, fall back to icon
+    if (loadingLogo) {
+      loadingLogo.src = OFFICE_CONFIG.logoUrl || OFFICE_CONFIG.logoIconUrl || 'references/logos/aptel-full-black.png';
+      loadingLogo.alt = OFFICE_CONFIG.officeName || 'Aptel';
     }
   },
 

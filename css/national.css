@@ -867,166 +867,246 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
 /* ═══════════════════════════════════════════════════════
    AUDIT TAB
    ═══════════════════════════════════════════════════════ */
-.audit-grades {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
+/* ═══════════════════════════════════════════════════════
+   BIS-STYLE PERFORMANCE AUDIT REPORT
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Report Header ── */
+.bis-report-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #1a2744 0%, #263b5e 100%);
+  border-radius: var(--radius-lg);
   margin-bottom: 24px;
 }
-.audit-grade-card {
-  background: var(--white);
-  border: 1px solid var(--gray-100);
-  border-radius: var(--radius);
-  padding: 20px;
-  text-align: center;
+.bis-logo {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  background: white;
+  padding: 4px 8px;
 }
-.audit-grade-title {
-  font-size: 12px; font-weight: 700; color: var(--gray-500);
-  text-transform: uppercase; letter-spacing: 0.5px;
-  margin-bottom: 10px;
+.bis-report-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.3px;
 }
-.audit-grade-value {
-  font-size: 36px; font-weight: 800;
-  line-height: 1;
-}
-.audit-grade-value.grade-a { color: var(--green); }
-.audit-grade-value.grade-b { color: var(--blue); }
-.audit-grade-value.grade-c { color: var(--yellow); }
-.audit-grade-value.grade-d { color: var(--orange); }
-.audit-grade-value.grade-f { color: var(--red); }
-.audit-grade-sub {
-  font-size: 12px; color: var(--gray-400);
-  margin-top: 6px;
+.bis-report-sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  margin-left: auto;
+  white-space: nowrap;
 }
 
-/* ── Business Cards Grid ── */
-.audit-biz-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 14px;
+/* ── Reports Container ── */
+.bis-reports {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
-.audit-biz-card {
-  background: var(--white);
-  border: 1px solid var(--gray-100);
+
+/* ── Individual Report Card ── */
+.bis-report-card {
+  background: #ffffff;
+  border: 1px solid #d0d7e2;
   border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   overflow: hidden;
 }
 
-/* Card header */
-.biz-card-header {
-  padding: 14px 18px 12px;
-  border-bottom: 1px solid var(--gray-100);
+/* Company name bar */
+.bis-company-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #1e2d4f 0%, #2a3f6e 100%);
+  color: #ffffff;
+}
+.bis-company-name {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+.bis-company-status {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(255,255,255,0.15);
+  padding: 3px 10px;
+  border-radius: 12px;
+  color: rgba(255,255,255,0.85);
+}
+
+/* Account manager sub-bar */
+.bis-account-manager {
+  padding: 6px 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-500);
   background: var(--gray-50);
-}
-.biz-card-name {
-  font-size: 15px; font-weight: 800; color: var(--gray-800);
-}
-.biz-card-manager {
-  font-size: 12px; font-weight: 500; color: var(--gray-500);
-  margin-top: 2px;
-}
-.biz-card-services {
-  font-size: 11px; font-weight: 600; color: var(--teal);
-  margin-top: 4px;
-  text-transform: uppercase; letter-spacing: 0.3px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-/* Card body */
-.biz-card-body {
-  padding: 6px 18px 14px;
+/* ── Section (grade box + content) ── */
+.bis-section {
+  display: flex;
+  border-bottom: 1px solid #e2e8f0;
 }
+.bis-section:last-child { border-bottom: none; }
 
-/* Card footer (notes) */
-.biz-card-footer {
-  padding: 10px 18px;
-  border-top: 1px solid var(--gray-100);
-  font-size: 12px; color: var(--gray-500);
-  background: var(--gray-50);
-}
-
-/* ── Business Sections ── */
-.biz-section {
-  padding: 10px 0 6px;
-  border-bottom: 1px solid var(--gray-50);
-}
-.biz-section:last-child { border-bottom: none; }
-.biz-section-title {
-  font-size: 11px; font-weight: 700; color: var(--gray-500);
-  text-transform: uppercase; letter-spacing: 0.3px;
-  margin-bottom: 8px;
-}
-.biz-section-inline {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 0;
-}
-.biz-section-inline .biz-section-title {
-  margin-bottom: 0;
-}
-
-/* ── Review Platforms ── */
-.biz-platforms {
-  display: flex; flex-wrap: wrap; gap: 8px;
-}
-.biz-platform {
-  display: flex; align-items: center; gap: 6px;
-  padding: 5px 10px;
-  background: var(--gray-50);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--gray-100);
-}
-.biz-platform-name {
-  font-size: 11px; font-weight: 700; color: var(--gray-600);
-}
-.biz-platform-rating {
-  font-size: 15px; font-weight: 800;
-}
-.biz-platform-rating.rating-great { color: var(--green); }
-.biz-platform-rating.rating-good { color: var(--teal); }
-.biz-platform-rating.rating-ok { color: var(--yellow); }
-.biz-platform-rating.rating-bad { color: var(--red); }
-.biz-platform-reviews {
-  font-size: 11px; color: var(--gray-400);
-}
-
-/* ── Metric Pills ── */
-.biz-metrics-row {
-  display: flex; flex-wrap: wrap; gap: 8px;
-}
-.biz-metric-pill {
-  display: inline-flex; flex-direction: column;
-  padding: 6px 12px;
-  background: var(--gray-50);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--gray-100);
-  text-align: center;
+/* Grade box on the left */
+.bis-grade-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 70px;
+  width: 70px;
+  background: #e8edf3;
+  border-right: 1px solid #d0d7e2;
 }
-.pill-label {
-  font-size: 10px; font-weight: 600; color: var(--gray-400);
-  text-transform: uppercase; letter-spacing: 0.3px;
+.bis-grade-letter {
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+  color: #64748b;
 }
-.pill-value {
-  font-size: 16px; font-weight: 800; color: var(--gray-800);
-  margin-top: 2px;
-}
-.biz-metric-pill.pill-green .pill-value { color: var(--green); }
-.biz-metric-pill.pill-red .pill-value { color: var(--red); }
+/* Grade colors for the box */
+.bis-grade-box.grade-a { background: #dcfce7; }
+.bis-grade-box.grade-a .bis-grade-letter { color: #15803d; }
+.bis-grade-box.grade-b { background: #dbeafe; }
+.bis-grade-box.grade-b .bis-grade-letter { color: #1d4ed8; }
+.bis-grade-box.grade-c { background: #fef9c3; }
+.bis-grade-box.grade-c .bis-grade-letter { color: #a16207; }
+.bis-grade-box.grade-d { background: #ffedd5; }
+.bis-grade-box.grade-d .bis-grade-letter { color: #c2410c; }
+.bis-grade-box.grade-f { background: #fee2e2; }
+.bis-grade-box.grade-f .bis-grade-letter { color: #dc2626; }
 
-/* ── SEO Badge ── */
-.biz-seo-badge {
+/* Section content (right side) */
+.bis-section-content {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+/* Section banner (dark blue header) */
+.bis-section-banner {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2a4a7f 100%);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* ── Tables inside sections ── */
+.bis-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.bis-table th {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  text-align: center;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+}
+.bis-table th:last-child { border-right: none; }
+.bis-table td {
+  padding: 10px 12px;
+  text-align: center;
+  border-right: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+.bis-table td:last-child { border-right: none; }
+
+/* Row labels (left column) */
+.bis-row-label {
+  text-align: left !important;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-600);
+  background: #f8fafc;
+  width: 100px;
+  white-space: nowrap;
+}
+
+/* Big metric values */
+.bis-big-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--gray-800);
+}
+.bis-big-value.rating-great { color: #15803d; }
+.bis-big-value.rating-good { color: #0d9488; }
+.bis-big-value.rating-ok { color: #d97706; }
+.bis-big-value.rating-bad { color: #dc2626; }
+
+/* Platform header */
+.bis-platform-header {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+/* Sub-headers for website section */
+.bis-sub-header {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  background: #e8edf3 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+}
+
+/* Notes row */
+.bis-notes-row td {
+  border-top: 1px solid #f0f0f0;
+}
+.bis-notes-cell {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: var(--gray-500) !important;
+  font-style: italic;
+  text-align: left !important;
+  padding: 6px 12px !important;
+}
+
+/* ── SEO compact row ── */
+.bis-seo-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+.bis-seo-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.bis-seo-badge {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 4px;
-  font-size: 12px; font-weight: 700;
+  font-size: 12px;
+  font-weight: 700;
 }
-.biz-seo-badge.seo-pass { background: var(--green-light); color: #15803d; }
-.biz-seo-badge.seo-fail { background: var(--red-light); color: #dc2626; }
-
-/* ── Status text ── */
-.biz-status-text {
-  font-size: 13px; font-weight: 600; color: var(--gray-700);
-}
+.bis-seo-badge.seo-pass { background: #dcfce7; color: #15803d; }
+.bis-seo-badge.seo-fail { background: #fee2e2; color: #dc2626; }
 
 /* ═══════════════════════════════════════════════════════
    CLAIM COMPANIES
@@ -1154,5 +1234,13 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
   .hc-grid { grid-template-columns: repeat(2, 1fr); }
   .prod-cards { grid-template-columns: 1fr; }
   .coaching-section { padding: 16px; }
-  .audit-biz-grid { grid-template-columns: 1fr; }
+  .bis-report-header { flex-wrap: wrap; padding: 14px 16px; gap: 10px; }
+  .bis-report-title { font-size: 16px; }
+  .bis-report-sub { margin-left: 0; font-size: 11px; }
+  .bis-grade-box { min-width: 50px; width: 50px; }
+  .bis-grade-letter { font-size: 24px; }
+  .bis-big-value { font-size: 16px; }
+  .bis-table th { font-size: 10px; padding: 6px 6px; }
+  .bis-table td { padding: 8px 6px; }
+  .bis-row-label { width: 70px; font-size: 11px; }
 }

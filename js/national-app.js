@@ -1421,39 +1421,23 @@ const NationalApp = {
     const bizList = a.businesses || [];
     const total = bizList.length;
 
-    // ── Grade Cards with sub-labels ──
+    // ── BIS-style report header ──
     const grades = document.getElementById('audit-grades');
-    const gradeCards = [
-      {
-        title: 'Google Reviews', grade: a.grades.reviews, icon: '⭐',
-        sub: a.reviewsAvg ? `Avg ${a.reviewsAvg} / ${a.reviewsCount} biz` : 'No data'
-      },
-      {
-        title: 'Website', grade: a.grades.website, icon: '🌐',
-        sub: total ? `${a.websiteUpdated || 0} of ${total} updated` : 'No data'
-      },
-      {
-        title: 'Social Media', grade: a.grades.social, icon: '📱',
-        sub: total ? `${a.igCount || 0} of ${total} with IG` : 'No data'
-      },
-      {
-        title: 'SEO', grade: a.grades.seo, icon: '🔍',
-        sub: total ? `${a.seoPassing || 0} of ${total} passing` : 'No data'
-      }
-    ];
-    grades.innerHTML = gradeCards.map(g => `
-      <div class="audit-grade-card">
-        <div class="audit-grade-title">${g.icon} ${g.title}</div>
-        <div class="audit-grade-value ${this._gradeClass(g.grade)}">${g.grade}</div>
-        <div class="audit-grade-sub">${g.sub}</div>
-      </div>
-    `).join('');
+    const now = new Date();
+    const auditMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-    // ── Claim Section ──
+    grades.innerHTML = `
+      <div class="bis-report-header">
+        <img src="https://betterimagesolutions.com/wp-content/uploads/2025/12/cropped-BIS_Standard-scaled-e1766050595589.png"
+             alt="Better Image Solutions" class="bis-logo" onerror="this.style.display='none'">
+        <div class="bis-report-title">Monthly Performance Audit Report</div>
+        <div class="bis-report-sub">Powered by Better Image Solutions · ${auditMonth}</div>
+      </div>`;
+
+    // ── Claim Section + Reports ──
     const details = document.getElementById('audit-details');
     const claimHTML = this._renderClaimSection(owner);
 
-    // ── Business Cards ──
     if (!bizList.length) {
       details.innerHTML = claimHTML + `
         <div class="empty-state">
@@ -1465,9 +1449,8 @@ const NationalApp = {
     }
 
     details.innerHTML = claimHTML + `
-      <div class="section-label">${total} Business${total > 1 ? 'es' : ''}</div>
-      <div class="audit-biz-grid">
-        ${bizList.map(b => this._renderBizCard(b)).join('')}
+      <div class="bis-reports">
+        ${bizList.map(b => this._renderBizReport(b, auditMonth)).join('')}
       </div>`;
   },
 
@@ -1656,110 +1639,193 @@ const NationalApp = {
   },
 
   // ── Render a single business card ──
-  _renderBizCard(b) {
+  // ═══════════════════════════════════════════════════════
+  // BIS-STYLE PERFORMANCE AUDIT REPORT RENDERING
+  // ═══════════════════════════════════════════════════════
+
+  _renderBizReport(b, auditMonth) {
     const e = s => this._esc(s || '');
+    const bizName = e(b.businessName || b.clientName);
 
-    // Review platforms row
-    const platforms = [
-      { name: 'GBL', data: b.gbl },
-      { name: 'Glassdoor', data: b.glassdoor },
-      { name: 'Indeed', data: b.indeed },
-      { name: b.other?.platform || 'Other', data: b.other }
-    ].filter(p => p.data && (p.data.rating != null || p.data.reviews > 0 || p.data.link));
+    // ── Compute section grades ──
+    const reviewGrade = this._bizReviewGrade(b);
+    const websiteGrade = this._bizWebsiteGrade(b);
+    const socialGrade = this._bizSocialGrade(b);
 
-    const reviewsHtml = platforms.length ? `
-      <div class="biz-section">
-        <div class="biz-section-title">⭐ Reviews</div>
-        <div class="biz-platforms">
-          ${platforms.map(p => `
-            <div class="biz-platform">
-              <span class="biz-platform-name">${e(p.name)}</span>
-              <span class="biz-platform-rating ${this._ratingColor(p.data.rating)}">${p.data.rating != null ? p.data.rating.toFixed(1) : '—'}</span>
-              <span class="biz-platform-reviews">${p.data.reviews || 0} reviews</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>` : '';
-
-    // Instagram
-    const ig = b.instagram;
-    const hasIG = ig && (ig.link || ig.followers > 0);
-    const igHtml = hasIG ? `
-      <div class="biz-section">
-        <div class="biz-section-title">📱 Instagram</div>
-        <div class="biz-metrics-row">
-          ${this._metricPill('Followers', this._fmtNum(ig.followers))}
-          ${this._metricPill('Shared', ig.shared)}
-          ${this._metricPill('Generated', ig.generated)}
-        </div>
-      </div>` : '';
-
-    // Website
-    const ws = b.website;
-    const hasWebsite = ws && ws.url;
-    const wsUpdated = (ws?.updatedMonth || '').toLowerCase();
-    const wsIsUpdated = wsUpdated === 'yes' || wsUpdated === 'y' || wsUpdated === '✓' || wsUpdated === 'true' || wsUpdated === 'x';
-    const websiteHtml = hasWebsite ? `
-      <div class="biz-section">
-        <div class="biz-section-title">🌐 Website</div>
-        <div class="biz-metrics-row">
-          ${this._metricPill('Updated', wsIsUpdated ? '✓ Yes' : '✗ No', wsIsUpdated ? 'green' : 'red')}
-          ${ws.sitePhotos ? this._metricPill('Photos', e(ws.sitePhotos)) : ''}
-          ${ws.lastUpdated ? this._metricPill('Last Update', e(ws.lastUpdated)) : ''}
-        </div>
-      </div>` : '';
-
-    // Blog
-    const blog = b.blog;
-    const hasBlog = blog && blog.url;
-    // Guard: if threeMonthCount is a huge number (epoch leak), show 0
-    const blogCount3 = (blog?.threeMonthCount > 10000) ? 0 : (blog?.threeMonthCount || 0);
-    const blogHtml = hasBlog ? `
-      <div class="biz-section">
-        <div class="biz-section-title">📝 Blog</div>
-        <div class="biz-metrics-row">
-          ${this._metricPill('3-Mo Count', blogCount3)}
-          ${this._metricPill('This Month', blog.currentMonth)}
-          ${this._metricPill('On Queue', blog.onQueue)}
-        </div>
-      </div>` : '';
-
-    // SEO
-    const seoVal = (b.seo?.check || '').toLowerCase();
-    const seoPass = seoVal === 'pass' || seoVal === 'yes' || seoVal === 'y' || seoVal === '✓' || seoVal === 'true' || seoVal === 'x' || seoVal === 'good';
-    const seoHtml = b.seo?.check ? `
-      <div class="biz-section biz-section-inline">
-        <span class="biz-section-title">🔍 SEO</span>
-        <span class="biz-seo-badge ${seoPass ? 'seo-pass' : 'seo-fail'}">${seoPass ? '✓ Passing' : '✗ Needs Work'}</span>
-      </div>` : '';
-
-    // Status (filter out #REF! and similar spreadsheet errors)
+    // ── Status / Service ──
     const st = b.serviceStatus;
     const rawStatus = st?.status || (st?.full ? 'Full' : st?.lite ? 'Lite' : '');
     const cleanStatus = rawStatus.startsWith('#') ? '' : rawStatus;
-    const statusHtml = cleanStatus ? `
-      <div class="biz-section biz-section-inline">
-        <span class="biz-section-title">Status</span>
-        <span class="biz-status-text">${e(cleanStatus)}</span>
+
+    // ── Reviews Section ──
+    const platforms = [
+      { name: 'Google', data: b.gbl },
+      { name: 'Glassdoor', data: b.glassdoor },
+      { name: 'Indeed', data: b.indeed },
+      { name: b.other?.platform || 'Other', data: b.other }
+    ];
+
+    const reviewsHTML = `
+      <div class="bis-section">
+        <div class="bis-grade-box ${this._gradeClass(reviewGrade)}">
+          <div class="bis-grade-letter">${reviewGrade}</div>
+        </div>
+        <div class="bis-section-content">
+          <div class="bis-section-banner">Reviews</div>
+          <table class="bis-table">
+            <thead>
+              <tr>
+                <th></th>
+                ${platforms.map(p => `<th class="bis-platform-header">${e(p.name)}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="bis-row-label">Rating</td>
+                ${platforms.map(p => {
+                  const rating = p.data?.rating;
+                  const cls = this._ratingColor(rating);
+                  return `<td class="bis-big-value ${cls}">${rating != null && rating > 0 ? rating.toFixed(1) : '—'}</td>`;
+                }).join('')}
+              </tr>
+              <tr>
+                <td class="bis-row-label"># of Reviews</td>
+                ${platforms.map(p => {
+                  const rev = p.data?.reviews;
+                  return `<td class="bis-big-value">${rev != null && rev > 0 ? rev : '—'}</td>`;
+                }).join('')}
+              </tr>
+              <tr class="bis-notes-row">
+                <td class="bis-row-label">Notes</td>
+                ${platforms.map(p => {
+                  const notes = p.data?.notes || '';
+                  return `<td class="bis-notes-cell">${e(notes)}</td>`;
+                }).join('')}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    // ── Website Section ──
+    const ws = b.website;
+    const blog = b.blog;
+    const blogCount3 = (blog?.threeMonthCount > 10000) ? 0 : (blog?.threeMonthCount || 0);
+
+    const websiteHTML = `
+      <div class="bis-section">
+        <div class="bis-grade-box ${this._gradeClass(websiteGrade)}">
+          <div class="bis-grade-letter">${websiteGrade}</div>
+        </div>
+        <div class="bis-section-content">
+          <div class="bis-section-banner">Website</div>
+          <table class="bis-table bis-table-website">
+            <thead>
+              <tr>
+                <th colspan="2" class="bis-sub-header">Site Update</th>
+                <th colspan="2" class="bis-sub-header">Blog</th>
+              </tr>
+              <tr>
+                <th>Site Photos</th>
+                <th>Last Updated / Reviewed</th>
+                <th>Last Updated</th>
+                <th>In Queue</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="bis-big-value">${e(ws?.sitePhotos) || '—'}</td>
+                <td class="bis-big-value">${e(ws?.lastUpdated) || '—'}</td>
+                <td class="bis-big-value">${e(blog?.lastBlogPost) || '—'}</td>
+                <td class="bis-big-value">${blog?.onQueue != null ? blog.onQueue : '—'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    // ── Social Media Section ──
+    const ig = b.instagram || {};
+    const socialHTML = `
+      <div class="bis-section">
+        <div class="bis-grade-box ${this._gradeClass(socialGrade)}">
+          <div class="bis-grade-letter">${socialGrade}</div>
+        </div>
+        <div class="bis-section-content">
+          <div class="bis-section-banner">Social Media</div>
+          <table class="bis-table">
+            <thead>
+              <tr>
+                <th>Shared</th>
+                <th>Generated</th>
+                <th>Followers</th>
+                <th>Following</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="bis-big-value">${ig.shared != null ? ig.shared : '—'}</td>
+                <td class="bis-big-value">${ig.generated != null ? ig.generated : '—'}</td>
+                <td class="bis-big-value">${ig.followers != null ? this._fmtNum(ig.followers) : '—'}</td>
+                <td class="bis-big-value">${ig.following != null ? this._fmtNum(ig.following) : '—'}</td>
+              </tr>
+              ${b.otherNotes ? `<tr class="bis-notes-row"><td colspan="4" class="bis-notes-cell">${e(b.otherNotes)}</td></tr>` : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    // ── SEO row (compact, if available) ──
+    const seoVal = (b.seo?.check || '').toLowerCase();
+    const seoPass = seoVal === 'pass' || seoVal === 'yes' || seoVal === 'y' || seoVal === '✓' || seoVal === 'true' || seoVal === 'x' || seoVal === 'good';
+    const seoHTML = b.seo?.check ? `
+      <div class="bis-seo-row">
+        <span class="bis-seo-label">SEO</span>
+        <span class="bis-seo-badge ${seoPass ? 'seo-pass' : 'seo-fail'}">${seoPass ? '✓ Passing' : '✗ Needs Work'}</span>
       </div>` : '';
 
     return `
-      <div class="audit-biz-card">
-        <div class="biz-card-header">
-          <div class="biz-card-name">${e(b.businessName || b.clientName)}</div>
-          ${b.accountManager ? `<div class="biz-card-manager">${e(b.accountManager)}</div>` : ''}
-          ${b.services ? `<div class="biz-card-services">${e(b.services)}</div>` : ''}
+      <div class="bis-report-card">
+        <div class="bis-company-bar">
+          <div class="bis-company-name">${bizName}</div>
+          ${cleanStatus ? `<span class="bis-company-status">${e(cleanStatus)}</span>` : ''}
         </div>
-        <div class="biz-card-body">
-          ${reviewsHtml}${igHtml}${websiteHtml}${blogHtml}${seoHtml}${statusHtml}
-        </div>
-        ${b.otherNotes ? `<div class="biz-card-footer">${e(b.otherNotes)}</div>` : ''}
+        ${b.accountManager ? `<div class="bis-account-manager">${e(b.accountManager)}${b.services ? ' · ' + e(b.services) : ''}</div>` : ''}
+        ${reviewsHTML}
+        ${websiteHTML}
+        ${socialHTML}
+        ${seoHTML}
       </div>`;
   },
 
-  _metricPill(label, value, color) {
-    const cls = color ? ` pill-${color}` : '';
-    return `<div class="biz-metric-pill${cls}"><span class="pill-label">${label}</span><span class="pill-value">${value ?? '—'}</span></div>`;
+  // ── Per-business grade helpers ──
+  _bizReviewGrade(b) {
+    const rating = b.gbl?.rating;
+    if (rating != null && rating > 0) return this._ratingToGrade(rating);
+    return '—';
+  },
+
+  _bizWebsiteGrade(b) {
+    const ws = b.website;
+    const blog = b.blog;
+    let score = 0, factors = 0;
+    // Site updated?
+    const wsUpdated = (ws?.updatedMonth || '').toLowerCase();
+    const wsIsUpdated = wsUpdated === 'yes' || wsUpdated === 'y' || wsUpdated === '✓' || wsUpdated === 'true' || wsUpdated === 'x';
+    if (ws?.url) { factors++; if (wsIsUpdated) score++; }
+    // Blog active?
+    if (blog?.url) { factors++; if (blog.onQueue > 0 || blog.currentMonth > 0) score++; }
+    if (!factors) return '—';
+    return this._pctToGrade(score, factors);
+  },
+
+  _bizSocialGrade(b) {
+    const ig = b.instagram;
+    if (!ig || (!ig.link && !ig.followers)) return '—';
+    if (ig.followers >= 500) return 'A';
+    if (ig.followers >= 200) return 'B';
+    if (ig.followers >= 50) return 'C';
+    return 'D';
   },
 
   _ratingColor(rating) {

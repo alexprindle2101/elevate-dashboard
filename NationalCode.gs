@@ -853,13 +853,17 @@ function _parseTabDate(name) {
 
 // ── Normalize campaign header text to a slug ──
 function _campaignSlug(label) {
-  var s = label.toLowerCase()
+  var lower = label.toLowerCase();
+  var s = lower
     .replace(/campaign\s*totals?/gi, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .trim();
-  // Known mappings
-  if (s.indexOf('at&t') >= 0 || s.indexOf('att') >= 0 || s === 'at-t' || s === 'at-t-b2b') return 'att-b2b';
+  // Known mappings — check B2B first (more specific), then fall back to residential
+  var hasATT = lower.indexOf('at&t') >= 0 || lower.indexOf('att') >= 0 || lower.indexOf('at-t') >= 0;
+  var hasB2B = lower.indexOf('b2b') >= 0;
+  if (hasATT && hasB2B) return 'att-b2b';
+  if (hasATT && !hasB2B) return 'att-res';
   return s || 'unknown';
 }
 

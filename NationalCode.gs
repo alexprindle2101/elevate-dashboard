@@ -1046,6 +1046,11 @@ function readOnlinePresence() {
     var clientName = String(row[cols.clientName] || '').trim();
     if (!clientName) continue;
 
+    // Skip sum/total rows (last row of each campaign section)
+    var clientLower = clientName.toLowerCase();
+    var bizNameLower = String(row[cols.businessName] || '').toLowerCase().trim();
+    if (clientLower.indexOf('total') >= 0 || bizNameLower.indexOf('total') >= 0) continue;
+
     var shift = _getColumnShift(row, cols);
 
     var biz = {

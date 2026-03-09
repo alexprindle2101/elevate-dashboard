@@ -1434,24 +1434,47 @@ const NationalApp = {
         <div class="bis-report-sub">Powered by Better Image Solutions · ${auditMonth}</div>
       </div>`;
 
-    // ── Claim Section + Reports ──
+    // ── Reports then Claim Section (below) ──
     const details = document.getElementById('audit-details');
     const claimHTML = this._renderClaimSection(owner);
 
     if (!bizList.length) {
-      details.innerHTML = claimHTML + `
+      details.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">🏢</div>
           <div class="empty-state-text">No companies claimed for this owner yet.<br>
-          Use the search above to claim companies from Cam's report.</div>
-        </div>`;
+          Use the search below to claim companies from Cam's report.</div>
+        </div>` + claimHTML;
       return;
     }
 
-    details.innerHTML = claimHTML + `
-      <div class="bis-reports">
-        ${bizList.map(b => this._renderBizReport(b, auditMonth)).join('')}
-      </div>`;
+    // If multiple companies → show a dropdown selector, one report at a time
+    if (bizList.length > 1) {
+      const options = bizList.map((b, i) =>
+        `<option value="${i}">${this._esc(b.businessName || b.clientName)}</option>`
+      ).join('');
+
+      details.innerHTML = `
+        <div class="bis-company-selector">
+          <label class="bis-selector-label">Company</label>
+          <select class="bis-selector-dropdown" id="bis-company-select"
+            onchange="NationalApp._switchBizReport()">
+            ${options}
+          </select>
+        </div>
+        <div class="bis-reports" id="bis-reports-container">
+          ${this._renderBizReport(bizList[0], auditMonth)}
+        </div>
+        ${claimHTML}`;
+      this._currentBizList = bizList;
+      this._currentAuditMonth = auditMonth;
+    } else {
+      details.innerHTML = `
+        <div class="bis-reports">
+          ${this._renderBizReport(bizList[0], auditMonth)}
+        </div>
+        ${claimHTML}`;
+    }
   },
 
   // ── Render the Claim Companies section ──
@@ -1535,6 +1558,17 @@ const NationalApp = {
     // If all items are filtered out, show empty message if it doesn't exist
     if (visible === 0 && !empty) {
       dd.insertAdjacentHTML('beforeend', '<div class="claim-dropdown-empty">No matches found</div>');
+    }
+  },
+
+  _switchBizReport() {
+    const select = document.getElementById('bis-company-select');
+    const container = document.getElementById('bis-reports-container');
+    if (!select || !container || !this._currentBizList) return;
+    const idx = parseInt(select.value, 10);
+    const biz = this._currentBizList[idx];
+    if (biz) {
+      container.innerHTML = this._renderBizReport(biz, this._currentAuditMonth);
     }
   },
 

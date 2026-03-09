@@ -307,6 +307,7 @@ const PostSale = {
           inner = `
             <div class="wizard-field">
               <label class="wizard-label">Booked for Activation Support?</label>
+              <div style="margin-bottom:8px"><a href="https://aspireteam.zohobookings.com/#/activation-support" target="_blank" rel="noopener" style="color:var(--sc-cyan);font-size:13px;text-decoration:underline">Book Activation Support Here</a></div>
               <div class="toggle-group" id="ps-activation-toggle">
                 <button class="toggle-btn ${d.activationSupport ? 'active' : ''}" onclick="PostSale.setField('activationSupport',true)">Yes</button>
                 <button class="toggle-btn ${!d.activationSupport ? 'active' : ''}" onclick="PostSale.setField('activationSupport',false)">No</button>

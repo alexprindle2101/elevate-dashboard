@@ -723,9 +723,13 @@ function readNationalRecruiting(weekCount) {
       var dr2_2 = _findNthPattern(dh, '2nd r', 2);
       if (dr2_1 < 0) dr2_1 = _findNthPattern(dh, '2nds ', 1);
       if (dr2_2 < 0) dr2_2 = _findNthPattern(dh, '2nds ', 2);
+      var dconv = findCol(dh, ['conversion', '% call list booked', 'turned to 2nd']);
       var drete2 = _findNthPattern(dh, 'rete', 2);
       var drete3 = _findNthPattern(dh, 'rete', 3);
       // Positional fallback (same as _parseOwnerRecruiting)
+      if (dconv >= 0 && dr2_1 < 0) dr2_1 = dconv + 1;
+      if (dconv >= 0 && dr2_2 < 0) dr2_2 = dconv + 2;
+      if (dconv >= 0 && drete2 < 0) drete2 = dconv + 3;
       if (drete2 >= 0 && dns1 < 0) dns1 = drete2 + 1;
       if (drete2 >= 0 && dns2 < 0) dns2 = drete2 + 2;
       if (drete2 >= 0 && drete3 < 0) drete3 = drete2 + 3;
@@ -823,20 +827,29 @@ function _parseOwnerRecruiting(data, section, campaignKey, tabName) {
   if (r2_1 < 0) r2_1 = _findNthPattern(headers, '2nds ', 1);
   if (r2_2 < 0) r2_2 = _findNthPattern(headers, '2nds ', 2);
 
+  var convCol = findCol(headers, ['conversion', '% call list booked', 'turned to 2nd']);
   var rete2 = _findNthPattern(headers, 'rete', 2);
   var rete3 = _findNthPattern(headers, 'rete', 3);
 
-  // Positional fallback: if new starts columns not found by header text but 2nd retention
-  // IS found, the data likely still exists — Maddy sometimes omits headers.
-  // Standard layout: ... | 2nd Retention | NS Booked | NS Showed | NS Retention | ...
+  // Positional fallback: Maddy sometimes omits headers but data is still in the columns.
+  // Standard layout: ... | Conversion | 2nd Booked | 2nd Showed | 2nd Retention | NS Booked | NS Showed | NS Retention | ...
+  if (convCol >= 0 && r2_1 < 0) {
+    r2_1 = convCol + 1;
+  }
+  if (convCol >= 0 && r2_2 < 0) {
+    r2_2 = convCol + 2;
+  }
+  if (convCol >= 0 && rete2 < 0) {
+    rete2 = convCol + 3;
+  }
   if (rete2 >= 0 && ns1 < 0) {
-    ns1 = rete2 + 1;  // column right after 2nd retention = NS Booked
+    ns1 = rete2 + 1;
   }
   if (rete2 >= 0 && ns2 < 0) {
-    ns2 = rete2 + 2;  // two columns after 2nd retention = NS Showed
+    ns2 = rete2 + 2;
   }
   if (rete2 >= 0 && rete3 < 0) {
-    rete3 = rete2 + 3; // three columns after 2nd retention = NS Retention
+    rete3 = rete2 + 3;
   }
 
   var colMap = [
@@ -845,7 +858,7 @@ function _parseOwnerRecruiting(data, section, campaignKey, tabName) {
     _findNthPattern(headers, '1st r', 1),                     // 2: 1st Rounds Booked
     _findNthPattern(headers, '1st r', 2),                     // 3: 1st Rounds Showed
     _findNthPattern(headers, 'rete', 1),                      // 4: 1st Retention
-    findCol(headers, ['conversion', '% call list booked', 'turned to 2nd']),  // 5: Conversion
+    convCol,                                                  // 5: Conversion
     r2_1,                                                     // 6: 2nd Rounds Booked
     r2_2,                                                     // 7: 2nd Rounds Showed
     rete2,                                                    // 8: 2nd Retention

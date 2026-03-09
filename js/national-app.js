@@ -242,7 +242,13 @@ const NationalApp = {
     const select = document.getElementById('campaign-select');
     if (!select) return;
 
-    const keys = Object.keys(campaigns);
+    // Sort campaign keys alphabetically by display label
+    const keys = Object.keys(campaigns).sort((a, b) => {
+      const labelA = (campaigns[a].label || a).toLowerCase();
+      const labelB = (campaigns[b].label || b).toLowerCase();
+      return labelA.localeCompare(labelB);
+    });
+
     select.innerHTML = '';
     keys.forEach(key => {
       const opt = document.createElement('option');

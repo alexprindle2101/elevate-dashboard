@@ -676,7 +676,8 @@ function readNationalRecruiting(weekCount) {
 
       // Initialize campaign if first time seeing it
       if (!campaigns[key]) {
-        campaigns[key] = { label: sec.label, owners: [], weeks: [] };
+        var displayName = CAMPAIGN_DISPLAY_NAMES[key] || sec.label;
+        campaigns[key] = { label: displayName, owners: [], weeks: [] };
       }
 
       // Parse owner rows for this section
@@ -856,13 +857,20 @@ function _parseTabDate(name) {
 }
 
 // ── Normalize campaign header text to a slug ──
+// Known section headers from the sheet → slug + display name
+var CAMPAIGN_DISPLAY_NAMES = {
+  'att-b2b':          'AT&T: B2B',
+  'att-nds':          'AT&T: NDS',
+  'att-res':          'AT&T: Residential',
+  'frontier':         'Frontier',
+  'frontier-retail':  'Frontier: Retail',
+  'rogers':           'Rogers',
+  'truconnect':       'TruConnect',
+  'verizon':          'Verizon'
+};
+
 function _campaignSlug(label) {
   var lower = label.toLowerCase();
-  var s = lower
-    .replace(/campaign\s*totals?/gi, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .trim();
   // Known mappings — check most specific first
   var hasATT = lower.indexOf('at&t') >= 0 || lower.indexOf('att') >= 0 || lower.indexOf('at-t') >= 0;
   var hasB2B = lower.indexOf('b2b') >= 0;
@@ -870,6 +878,18 @@ function _campaignSlug(label) {
   if (hasATT && hasB2B) return 'att-b2b';
   if (hasATT && hasOOF) return 'att-nds';
   if (hasATT) return 'att-res';
+  if (lower.indexOf('frontier') >= 0 && lower.indexOf('retail') >= 0) return 'frontier-retail';
+  if (lower.indexOf('frontier') >= 0) return 'frontier';
+  if (lower.indexOf('rogers') >= 0) return 'rogers';
+  if (lower.indexOf('truconnect') >= 0) return 'truconnect';
+  if (lower.indexOf('verizon') >= 0) return 'verizon';
+  // Fallback: slugify
+  var s = lower
+    .replace(/campaign\s*totals?/gi, '')
+    .replace(/owners?/gi, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .trim();
   return s || 'unknown';
 }
 

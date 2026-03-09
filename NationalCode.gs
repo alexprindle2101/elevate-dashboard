@@ -1151,7 +1151,7 @@ function readOnlinePresence() {
   // Extract unique company names for the claim dropdown
   var companySet = {};
   for (var ci = 0; ci < uniqueBiz.length; ci++) {
-    var cn = String(uniqueBiz[ci].clientName || '').trim();
+    var cn = String(uniqueBiz[ci].businessName || uniqueBiz[ci].clientName || '').trim();
     if (cn && cn !== 'Grand Total') companySet[cn] = true;
   }
   var allCompanyNames = Object.keys(companySet).sort();

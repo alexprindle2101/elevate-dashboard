@@ -980,8 +980,44 @@ const DataPipeline = {
       console.warn('[Churn] No churnReport data received (empty or missing)');
       return;
     }
-    console.log('[Churn] Received', churnReport.length, 'rows. Sample keys:', Object.keys(churnReport[0] || {}));
-    const cols = this._CHURN_BUCKET_COLS;
+    const sampleKeys = Object.keys(churnReport[0] || {});
+    console.log('[Churn] Received', churnReport.length, 'rows. Keys:', sampleKeys.join(', '));
+
+    // Dynamically find the actual header keys by partial/case-insensitive match
+    const _findKey = (keys, patterns) => {
+      for (const p of patterns) {
+        const lp = p.toLowerCase();
+        const found = keys.find(k => k.toLowerCase() === lp);
+        if (found) return found;
+      }
+      // Partial match fallback
+      for (const p of patterns) {
+        const lp = p.toLowerCase();
+        const found = keys.find(k => k.toLowerCase().includes(lp));
+        if (found) return found;
+      }
+      return null;
+    };
+
+    const repNameKey = _findKey(sampleKeys, ['rep.Full Name', 'Full Name', 'Rep Name', 'Name']);
+    const metricTypeKey = _findKey(sampleKeys, ['metricType', 'Metric Type', 'metric_type', 'Measure Names']);
+    const colorKey = _findKey(sampleKeys, ['30-60 Color Churn (copy)', 'Color Churn', 'Churn Color']);
+
+    console.log('[Churn] Resolved keys → repName:', repNameKey, '| metricType:', metricTypeKey, '| color:', colorKey);
+
+    if (!repNameKey || !metricTypeKey) {
+      console.error('[Churn] Cannot find required columns. Available keys:', sampleKeys);
+      console.error('[Churn] First row sample:', JSON.stringify(churnReport[0]));
+      return;
+    }
+
+    // Dynamically match bucket columns: look for keys containing '0-30', '30 Day', '60 Day', etc.
+    const BUCKET_PATTERNS = ['0-30', '30 Day', '60 Day', '90 Day', '120 Day'];
+    const cols = BUCKET_PATTERNS.map(pat => {
+      const lp = pat.toLowerCase();
+      return sampleKeys.find(k => k.toLowerCase().includes(lp)) || pat;
+    });
+    console.log('[Churn] Bucket columns:', cols);
 
     // Group rows by rep name, summing across color rows (Green/Red/etc.)
     // Color priority: Red > Yellow > Green (worst wins per bucket)
@@ -990,8 +1026,8 @@ const DataPipeline = {
     // Result: byRep[name] = { activated:[5], disco:[5], hasData:[5], colors:[5] }
     const byRep = {};
     churnReport.forEach(row => {
-      const repName = String(row['rep.Full Name'] || '').trim();
-      const metricType = String(row['metricType'] || '').trim();
+      const repName = String(row[repNameKey] || '').trim();
+      const metricType = String(row[metricTypeKey] || '').trim();
       if (!repName || !metricType || repName === 'Grand Total') return;
 
       if (!byRep[repName]) {
@@ -1003,7 +1039,7 @@ const DataPipeline = {
         };
       }
       const rd = byRep[repName];
-      const rowColor = String(row['30-60 Color Churn (copy)'] || '').trim();
+      const rowColor = colorKey ? String(row[colorKey] || '').trim() : '';
 
       cols.forEach((col, i) => {
         const val = row[col];

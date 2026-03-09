@@ -681,7 +681,7 @@ function readNationalRecruiting(weekCount) {
       }
 
       // Parse owner rows for this section
-      var weekData = _parseOwnerRecruiting(data, sec);
+      var weekData = _parseOwnerRecruiting(data, sec, key, tabName);
 
       // Collect unique owner names (from most recent tab)
       if (t === 0) {
@@ -701,7 +701,36 @@ function readNationalRecruiting(weekCount) {
     }
   }
 
-  return { campaigns: campaigns };
+  // Collect column mapping debug info for all campaigns/tabs
+  var _colMapDebug = {};
+  for (var t2 = 0; t2 < tabs.length; t2++) {
+    var dbgData = tabs[t2].sheet.getDataRange().getValues();
+    var dbgSecs = _findCampaignSections(dbgData);
+    for (var ds = 0; ds < dbgSecs.length; ds++) {
+      var dsec = dbgSecs[ds];
+      var dk = _campaignSlug(dsec.label);
+      var dh = dsec.headers;
+      var nonEmpty = [];
+      for (var dhi = 0; dhi < dh.length; dhi++) {
+        if (dh[dhi]) nonEmpty.push(dhi + ':' + dh[dhi]);
+      }
+      var dcm = {
+        '1stR_1': _findNthPattern(dh, '1st r', 1),
+        '1stR_2': _findNthPattern(dh, '1st r', 2),
+        '2ndR_1': _findNthPattern(dh, '2nd r', 1),
+        '2ndR_2': _findNthPattern(dh, '2nd r', 2),
+        'ns_1':   _findNthPattern(dh, 'new start', 1),
+        'ns_2':   _findNthPattern(dh, 'new start', 2),
+        'rete_1': _findNthPattern(dh, 'rete', 1),
+        'rete_2': _findNthPattern(dh, 'rete', 2),
+        'rete_3': _findNthPattern(dh, 'rete', 3)
+      };
+      var debugKey = dk + '|' + tabs[t2].name;
+      _colMapDebug[debugKey] = { headers: nonEmpty.join(' | '), colMap: dcm };
+    }
+  }
+
+  return { campaigns: campaigns, _colMapDebug: _colMapDebug };
 }
 
 // ── Detect campaign section headers ──
@@ -762,7 +791,7 @@ function _findCampaignSections(data) {
 
 // ── Parse owner rows within a campaign section ──
 // Returns { "Owner Name": [12 values matching RECRUITING_LABELS order] }
-function _parseOwnerRecruiting(data, section) {
+function _parseOwnerRecruiting(data, section, campaignKey, tabName) {
   var headers = section.headers;
 
   // Map columns to the 12 RECRUITING_LABELS positions
@@ -781,6 +810,20 @@ function _parseOwnerRecruiting(data, section) {
     _findNthPattern(headers, 'new start', 2),                 // 10: New Starts Showed (2nd "new start...")
     _findNthPattern(headers, 'rete', 3)                       // 11: New Start Retention
   ];
+
+  // Debug: log when any mapped column is -1 (except 0,1 which are always -1)
+  var labels = ['AppliesRcvd','SentToList','1stBooked','1stShowed','Rete1','Conversion','2ndBooked','2ndShowed','Rete2','NSBooked','NSShowed','Rete3'];
+  var missing = [];
+  for (var mi = 2; mi < 12; mi++) {
+    if (colMap[mi] < 0) missing.push(labels[mi]);
+  }
+  if (missing.length > 0) {
+    var nonEmpty = [];
+    for (var hi = 0; hi < headers.length; hi++) {
+      if (headers[hi]) nonEmpty.push(hi + ':' + headers[hi]);
+    }
+    Logger.log('COLMAP MISS [' + (campaignKey||'?') + '] tab=' + (tabName||'?') + ' missing=' + missing.join(',') + ' headers=' + nonEmpty.join(' | '));
+  }
 
   var result = {};
 
@@ -864,6 +907,7 @@ var CAMPAIGN_DISPLAY_NAMES = {
   'att-res':          'AT&T: Residential',
   'frontier':         'Frontier',
   'frontier-retail':  'Frontier: Retail',
+  'leafguard':        'LeafGuard',
   'rogers':           'Rogers',
   'truconnect':       'TruConnect',
   'verizon':          'Verizon'
@@ -881,6 +925,7 @@ function _campaignSlug(label) {
   if (lower.indexOf('frontier') >= 0 && lower.indexOf('retail') >= 0) return 'frontier-retail';
   if (lower.indexOf('frontier') >= 0) return 'frontier';
   if (lower.indexOf('rogers') >= 0) return 'rogers';
+  if (lower.indexOf('leafguard') >= 0 || lower.indexOf('leaf guard') >= 0) return 'leafguard';
   if (lower.indexOf('truconnect') >= 0) return 'truconnect';
   if (lower.indexOf('verizon') >= 0) return 'verizon';
   // Fallback: slugify

@@ -226,6 +226,19 @@ const NationalApp = {
       this._populateCampaignSelector(result.campaigns);
     }
 
+    // Debug: column mapping per campaign/tab
+    if (result._colMapDebug) {
+      console.log('[NationalApp] Column mapping debug (campaign|tab → headers + colMap):');
+      Object.entries(result._colMapDebug).forEach(([key, val]) => {
+        const cm = val.colMap;
+        const missing = Object.entries(cm).filter(([,v]) => v < 0).map(([k]) => k);
+        if (missing.length) {
+          console.warn('  ⚠ ' + key + ' MISSING: ' + missing.join(', '));
+          console.warn('    headers: ' + val.headers);
+        }
+      });
+    }
+
     // Extract the campaign-specific data
     const campaignData = result.campaigns && result.campaigns[campaignKey];
     if (!campaignData) return null;

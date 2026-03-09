@@ -1238,10 +1238,9 @@ function readOnlinePresence() {
 // ══════════════════════════════════════════════════
 // READ NLR B2B HEADCOUNT / PRODUCTION
 // Each owner has a tab in NLR's spreadsheet.
-// Row 1 = headers: Dates | Active | Leaders | Dist | Training | ...
+// Row 1 = headers: Dates | Active | Leaders | Dist | Training |
 //                  Personal Production | Production LW | Production Goals
-// Data rows below with the last non-empty row being the "current" snapshot.
-// Returns { owners: { "TabName": { active, leaders, dist, training, productionLW, productionGoals }, ... } }
+// Returns { owners: { "TabName": { current: {...}, trend: [{...}, ...] } } }
 // ══════════════════════════════════════════════════
 
 function readNLRHeadcount() {
@@ -1280,20 +1279,24 @@ function readNLRHeadcount() {
     // Row 0 = headers
     var headers = data[0].map(function(h) { return String(h).toLowerCase().trim(); });
 
+    // IMPORTANT: "production lw" must match before "production" to avoid
+    // hitting "personal production" (col F) which is a different metric.
+    // Same for "production goals" before generic "goals".
     var colMap = {
       dates:          findCol(headers, ['dates', 'date']),
       active:         findCol(headers, ['active']),
       leaders:        findCol(headers, ['leaders']),
       dist:           findCol(headers, ['dist']),
       training:       findCol(headers, ['training']),
-      productionLW:   findCol(headers, ['production lw', 'production']),
-      productionGoals:findCol(headers, ['production goals', 'goals'])
+      productionLW:   findCol(headers, ['production lw']),
+      productionGoals:findCol(headers, ['production goals'])
     };
 
     // Must have at least dates + active columns to be a valid owner tab
     if (colMap.dates < 0 && colMap.active < 0) continue;
 
-    // Walk rows, keep the last non-empty row as "current"
+    // Walk ALL rows, collecting trend history + tracking last good row
+    var trend = [];
     var lastGood = null;
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
@@ -1302,7 +1305,7 @@ function readNLRHeadcount() {
       var hasProd   = colMap.productionLW >= 0 && row[colMap.productionLW] !== '' && row[colMap.productionLW] !== null;
       if (!hasActive && !hasProd) continue;
 
-      lastGood = {
+      var entry = {
         date:            colMap.dates >= 0 ? formatDate(row[colMap.dates]) : '',
         active:          colMap.active >= 0 ? num(row[colMap.active]) : 0,
         leaders:         colMap.leaders >= 0 ? num(row[colMap.leaders]) : 0,
@@ -1311,10 +1314,15 @@ function readNLRHeadcount() {
         productionLW:    colMap.productionLW >= 0 ? num(row[colMap.productionLW]) : 0,
         productionGoals: colMap.productionGoals >= 0 ? num(row[colMap.productionGoals]) : 0
       };
+      trend.push(entry);
+      lastGood = entry;
     }
 
     if (lastGood) {
-      owners[tabName] = lastGood;
+      owners[tabName] = {
+        current: lastGood,
+        trend: trend
+      };
     }
   }
 

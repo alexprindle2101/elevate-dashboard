@@ -358,11 +358,35 @@ const NationalApp = {
       if (!nlrKey) continue;
 
       const nlr = nlrOwners[nlrKey];
-      owner.headcount.active = nlr.active || 0;
-      owner.headcount.leaders = nlr.leaders || 0;
-      owner.headcount.training = nlr.training || 0;
-      owner.production.totalActual = nlr.productionLW || 0;
-      owner.production.totalGoal = nlr.productionGoals || 0;
+
+      // Set current headcount from latest row
+      owner.headcount.active = nlr.current.active || 0;
+      owner.headcount.leaders = nlr.current.leaders || 0;
+      owner.headcount.training = nlr.current.training || 0;
+
+      // Set current production from latest row
+      owner.production.totalActual = nlr.current.productionLW || 0;
+      owner.production.totalGoal = nlr.current.productionGoals || 0;
+
+      // Build headcount history from ALL trend rows
+      owner.headcountHistory = (nlr.trend || []).map(row => ({
+        date: row.date,
+        active: row.active,
+        leaders: row.leaders,
+        training: row.training
+      }));
+
+      // Build production history from ALL trend rows
+      // Format: tA = total actual, tG = total goal, wA = wireless actual, wG = wireless goal
+      // NLR only has total production (no wireless breakdown), so wireless = 0
+      owner.productionHistory = (nlr.trend || []).map(row => ({
+        date: row.date,
+        tA: row.productionLW,
+        tG: row.productionGoals,
+        wA: 0,
+        wG: 0
+      }));
+
       matched++;
     }
     console.log('[NationalApp] NLR headcount enrichment: matched', matched, 'of', this.state.owners.length, 'owners');
@@ -1119,29 +1143,31 @@ const NationalApp = {
     const goals = owner.nextGoals;
     const ownerIdx = this.state.owners.indexOf(owner);
 
-    // ── Section 1: Headcount Check (starts empty — filled during call) ──
+    // ── Section 1: Headcount Check (pre-populated from NLR if available) ──
     const headcountEl = document.getElementById('health-headcount');
+    const hcHasData = hc.active || hc.leaders || hc.training;
+    const distVal = hcHasData ? (hc.active - hc.leaders) : null;
     headcountEl.innerHTML = `
       <div class="coaching-label">Headcount</div>
       <div class="hc-grid">
         <div class="hc-field">
           <label class="hc-field-label">Active Reps</label>
-          <input type="number" class="hc-input" id="hc-active-${ownerIdx}" value="" min="0" placeholder="—"
+          <input type="number" class="hc-input" id="hc-active-${ownerIdx}" value="${hc.active || ''}" min="0" placeholder="—"
             onchange="NationalApp._updateHeadcount(${ownerIdx}, 'active', this.value)">
         </div>
         <div class="hc-field">
           <label class="hc-field-label">Leaders</label>
-          <input type="number" class="hc-input" id="hc-leaders-${ownerIdx}" value="" min="0" placeholder="—"
+          <input type="number" class="hc-input" id="hc-leaders-${ownerIdx}" value="${hc.leaders || ''}" min="0" placeholder="—"
             onchange="NationalApp._updateHeadcount(${ownerIdx}, 'leaders', this.value)">
         </div>
         <div class="hc-field hc-field-calc">
           <label class="hc-field-label">Distributors</label>
-          <div class="hc-value" id="hc-dist-${ownerIdx}">—</div>
+          <div class="hc-value" id="hc-dist-${ownerIdx}">${distVal !== null ? distVal : '—'}</div>
           <div class="hc-calc-note">Active − Leaders</div>
         </div>
         <div class="hc-field">
           <label class="hc-field-label">In Training</label>
-          <input type="number" class="hc-input" id="hc-training-${ownerIdx}" value="" min="0" placeholder="—"
+          <input type="number" class="hc-input" id="hc-training-${ownerIdx}" value="${hc.training || ''}" min="0" placeholder="—"
             onchange="NationalApp._updateHeadcount(${ownerIdx}, 'training', this.value)">
         </div>
       </div>

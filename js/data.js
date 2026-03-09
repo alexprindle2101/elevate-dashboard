@@ -999,7 +999,7 @@ const DataPipeline = {
       return null;
     };
 
-    const repNameKey = _findKey(sampleKeys, ['rep.Full Name', 'Full Name', 'Rep Name', 'Name']);
+    const repNameKey = _findKey(sampleKeys, ['rep.Full Name', 'Rep', 'Full Name', 'Rep Name', 'Name']);
     const metricTypeKey = _findKey(sampleKeys, ['metricType', 'Metric Type', 'metric_type', 'Measure Names']);
     const colorKey = _findKey(sampleKeys, ['30-60 Color Churn (copy)', 'Color Churn', 'Churn Color']);
 

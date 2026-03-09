@@ -1620,7 +1620,9 @@ function pct(v) {
 function formatDate(v) {
   if (!v) return '—';
   if (v instanceof Date) {
-    return (v.getMonth() + 1) + '-' + v.getDate() + '-' + v.getFullYear();
+    var mm = ('0' + (v.getMonth() + 1)).slice(-2);
+    var dd = ('0' + v.getDate()).slice(-2);
+    return mm + '/' + dd + '/' + v.getFullYear();
   }
   return String(v);
 }

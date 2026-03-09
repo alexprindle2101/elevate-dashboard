@@ -625,7 +625,7 @@ function enrichWithWeeklyRecruiting(ss, owners, cfg) {
 var RECRUITING_HEADER_PATTERNS = [
   '1st rounds booked', '1st round booked', '1st rds booked',
   '1st rounds showed', '1st round showed', '1st rds showed',
-  '2nd rounds booked', '2nd round booked', '2nd rds booked',
+  '2nd rounds booked', '2nd round booked', '2nd rds booked', '2nds booked',
   'retention', 'conversion', 'turned to 2nd',
   'new start scheduled', 'new starts scheduled', 'new start',
   'ns scheduled', 'ns showed'
@@ -719,11 +719,15 @@ function readNationalRecruiting(weekCount) {
       var dns2 = _findNthPattern(dh, 'new start', 2);
       if (dns1 < 0) dns1 = _findNthPattern(dh, 'ns ', 1);
       if (dns2 < 0) dns2 = _findNthPattern(dh, 'ns ', 2);
+      var dr2_1 = _findNthPattern(dh, '2nd r', 1);
+      var dr2_2 = _findNthPattern(dh, '2nd r', 2);
+      if (dr2_1 < 0) dr2_1 = _findNthPattern(dh, '2nds ', 1);
+      if (dr2_2 < 0) dr2_2 = _findNthPattern(dh, '2nds ', 2);
       var dcm = {
         '1stR_1': _findNthPattern(dh, '1st r', 1),
         '1stR_2': _findNthPattern(dh, '1st r', 2),
-        '2ndR_1': _findNthPattern(dh, '2nd r', 1),
-        '2ndR_2': _findNthPattern(dh, '2nd r', 2),
+        '2ndR_1': dr2_1,
+        '2ndR_2': dr2_2,
         'ns_1':   dns1,
         'ns_2':   dns2,
         'rete_1': _findNthPattern(dh, 'rete', 1),
@@ -801,11 +805,17 @@ function _parseOwnerRecruiting(data, section, campaignKey, tabName) {
 
   // Map columns to the 12 RECRUITING_LABELS positions
   // Uses Nth-pattern matching for columns that repeat (retention) or vary in abbreviation
-  // New Starts: some tabs say "new start scheduled"/"new starts showed", others abbreviate to "ns scheduled"/"ns showed"
+  // Fallbacks handle abbreviated headers across different tabs/campaigns:
+  //   "new start scheduled" → "ns scheduled" | "2nd rounds booked" → "2nds booked"
   var ns1 = _findNthPattern(headers, 'new start', 1);
   var ns2 = _findNthPattern(headers, 'new start', 2);
-  if (ns1 < 0) ns1 = _findNthPattern(headers, 'ns ', 1);     // fallback: "ns scheduled", "ns showed"
+  if (ns1 < 0) ns1 = _findNthPattern(headers, 'ns ', 1);
   if (ns2 < 0) ns2 = _findNthPattern(headers, 'ns ', 2);
+
+  var r2_1 = _findNthPattern(headers, '2nd r', 1);
+  var r2_2 = _findNthPattern(headers, '2nd r', 2);
+  if (r2_1 < 0) r2_1 = _findNthPattern(headers, '2nds ', 1);  // fallback: "2nds booked"
+  if (r2_2 < 0) r2_2 = _findNthPattern(headers, '2nds ', 2);  // fallback: "2nds booked" (2nd occurrence)
 
   var colMap = [
     -1,                                                       // 0: Applies Received (not in sheet → 0)
@@ -814,8 +824,8 @@ function _parseOwnerRecruiting(data, section, campaignKey, tabName) {
     _findNthPattern(headers, '1st r', 2),                     // 3: 1st Rounds Showed (2nd occurrence of "1st r...")
     _findNthPattern(headers, 'rete', 1),                      // 4: 1st Retention
     findCol(headers, ['conversion', '% call list booked', 'turned to 2nd']),  // 5: Conversion
-    _findNthPattern(headers, '2nd r', 1),                     // 6: 2nd Rounds Booked (1st occurrence of "2nd r...")
-    _findNthPattern(headers, '2nd r', 2),                     // 7: 2nd Rounds Showed (2nd occurrence of "2nd r...")
+    r2_1,                                                     // 6: 2nd Rounds Booked
+    r2_2,                                                     // 7: 2nd Rounds Showed
     _findNthPattern(headers, 'rete', 2),                      // 8: 2nd Retention
     ns1,                                                      // 9: New Starts Booked/Scheduled
     ns2,                                                      // 10: New Starts Showed

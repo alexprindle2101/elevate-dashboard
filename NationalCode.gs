@@ -700,7 +700,7 @@ function readNationalRecruiting(weekCount) {
     }
   }
 
-  // Debug: section boundaries for first tab only
+  // Debug: section boundaries + parsed data for first tab only
   var _debugSections = [];
   if (tabs.length > 0) {
     var dbgData = tabs[0].sheet.getDataRange().getValues();
@@ -711,14 +711,24 @@ function readNationalRecruiting(weekCount) {
       for (var dr = dsec.startRow; dr <= dsec.endRow; dr++) {
         rowNames.push({ row: dr, colA: String(dbgData[dr][0] || '').trim() });
       }
+      // Get parsed result for this section
+      var parsedData = _parseOwnerRecruiting(dbgData, dsec);
+      var parsedOwners = Object.keys(parsedData).map(function(name) {
+        var vals = parsedData[name];
+        var hasData = vals.some(function(v) { return v > 0; });
+        return { name: name, hasData: hasData, sample: vals.slice(0, 4) };
+      });
       _debugSections.push({
         label: dsec.label,
         slug: _campaignSlug(dsec.label),
         headerRow: dsec.headerRow,
         startRow: dsec.startRow,
         endRow: dsec.endRow,
-        parsedUpTo: dsec.endRow - 1,
-        rows: rowNames
+        totalRows: dsec.endRow - dsec.startRow + 1,
+        parsedOwnerCount: parsedOwners.length,
+        parsedOwners: parsedOwners,
+        firstRow: rowNames[0],
+        lastRow: rowNames[rowNames.length - 1]
       });
     }
   }
@@ -805,9 +815,7 @@ function _parseOwnerRecruiting(data, section) {
 
   var result = {};
 
-  // endRow is the last row before the next section/blank — skip it (it's the sum row)
-  var lastOwnerRow = section.endRow - 1;
-  for (var i = section.startRow; i <= lastOwnerRow; i++) {
+  for (var i = section.startRow; i <= section.endRow; i++) {
     var row = data[i];
     var ownerName = String(row[0] || '').trim();
     if (!ownerName) continue;

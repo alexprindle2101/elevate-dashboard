@@ -976,7 +976,11 @@ const DataPipeline = {
 
   // Enrich person metrics with _TableauChurnReport data
   enrichWithChurnReport(people, churnReport) {
-    if (!churnReport || churnReport.length === 0) return;
+    if (!churnReport || churnReport.length === 0) {
+      console.warn('[Churn] No churnReport data received (empty or missing)');
+      return;
+    }
+    console.log('[Churn] Received', churnReport.length, 'rows. Sample keys:', Object.keys(churnReport[0] || {}));
     const cols = this._CHURN_BUCKET_COLS;
 
     // Group rows by rep name, summing across color rows (Green/Red/etc.)
@@ -1020,11 +1024,16 @@ const DataPipeline = {
       });
     });
 
+    const repNames = Object.keys(byRep);
+    console.log('[Churn] Aggregated', repNames.length, 'reps from report:', repNames.slice(0, 5));
+
+    let matched = 0;
     people.forEach(p => {
       // Match by tableauName (set during Tableau enrichment) since churn report
       // uses full Tableau names which differ from roster display names
       const repData = byRep[p.metrics.tableauName] || byRep[p.name];
       if (!repData) return;
+      matched++;
 
       cols.forEach((col, i) => {
         if (!repData.hasData[i]) return;
@@ -1038,6 +1047,7 @@ const DataPipeline = {
           : 0;
       });
     });
+    console.log('[Churn] Matched', matched, '/', people.length, 'people');
   },
 
   // Enrich team metrics by aggregating member churn data

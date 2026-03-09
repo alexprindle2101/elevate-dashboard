@@ -834,10 +834,28 @@ function readChurnReport(ss) {
   const data = sheet.getDataRange().getValues();
   if (data.length < 2) return [];
 
-  // Map headers, assigning 'metricType' to the blank column (index 4)
-  const headers = data[0].map((h, j) => {
-    const trimmed = String(h).trim();
-    return trimmed === '' ? 'metricType' : trimmed;
+  // Map headers by name; detect the metricType column dynamically.
+  // The metric type column (containing 'Activated SPE/SP', 'Disconnect count (SPE/SP)',
+  // 'Churn Rate') may have a blank header. Find it by scanning data rows for known values.
+  const rawHeaders = data[0].map((h) => String(h).trim());
+
+  // Find which column index contains the metric type values
+  var metricTypeCol = -1;
+  var KNOWN_METRICS = ['Activated SPE/SP', 'Disconnect count (SPE/SP)', 'Churn Rate'];
+  for (var ri = 1; ri < Math.min(data.length, 20); ri++) {
+    for (var ci = 0; ci < data[ri].length; ci++) {
+      var cellVal = String(data[ri][ci] || '').trim();
+      if (KNOWN_METRICS.indexOf(cellVal) !== -1) {
+        metricTypeCol = ci;
+        break;
+      }
+    }
+    if (metricTypeCol !== -1) break;
+  }
+
+  const headers = rawHeaders.map((h, j) => {
+    if (j === metricTypeCol) return 'metricType';
+    return h === '' ? ('_blank_' + j) : h;
   });
   const rows = [];
   for (let i = 1; i < data.length; i++) {

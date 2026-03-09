@@ -723,6 +723,12 @@ function readNationalRecruiting(weekCount) {
       var dr2_2 = _findNthPattern(dh, '2nd r', 2);
       if (dr2_1 < 0) dr2_1 = _findNthPattern(dh, '2nds ', 1);
       if (dr2_2 < 0) dr2_2 = _findNthPattern(dh, '2nds ', 2);
+      var drete2 = _findNthPattern(dh, 'rete', 2);
+      var drete3 = _findNthPattern(dh, 'rete', 3);
+      // Positional fallback (same as _parseOwnerRecruiting)
+      if (drete2 >= 0 && dns1 < 0) dns1 = drete2 + 1;
+      if (drete2 >= 0 && dns2 < 0) dns2 = drete2 + 2;
+      if (drete2 >= 0 && drete3 < 0) drete3 = drete2 + 3;
       var dcm = {
         '1stR_1': _findNthPattern(dh, '1st r', 1),
         '1stR_2': _findNthPattern(dh, '1st r', 2),
@@ -731,8 +737,8 @@ function readNationalRecruiting(weekCount) {
         'ns_1':   dns1,
         'ns_2':   dns2,
         'rete_1': _findNthPattern(dh, 'rete', 1),
-        'rete_2': _findNthPattern(dh, 'rete', 2),
-        'rete_3': _findNthPattern(dh, 'rete', 3)
+        'rete_2': drete2,
+        'rete_3': drete3
       };
       var debugKey = dk + '|' + tabs[t2].name;
       _colMapDebug[debugKey] = { headers: nonEmpty.join(' | '), colMap: dcm };
@@ -814,22 +820,38 @@ function _parseOwnerRecruiting(data, section, campaignKey, tabName) {
 
   var r2_1 = _findNthPattern(headers, '2nd r', 1);
   var r2_2 = _findNthPattern(headers, '2nd r', 2);
-  if (r2_1 < 0) r2_1 = _findNthPattern(headers, '2nds ', 1);  // fallback: "2nds booked"
-  if (r2_2 < 0) r2_2 = _findNthPattern(headers, '2nds ', 2);  // fallback: "2nds booked" (2nd occurrence)
+  if (r2_1 < 0) r2_1 = _findNthPattern(headers, '2nds ', 1);
+  if (r2_2 < 0) r2_2 = _findNthPattern(headers, '2nds ', 2);
+
+  var rete2 = _findNthPattern(headers, 'rete', 2);
+  var rete3 = _findNthPattern(headers, 'rete', 3);
+
+  // Positional fallback: if new starts columns not found by header text but 2nd retention
+  // IS found, the data likely still exists — Maddy sometimes omits headers.
+  // Standard layout: ... | 2nd Retention | NS Booked | NS Showed | NS Retention | ...
+  if (rete2 >= 0 && ns1 < 0) {
+    ns1 = rete2 + 1;  // column right after 2nd retention = NS Booked
+  }
+  if (rete2 >= 0 && ns2 < 0) {
+    ns2 = rete2 + 2;  // two columns after 2nd retention = NS Showed
+  }
+  if (rete2 >= 0 && rete3 < 0) {
+    rete3 = rete2 + 3; // three columns after 2nd retention = NS Retention
+  }
 
   var colMap = [
     -1,                                                       // 0: Applies Received (not in sheet → 0)
     -1,                                                       // 1: Sent to List (not in sheet → 0)
-    _findNthPattern(headers, '1st r', 1),                     // 2: 1st Rounds Booked (1st occurrence of "1st r...")
-    _findNthPattern(headers, '1st r', 2),                     // 3: 1st Rounds Showed (2nd occurrence of "1st r...")
+    _findNthPattern(headers, '1st r', 1),                     // 2: 1st Rounds Booked
+    _findNthPattern(headers, '1st r', 2),                     // 3: 1st Rounds Showed
     _findNthPattern(headers, 'rete', 1),                      // 4: 1st Retention
     findCol(headers, ['conversion', '% call list booked', 'turned to 2nd']),  // 5: Conversion
     r2_1,                                                     // 6: 2nd Rounds Booked
     r2_2,                                                     // 7: 2nd Rounds Showed
-    _findNthPattern(headers, 'rete', 2),                      // 8: 2nd Retention
+    rete2,                                                    // 8: 2nd Retention
     ns1,                                                      // 9: New Starts Booked/Scheduled
     ns2,                                                      // 10: New Starts Showed
-    _findNthPattern(headers, 'rete', 3)                       // 11: New Start Retention
+    rete3                                                     // 11: New Start Retention
   ];
 
   // Debug: log when any mapped column is -1 (except 0,1 which are always -1)

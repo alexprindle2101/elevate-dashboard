@@ -1097,6 +1097,7 @@ const DataPipeline = {
   // Enrich team metrics by aggregating member churn data
   enrichTeamsWithChurn(teams) {
     if (!teams) return;
+    const COLOR_RANK = { green: 1, yellow: 2, red: 3 };
 
     teams.forEach(team => {
       if (!team.metrics || !team.members || team.members.length === 0) return;
@@ -1107,13 +1108,21 @@ const DataPipeline = {
           const tb = team.metrics.churnBuckets[i];
           tb.activated += bucket.activated;
           tb.disco += bucket.disco;
+          // Aggregate color: worst color wins across members
+          const curRank = COLOR_RANK[(tb.color || '').toLowerCase()] || 0;
+          const newRank = COLOR_RANK[(bucket.color || '').toLowerCase()] || 0;
+          if (newRank > curRank) tb.color = bucket.color;
         });
       });
 
-      // Recalculate team-level percentages
+      // Recalculate team-level percentages and derive color from pct if no color set
       team.metrics.churnBuckets.forEach(tb => {
         if (tb.activated > 0) {
           tb.pct = parseFloat((tb.disco / tb.activated * 100).toFixed(1));
+          // If no color from member data, derive from percentage thresholds
+          if (!tb.color) {
+            tb.color = tb.pct <= 2.5 ? 'Green' : (tb.pct >= 5 ? 'Red' : 'Yellow');
+          }
         }
       });
     });

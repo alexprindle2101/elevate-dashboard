@@ -615,8 +615,10 @@ const Render = {
 
     const churnHTML = m.churnBuckets.map(b => {
       const hasDisco = b.pct !== 'N/A' && b.disco > 0;
-      const pctColor = b.pct === 'N/A' ? 'var(--silver-dim)' : (hasDisco ? '#f97316' : 'var(--silver-dim)');
-      return `<div class="churn-bucket">
+      const cc = this._getChurnColor(b.color);
+      const pctColor = b.pct === 'N/A' ? 'var(--silver-dim)' : (cc ? cc.text : 'var(--silver-dim)');
+      const cardBg = (b.pct !== 'N/A' && cc) ? `background:${cc.bg};border-color:${cc.border}` : '';
+      return `<div class="churn-bucket" style="${cardBg}">
         <div class="churn-label">${b.label}</div>
         <div class="churn-pct" style="color:${pctColor}">${b.pct === 'N/A' ? '---' : (hasDisco ? b.pct + '%' : '0%')}</div>
         <div class="churn-fraction">${b.pct === 'N/A' ? '' : (hasDisco ? `(${b.disco}/${b.activated})` : `(0/${b.activated})`)}</div>

@@ -37,7 +37,9 @@ const NationalApp = {
     currentTab: 'health',
     session: null,
     campaignTotals: {},
-    campaignRecruiting: null
+    campaignRecruiting: null,
+    camMapping: {},
+    allCompanyNames: []
   },
 
   // ══════════════════════════════════════════════════
@@ -152,12 +154,14 @@ const NationalApp = {
       ]);
       if (auditResult.status === 'fulfilled') {
         auditData = auditResult.value;
-        console.log('[NationalApp] Loaded online presence:', auditData);
+        this.state.allCompanyNames = auditData.allCompanyNames || [];
+        console.log('[NationalApp] Loaded online presence:', auditData.businesses?.length, 'businesses,', this.state.allCompanyNames.length, 'company names');
       } else {
         console.warn('[NationalApp] Online presence fetch failed:', auditResult.reason?.message);
       }
       if (mappingResult.status === 'fulfilled') {
         camMapping = mappingResult.value;
+        this.state.camMapping = camMapping;
         console.log('[NationalApp] Loaded owner→Cam mapping:', camMapping);
       } else {
         console.warn('[NationalApp] Owner→Cam mapping fetch failed:', mappingResult.reason?.message);
@@ -190,6 +194,7 @@ const NationalApp = {
 
     // Step 3: Map online presence data to owners using Cam mapping (if we have it)
     if (auditData && auditData.businesses && auditData.businesses.length) {
+      this._cachedAuditBusinesses = auditData.businesses; // Cache for re-mapping after claim/unclaim
       this._mapAuditToOwners(auditData.businesses, camMapping);
     }
   },
@@ -1444,23 +1449,210 @@ const NationalApp = {
       </div>
     `).join('');
 
-    // ── Business Cards ──
+    // ── Claim Section ──
     const details = document.getElementById('audit-details');
+    const claimHTML = this._renderClaimSection(owner);
+
+    // ── Business Cards ──
     if (!bizList.length) {
-      details.innerHTML = `
+      details.innerHTML = claimHTML + `
         <div class="empty-state">
           <div class="empty-state-icon">🏢</div>
-          <div class="empty-state-text">No businesses matched for this owner.<br>
-          Check <code>ownerAliases</code> in national-config.js if Client Name differs.</div>
+          <div class="empty-state-text">No companies claimed for this owner yet.<br>
+          Use the search above to claim companies from Cam's report.</div>
         </div>`;
       return;
     }
 
-    details.innerHTML = `
+    details.innerHTML = claimHTML + `
       <div class="section-label">${total} Business${total > 1 ? 'es' : ''}</div>
       <div class="audit-biz-grid">
         ${bizList.map(b => this._renderBizCard(b)).join('')}
       </div>`;
+  },
+
+  // ── Render the Claim Companies section ──
+  _renderClaimSection(owner) {
+    const mapping = this.state.camMapping || {};
+    const claimed = mapping[owner.name] || [];
+    const allNames = this.state.allCompanyNames || [];
+
+    // Build set of all claimed company names (across all owners) for exclusion
+    const allClaimed = new Set();
+    for (const companies of Object.values(mapping)) {
+      for (const c of companies) allClaimed.add(c.toLowerCase());
+    }
+
+    // Unclaimed = all company names not yet claimed by anyone
+    const unclaimed = allNames.filter(n => !allClaimed.has(n.toLowerCase()));
+
+    const chipsHTML = claimed.map(c =>
+      `<span class="claimed-chip">
+        ${this._esc(c)}
+        <button class="claimed-chip-x" onclick="NationalApp.unclaimCompany('${this._esc(c.replace(/'/g, "\\'"))}')" title="Remove">&times;</button>
+      </span>`
+    ).join('');
+
+    const optionsHTML = unclaimed.map(c =>
+      `<div class="claim-dropdown-item" onclick="NationalApp.claimCompany('${this._esc(c.replace(/'/g, "\\'"))}')">${this._esc(c)}</div>`
+    ).join('');
+
+    return `
+      <div class="claim-section">
+        <div class="claim-header">
+          <div class="section-label" style="margin:0">Claimed Companies</div>
+          <span class="claim-count">${claimed.length} claimed · ${unclaimed.length} available</span>
+        </div>
+        ${claimed.length ? `<div class="claimed-chips">${chipsHTML}</div>` : ''}
+        <div class="claim-search-wrap">
+          <input type="text" class="claim-search-input" id="claim-search"
+            placeholder="Search companies to claim..."
+            oninput="NationalApp._filterClaimDropdown(this.value)"
+            onfocus="NationalApp._showClaimDropdown()"
+            autocomplete="off">
+          <div class="claim-dropdown" id="claim-dropdown" style="display:none">
+            ${optionsHTML || '<div class="claim-dropdown-empty">No unclaimed companies available</div>'}
+          </div>
+        </div>
+        <div class="claim-status" id="claim-status"></div>
+      </div>`;
+  },
+
+  _showClaimDropdown() {
+    const dd = document.getElementById('claim-dropdown');
+    if (dd) dd.style.display = 'block';
+    // Close on click outside
+    setTimeout(() => {
+      const handler = (e) => {
+        const wrap = e.target.closest('.claim-search-wrap');
+        if (!wrap) {
+          dd.style.display = 'none';
+          document.removeEventListener('click', handler);
+        }
+      };
+      document.addEventListener('click', handler);
+    }, 10);
+  },
+
+  _filterClaimDropdown(query) {
+    const dd = document.getElementById('claim-dropdown');
+    if (!dd) return;
+    dd.style.display = 'block';
+    const q = query.toLowerCase().trim();
+    const items = dd.querySelectorAll('.claim-dropdown-item');
+    let visible = 0;
+    items.forEach(item => {
+      const match = !q || item.textContent.toLowerCase().includes(q);
+      item.style.display = match ? 'block' : 'none';
+      if (match) visible++;
+    });
+    // Show/hide empty state
+    const empty = dd.querySelector('.claim-dropdown-empty');
+    if (empty) empty.style.display = visible === 0 ? 'block' : 'none';
+    // If all items are filtered out, show empty message if it doesn't exist
+    if (visible === 0 && !empty) {
+      dd.insertAdjacentHTML('beforeend', '<div class="claim-dropdown-empty">No matches found</div>');
+    }
+  },
+
+  async claimCompany(companyName) {
+    const owner = this.state.selectedOwner;
+    if (!owner) return;
+
+    const status = document.getElementById('claim-status');
+    if (status) { status.textContent = 'Claiming...'; status.className = 'claim-status'; }
+
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'claimCompany',
+          ownerName: owner.name,
+          companyName: companyName
+        })
+      });
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+
+      // Update mapping in state
+      this.state.camMapping = result.mapping || {};
+
+      // Re-map audit data to owners with new mapping and re-render
+      this._remapAndRenderAudit();
+
+      if (status) {
+        status.textContent = 'Claimed: ' + companyName;
+        status.className = 'claim-status claim-success';
+        setTimeout(() => { status.textContent = ''; }, 4000);
+      }
+    } catch (err) {
+      console.error('[NationalApp] Claim failed:', err);
+      if (status) {
+        status.textContent = 'Error: ' + err.message;
+        status.className = 'claim-status claim-error';
+      }
+    }
+  },
+
+  async unclaimCompany(companyName) {
+    const owner = this.state.selectedOwner;
+    if (!owner) return;
+
+    const status = document.getElementById('claim-status');
+    if (status) { status.textContent = 'Removing...'; status.className = 'claim-status'; }
+
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'unclaimCompany',
+          ownerName: owner.name,
+          companyName: companyName
+        })
+      });
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+
+      // Update mapping in state
+      this.state.camMapping = result.mapping || {};
+
+      // Re-map audit data to owners with new mapping and re-render
+      this._remapAndRenderAudit();
+
+      if (status) {
+        status.textContent = 'Removed: ' + companyName;
+        status.className = 'claim-status claim-success';
+        setTimeout(() => { status.textContent = ''; }, 4000);
+      }
+    } catch (err) {
+      console.error('[NationalApp] Unclaim failed:', err);
+      if (status) {
+        status.textContent = 'Error: ' + err.message;
+        status.className = 'claim-status claim-error';
+      }
+    }
+  },
+
+  // Re-map all audit businesses to owners with current mapping, then re-render
+  _remapAndRenderAudit() {
+    // Clear existing audit businesses for all owners
+    for (const o of this.state.owners) {
+      o.audit.businesses = [];
+      o.audit.grades = { reviews: '—', website: '—', social: '—', seo: '—' };
+    }
+
+    // Re-run mapping with stored audit data
+    if (this._cachedAuditBusinesses && this._cachedAuditBusinesses.length) {
+      this._mapAuditToOwners(this._cachedAuditBusinesses, this.state.camMapping);
+    }
+
+    // Re-render the current owner's audit tab
+    const owner = this.state.selectedOwner;
+    if (owner) this.renderAuditTab(owner);
   },
 
   // ── Render a single business card ──

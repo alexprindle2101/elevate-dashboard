@@ -100,6 +100,12 @@ function doPost(e) {
       case 'importRecruiting':
         result = importLatestRecruiting(typeof body.weeks === 'number' ? body.weeks : 1);
         break;
+      case 'claimCompany':
+        result = claimCompany(body.ownerName, body.companyName);
+        break;
+      case 'unclaimCompany':
+        result = unclaimCompany(body.ownerName, body.companyName);
+        break;
       default:
         result = { error: 'unknown action: ' + body.action };
     }
@@ -886,6 +892,60 @@ function readOwnerCamMapping() {
 }
 
 
+// ── Claim a company for an owner (append to _OwnerCamMapping) ──
+function claimCompany(ownerName, companyName) {
+  ownerName = String(ownerName || '').trim();
+  companyName = String(companyName || '').trim();
+  if (!ownerName || !companyName) return { error: 'ownerName and companyName are required' };
+
+  var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  var sheet = ss.getSheetByName('_OwnerCamMapping');
+
+  // Auto-create tab with headers if it doesn't exist
+  if (!sheet) {
+    sheet = ss.insertSheet('_OwnerCamMapping');
+    sheet.getRange(1, 1, 1, 2).setValues([['Owner Name', 'Cam Company Name']]);
+  }
+
+  // Check for duplicate
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === ownerName.toLowerCase() &&
+        String(data[i][1]).trim().toLowerCase() === companyName.toLowerCase()) {
+      return { ok: true, message: 'Already claimed', mapping: readOwnerCamMapping().mapping };
+    }
+  }
+
+  // Append new row
+  sheet.appendRow([ownerName, companyName]);
+
+  return { ok: true, mapping: readOwnerCamMapping().mapping };
+}
+
+
+// ── Unclaim a company from an owner (delete from _OwnerCamMapping) ──
+function unclaimCompany(ownerName, companyName) {
+  ownerName = String(ownerName || '').trim();
+  companyName = String(companyName || '').trim();
+  if (!ownerName || !companyName) return { error: 'ownerName and companyName are required' };
+
+  var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  var sheet = ss.getSheetByName('_OwnerCamMapping');
+  if (!sheet) return { ok: true, mapping: {} };
+
+  var data = sheet.getDataRange().getValues();
+  // Search from bottom to top so row indices don't shift when deleting
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]).trim().toLowerCase() === ownerName.toLowerCase() &&
+        String(data[i][1]).trim().toLowerCase() === companyName.toLowerCase()) {
+      sheet.deleteRow(i + 1); // sheet rows are 1-indexed
+    }
+  }
+
+  return { ok: true, mapping: readOwnerCamMapping().mapping };
+}
+
+
 // ══════════════════════════════════════════════════
 // ONLINE PRESENCE — Read Cam's Performance Audit sheet
 // Returns all business rows with review platforms,
@@ -1088,7 +1148,15 @@ function readOnlinePresence() {
     totalRaw: businesses.length
   };
 
-  return { businesses: uniqueBiz, tabName: sheet.getName(), _debug: _debug };
+  // Extract unique company names for the claim dropdown
+  var companySet = {};
+  for (var ci = 0; ci < uniqueBiz.length; ci++) {
+    var cn = String(uniqueBiz[ci].clientName || '').trim();
+    if (cn && cn !== 'Grand Total') companySet[cn] = true;
+  }
+  var allCompanyNames = Object.keys(companySet).sort();
+
+  return { businesses: uniqueBiz, allCompanyNames: allCompanyNames, tabName: sheet.getName(), _debug: _debug };
 }
 
 // ── Find ALL exact occurrences of a header text ──

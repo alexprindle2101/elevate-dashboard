@@ -1029,6 +1029,101 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
 }
 
 /* ═══════════════════════════════════════════════════════
+   CLAIM COMPANIES
+   ═══════════════════════════════════════════════════════ */
+.claim-section {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.claim-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.claim-count {
+  font-size: 12px; color: var(--gray-400); font-weight: 500;
+}
+
+/* Claimed company chips */
+.claimed-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 12px;
+}
+.claimed-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--teal-50, #e6fcf5);
+  border: 1px solid var(--teal, #00b894);
+  color: var(--gray-800);
+  font-size: 13px; font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.claimed-chip-x {
+  background: none; border: none; color: var(--gray-400);
+  font-size: 16px; line-height: 1; cursor: pointer;
+  padding: 0 2px; margin: 0;
+  transition: color var(--transition);
+}
+.claimed-chip-x:hover { color: var(--red); }
+
+/* Search dropdown */
+.claim-search-wrap {
+  position: relative;
+}
+.claim-search-input {
+  width: 100%; padding: 10px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  font-size: 14px; color: var(--gray-800);
+  background: white;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.claim-search-input:focus {
+  border-color: var(--teal);
+}
+.claim-search-input::placeholder {
+  color: var(--gray-400);
+}
+.claim-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0;
+  max-height: 240px; overflow-y: auto;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+}
+.claim-dropdown-item {
+  padding: 10px 14px;
+  font-size: 13px; color: var(--gray-700);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.claim-dropdown-item:hover {
+  background: var(--teal-50, #e6fcf5);
+  color: var(--gray-900);
+}
+.claim-dropdown-empty {
+  padding: 16px; text-align: center;
+  font-size: 13px; color: var(--gray-400);
+}
+
+/* Status messages */
+.claim-status {
+  font-size: 12px; font-weight: 600;
+  margin-top: 8px; min-height: 18px;
+  color: var(--gray-500);
+}
+.claim-status.claim-success { color: var(--green); }
+.claim-status.claim-error { color: var(--red); }
+
+
+/* ═══════════════════════════════════════════════════════
    UTILITIES
    ═══════════════════════════════════════════════════════ */
 .empty-state {

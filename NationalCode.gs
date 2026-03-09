@@ -782,13 +782,12 @@ function _parseOwnerRecruiting(data, section) {
 
   var result = {};
 
-  for (var i = section.startRow; i <= section.endRow; i++) {
+  // endRow is the last row before the next section/blank — skip it (it's the sum row)
+  var lastOwnerRow = section.endRow - 1;
+  for (var i = section.startRow; i <= lastOwnerRow; i++) {
     var row = data[i];
     var ownerName = String(row[0] || '').trim();
     if (!ownerName) continue;
-
-    // Skip sum/total rows (last row of each campaign section)
-    if (ownerName.toLowerCase().indexOf('total') >= 0) continue;
 
     var values = [];
     for (var m = 0; m < 12; m++) {

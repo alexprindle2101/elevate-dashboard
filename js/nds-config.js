@@ -5,8 +5,8 @@
 // swap this file or load from a config sheet.
 
 const OFFICE_CONFIG = {
-  officeName: "NDS Office",
-  officeId: "off_001",  // Per-office identifier — tabs are suffixed with this
+  officeName: "Delagroup",
+  officeId: "off_nds_001",  // Per-office identifier — tabs are suffixed with this
 
   // ── Apps Script Middleware ──
   // All reads and writes go through Apps Script to keep the sheet private.

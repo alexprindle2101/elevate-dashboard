@@ -552,7 +552,7 @@ const App = {
     const showTeamRoster = isSA || ['jd', 'manager'].includes(role);
 
     // ── OFFICE GROUP ──
-    const showAllOrders = isSA || ['owner', 'admin'].includes(role);
+    const showAllOrders = isSA || ['owner', 'admin', 'qc'].includes(role);
     const showPeople = isSA || ['owner', 'admin'].includes(role);
     const showTeams = isSA || ['owner', 'admin'].includes(role);
     const showLeaderboard = true;

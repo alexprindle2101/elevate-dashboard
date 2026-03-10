@@ -25,9 +25,11 @@ const ADMIN_CONFIG = {
 
   // Admin roles — tiered access control
   adminRoles: {
-    'a1': { label: 'Admin',       rank: 1, description: 'Office-scoped access' },
-    'a2': { label: 'Org Admin',   rank: 2, description: 'Owner org management' },
-    'a3': { label: 'Super Admin', rank: 3, description: 'Full platform access' }
+    'a1':         { label: 'Admin',       rank: 1, description: 'Office-scoped access' },
+    'a2':         { label: 'Org Admin',   rank: 2, description: 'Owner org management' },
+    'a3':         { label: 'Super Admin', rank: 3, description: 'Full platform access' },
+    'qc_manager': { label: 'QC Manager',  rank: 0, description: 'Quality control manager — selects offices, manages QC team' },
+    'qc':         { label: 'QC',          rank: 0, description: 'Quality control — assigned offices' }
   },
 
   // Owner levels — hierarchy for office owners (o1-o4)

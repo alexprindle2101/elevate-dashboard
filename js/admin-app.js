@@ -438,6 +438,7 @@ const AdminApp = {
       offices: document.querySelector('.sidebar-link[data-page="offices"]'),
       owners: document.querySelector('.sidebar-link[data-page="owners"]'),
       people: document.querySelector('.sidebar-link[data-page="people"]'),
+      qc: document.querySelector('.sidebar-link[data-page="qc"]'),
       settings: document.querySelector('.sidebar-link[data-page="settings"]')
     };
 
@@ -445,13 +446,21 @@ const AdminApp = {
       // Owners: Offices only
       if (links.owners) links.owners.style.display = 'none';
       if (links.people) links.people.style.display = 'none';
+      if (links.qc) links.qc.style.display = 'none';
+      if (links.settings) links.settings.style.display = 'none';
+    } else if (role === 'qc_manager' || role === 'qc') {
+      // QC roles: Offices + Quality Control only
+      if (links.owners) links.owners.style.display = 'none';
+      if (links.people) links.people.style.display = 'none';
+      if (links.qc) links.qc.style.display = '';
       if (links.settings) links.settings.style.display = 'none';
     } else {
-      // a1: Offices + People only
+      // a1: Offices + People
       // a2: Offices + Owners + People
-      // a3: All 4 tabs
+      // a3: All tabs including QC
       if (links.owners) links.owners.style.display = (role === 'a1') ? 'none' : '';
       if (links.people) links.people.style.display = '';
+      if (links.qc) links.qc.style.display = (role === 'a3') ? '' : 'none';
       if (links.settings) links.settings.style.display = (role === 'a3') ? '' : 'none';
     }
   },
@@ -504,8 +513,14 @@ const AdminApp = {
 
     // Admin RBAC guards
     if (userType === 'admin') {
-      if (page === 'owners' && role === 'a1') page = 'offices';
-      if (page === 'settings' && role !== 'a3') page = 'offices';
+      // QC roles can only see offices and qc
+      if (role === 'qc_manager' || role === 'qc') {
+        if (page !== 'offices' && page !== 'qc') page = 'offices';
+      } else {
+        if (page === 'owners' && role === 'a1') page = 'offices';
+        if (page === 'settings' && role !== 'a3') page = 'offices';
+        if (page === 'qc' && role !== 'a3') page = 'offices';
+      }
     }
 
     this.state.currentPage = page;
@@ -516,7 +531,7 @@ const AdminApp = {
     });
 
     // Hide all pages, show target
-    ['offices', 'owners', 'people', 'settings'].forEach(p => {
+    ['offices', 'owners', 'people', 'settings', 'qc'].forEach(p => {
       const el = document.getElementById('page-' + p);
       if (el) el.style.display = (p === page) ? 'block' : 'none';
     });
@@ -531,6 +546,10 @@ const AdminApp = {
         } else if (role === 'a1' && this.state.assignedOffices) {
           const allowed = new Set(this.state.assignedOffices.split(','));
           visibleOffices = this.state.offices.filter(o => allowed.has(o.officeId));
+        } else if ((role === 'qc_manager' || role === 'qc') && this.state.assignedOffices) {
+          // QC roles: show only their selected/assigned offices in the Offices tab
+          const allowed = new Set(this.state.assignedOffices.split(',').filter(Boolean));
+          visibleOffices = this.state.offices.filter(o => allowed.has(o.officeId));
         }
         AdminRender.renderOffices(visibleOffices, role, userType);
         break;
@@ -543,6 +562,9 @@ const AdminApp = {
         break;
       case 'settings':
         AdminRender.renderSettings(this.state.offices, this.state.adminRoster);
+        break;
+      case 'qc':
+        AdminRender.renderQcPage(this.state.adminRoster, this.state.offices, role, this.state.currentEmail);
         break;
     }
   },
@@ -785,6 +807,137 @@ const AdminApp = {
 
     const admin = this.state.adminRoster[email];
     if (!admin) return;
+    const newState = !admin.deactivated;
+    if (newState && !confirm(`Deactivate ${admin.name}?`)) return;
+
+    try {
+      await this._post('updateAdmin', { email, deactivated: newState ? 'TRUE' : 'FALSE' });
+      await this.loadData();
+    } catch (err) {
+      alert('Failed to update: ' + err.message);
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // QUALITY CONTROL CRUD
+  // ═══════════════════════════════════════════════════════
+
+  async saveQcOffices() {
+    const role = this.state.currentRole;
+    if (role !== 'qc_manager' && role !== 'a3') return;
+
+    const checkboxes = document.querySelectorAll('#qc-offices-grid input[type="checkbox"]:checked');
+    const selectedOffices = Array.from(checkboxes).map(cb => cb.value).join(',');
+
+    const targetEmail = (role === 'a3' && this.state._editingQcManagerEmail)
+      ? this.state._editingQcManagerEmail
+      : this.state.currentEmail;
+
+    try {
+      await this._post('updateQcOffices', { email: targetEmail, assignedOffices: selectedOffices });
+      this.state.assignedOffices = selectedOffices;
+      // Flash saved indicator
+      const saved = document.getElementById('qc-offices-saved');
+      if (saved) { saved.style.display = ''; setTimeout(() => { saved.style.display = 'none'; }, 2000); }
+      await this.loadData();
+    } catch (err) {
+      alert('Failed to save offices: ' + err.message);
+    }
+  },
+
+  showAddQcMemberModal() {
+    const role = this.state.currentRole;
+    if (role !== 'qc_manager' && role !== 'a3') return;
+    this.state.editingQcEmail = null;
+
+    const availableOffices = this._getQcAvailableOffices();
+    AdminRender.populateQcModal(null, availableOffices, role);
+    document.getElementById('qc-modal')?.classList.add('open');
+  },
+
+  showEditQcMemberModal(email) {
+    const role = this.state.currentRole;
+    if (role !== 'qc_manager' && role !== 'a3') return;
+    this.state.editingQcEmail = email;
+
+    const member = this.state.adminRoster[email];
+    const availableOffices = this._getQcAvailableOffices();
+    AdminRender.populateQcModal(member, availableOffices, role);
+    document.getElementById('qc-modal')?.classList.add('open');
+  },
+
+  closeQcModal() {
+    document.getElementById('qc-modal')?.classList.remove('open');
+    const error = document.getElementById('qc-modal-error');
+    if (error) error.textContent = '';
+  },
+
+  async saveQcMember() {
+    const role = this.state.currentRole;
+    if (role !== 'qc_manager' && role !== 'a3') return;
+
+    const email = document.getElementById('qc-email')?.value?.trim()?.toLowerCase();
+    const name = document.getElementById('qc-name')?.value?.trim();
+    const qcRole = (role === 'a3')
+      ? (document.getElementById('qc-role')?.value || 'qc')
+      : 'qc'; // QC managers can only create 'qc' members
+    const error = document.getElementById('qc-modal-error');
+
+    if (!email || !email.includes('@')) { if (error) error.textContent = 'Valid email required'; return; }
+    if (!name) { if (error) error.textContent = 'Name is required'; return; }
+
+    // Collect assigned offices from checkboxes
+    const officeCheckboxes = document.querySelectorAll('#qc-assigned-offices-list input[type="checkbox"]:checked');
+    const assignedOffices = Array.from(officeCheckboxes).map(cb => cb.value).join(',');
+
+    const saveBtn = document.getElementById('qc-modal-save');
+    if (saveBtn) { saveBtn.textContent = 'Saving...'; saveBtn.disabled = true; }
+
+    try {
+      const payload = {
+        email,
+        name,
+        role: qcRole,
+        assignedOffices,
+        managedBy: (role === 'a3') ? '' : this.state.currentEmail
+      };
+
+      if (this.state.editingQcEmail) {
+        await this._post('updateAdmin', payload);
+      } else {
+        await this._post('addAdmin', payload);
+      }
+
+      this.closeQcModal();
+      await this.loadData();
+    } catch (err) {
+      if (error) error.textContent = 'Failed to save: ' + err.message;
+    } finally {
+      if (saveBtn) { saveBtn.textContent = 'Save'; saveBtn.disabled = false; }
+    }
+  },
+
+  _getQcAvailableOffices() {
+    if (this.state.currentRole === 'a3') {
+      return this.state.offices.filter(o => o.status === 'active');
+    }
+    if (this.state.currentRole === 'qc_manager') {
+      const myOfficeIds = new Set((this.state.assignedOffices || '').split(',').filter(Boolean));
+      return this.state.offices.filter(o => myOfficeIds.has(o.officeId));
+    }
+    return [];
+  },
+
+  async toggleQcDeactivated(email) {
+    const role = this.state.currentRole;
+    if (role !== 'qc_manager' && role !== 'a3') return;
+
+    const admin = this.state.adminRoster[email];
+    if (!admin) return;
+
+    // QC managers can only deactivate their own team members
+    if (role === 'qc_manager' && admin.managedBy !== this.state.currentEmail) return;
+
     const newState = !admin.deactivated;
     if (newState && !confirm(`Deactivate ${admin.name}?`)) return;
 

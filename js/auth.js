@@ -117,7 +117,8 @@ const Auth = {
     // Map admin portal roles to office dashboard roles
     // Admins: a1/a2 → admin, a3 → superadmin
     // Owners: o1/o2/o3/o4 → owner
-    const roleMap = { a1: 'admin', a2: 'admin', a3: 'superadmin', o1: 'owner', o2: 'owner', o3: 'owner', o4: 'owner' };
+    // QC: qc_manager/qc → qc
+    const roleMap = { a1: 'admin', a2: 'admin', a3: 'superadmin', o1: 'owner', o2: 'owner', o3: 'owner', o4: 'owner', qc_manager: 'qc', qc: 'qc' };
     const officeRole = roleMap[adminAuth.role] || (adminAuth.userType === 'owner' ? 'owner' : 'admin');
 
     const session = {

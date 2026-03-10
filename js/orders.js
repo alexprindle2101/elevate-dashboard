@@ -275,7 +275,7 @@ const Orders = {
   // ── Check if current role can edit orders ──
   _canEdit() {
     const role = App.state.currentRole;
-    return ['superadmin', 'owner', 'manager', 'admin'].includes(role);
+    return ['superadmin', 'owner', 'manager', 'admin', 'qc'].includes(role);
   },
 
   // ── Render filtered order rows ──

@@ -661,6 +661,273 @@ const AdminRender = {
 
 
   // ═══════════════════════════════════════════════════════
+  // QUALITY CONTROL PAGE
+  // ═══════════════════════════════════════════════════════
+
+  renderQcPage(adminRoster, offices, role, currentEmail) {
+    const officesSection = document.getElementById('qc-offices-section');
+    const teamSection = document.getElementById('qc-team-section');
+    const memberSection = document.getElementById('qc-member-section');
+    const adminSection = document.getElementById('qc-admin-section');
+    const addBtn = document.getElementById('qc-add-member-btn');
+
+    // Hide all sections first
+    [officesSection, teamSection, memberSection, adminSection].forEach(el => {
+      if (el) el.style.display = 'none';
+    });
+    if (addBtn) addBtn.style.display = 'none';
+
+    if (role === 'a3') {
+      // Super Admin: see all QC users
+      if (adminSection) adminSection.style.display = '';
+      if (addBtn) addBtn.style.display = '';
+      this._renderQcAllUsers(adminRoster, offices, currentEmail);
+    } else if (role === 'qc_manager') {
+      // QC Manager: My Offices toggles + My Team table
+      if (officesSection) officesSection.style.display = '';
+      if (teamSection) teamSection.style.display = '';
+      if (addBtn) addBtn.style.display = '';
+      this._renderQcOfficeToggles(offices, currentEmail, adminRoster);
+      this._renderQcTeam(adminRoster, offices, currentEmail);
+    } else if (role === 'qc') {
+      // QC member: read-only assigned offices
+      if (memberSection) memberSection.style.display = '';
+      this._renderQcMemberOffices(offices);
+    }
+  },
+
+  _renderQcOfficeToggles(offices, currentEmail, adminRoster) {
+    const grid = document.getElementById('qc-offices-grid');
+    if (!grid) return;
+
+    const myRecord = adminRoster[currentEmail];
+    const selectedIds = new Set((myRecord && myRecord.assignedOffices || '').split(',').filter(Boolean));
+    const activeOffices = offices.filter(o => o.status === 'active');
+
+    if (activeOffices.length === 0) {
+      grid.innerHTML = '<div style="color:var(--gray-400);font-size:13px;padding:8px 0">No active offices available</div>';
+      return;
+    }
+
+    let html = '';
+    activeOffices.forEach(office => {
+      const checked = selectedIds.has(office.officeId) ? 'checked' : '';
+      const logoSrc = office.logoIconUrl || office.logoUrl || 'references/logos/aptel-symbol-black.png';
+      html += `
+        <label class="qc-office-toggle">
+          <img class="qc-office-logo" src="${this._esc(logoSrc)}" alt="" onerror="this.style.display='none'">
+          <div class="qc-office-info">
+            <strong>${this._esc(office.name)}</strong>
+            <span class="qc-office-id">${this._esc(office.officeId)}</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" value="${this._esc(office.officeId)}" ${checked}>
+            <span class="toggle-slider"></span>
+          </label>
+        </label>
+      `;
+    });
+    grid.innerHTML = html;
+  },
+
+  _renderQcTeam(adminRoster, offices, currentEmail) {
+    const wrap = document.getElementById('qc-team-table-wrap');
+    if (!wrap) return;
+
+    const members = Object.values(adminRoster).filter(a =>
+      a.role === 'qc' && a.managedBy === currentEmail
+    );
+
+    if (members.length === 0) {
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">🔍</div>
+          <h3>No Team Members Yet</h3>
+          <p>Add QC members to your team using the button above.</p>
+        </div>
+      `;
+      return;
+    }
+
+    let rows = '';
+    members.forEach(member => {
+      const statusClass = member.deactivated ? 'inactive' : 'active';
+      const statusLabel = member.deactivated ? 'Deactivated' : 'Active';
+      const officeCount = (member.assignedOffices || '').split(',').filter(Boolean).length;
+
+      rows += `
+        <tr>
+          <td><strong>${this._esc(member.name || '—')}</strong></td>
+          <td>${this._esc(member.email)}</td>
+          <td>${officeCount} office${officeCount !== 1 ? 's' : ''}</td>
+          <td>
+            <span class="status-badge ${statusClass}">
+              <span class="dot"></span> ${statusLabel}
+            </span>
+          </td>
+          <td>${member.hasPinSet ? 'Yes' : 'No'}</td>
+          <td>
+            <button class="btn btn-secondary btn-sm" onclick="AdminApp.showEditQcMemberModal('${this._esc(member.email)}')">Edit</button>
+            <button class="btn btn-sm ${member.deactivated ? 'btn-primary' : 'btn-danger'}"
+                    onclick="AdminApp.toggleQcDeactivated('${this._esc(member.email)}')">
+              ${member.deactivated ? 'Reactivate' : 'Deactivate'}
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+
+    wrap.innerHTML = `
+      <table class="admin-table">
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Offices</th><th>Status</th><th>PIN Set</th><th>Actions</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  },
+
+  _renderQcMemberOffices(offices) {
+    const list = document.getElementById('qc-member-offices-list');
+    if (!list) return;
+
+    if (offices.length === 0) {
+      list.innerHTML = '<div style="color:var(--gray-400);font-size:13px;padding:12px 0">No offices assigned yet. Contact your QC Manager.</div>';
+      return;
+    }
+
+    let html = '';
+    offices.forEach(office => {
+      const logoSrc = office.logoIconUrl || office.logoUrl || 'references/logos/aptel-symbol-black.png';
+      html += `
+        <div class="qc-office-card" onclick="AdminApp.openOffice('${this._esc(office.officeId)}')">
+          <img class="qc-office-logo" src="${this._esc(logoSrc)}" alt="" onerror="this.style.display='none'">
+          <div class="qc-office-info">
+            <strong>${this._esc(office.name)}</strong>
+            <span class="qc-office-id">${this._esc(office.officeId)}</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();AdminApp.openOffice('${this._esc(office.officeId)}')">Open Dashboard</button>
+        </div>
+      `;
+    });
+    list.innerHTML = html;
+  },
+
+  _renderQcAllUsers(adminRoster, offices, currentEmail) {
+    const wrap = document.getElementById('qc-all-users-wrap');
+    if (!wrap) return;
+
+    const qcUsers = Object.values(adminRoster).filter(a =>
+      a.role === 'qc_manager' || a.role === 'qc'
+    );
+
+    if (qcUsers.length === 0) {
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">🔍</div>
+          <h3>No QC Users</h3>
+          <p>Add your first QC Manager or QC member using the button above.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Sort: managers first, then members, alphabetically within each
+    qcUsers.sort((a, b) => {
+      if (a.role !== b.role) return a.role === 'qc_manager' ? -1 : 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    let rows = '';
+    qcUsers.forEach(user => {
+      const statusClass = user.deactivated ? 'inactive' : 'active';
+      const statusLabel = user.deactivated ? 'Deactivated' : 'Active';
+      const roleCfg = ADMIN_CONFIG.adminRoles[user.role];
+      const roleLabel = roleCfg ? roleCfg.label : user.role;
+      const officeCount = (user.assignedOffices || '').split(',').filter(Boolean).length;
+      const managerName = user.managedBy ? (adminRoster[user.managedBy]?.name || user.managedBy) : '—';
+
+      rows += `
+        <tr>
+          <td><strong>${this._esc(user.name || '—')}</strong></td>
+          <td>${this._esc(user.email)}</td>
+          <td>${this._esc(roleLabel)}</td>
+          <td>${officeCount} office${officeCount !== 1 ? 's' : ''}</td>
+          <td>${this._esc(user.role === 'qc' ? managerName : '—')}</td>
+          <td>
+            <span class="status-badge ${statusClass}">
+              <span class="dot"></span> ${statusLabel}
+            </span>
+          </td>
+          <td>
+            <button class="btn btn-secondary btn-sm" onclick="AdminApp.showEditQcMemberModal('${this._esc(user.email)}')">Edit</button>
+            <button class="btn btn-sm ${user.deactivated ? 'btn-primary' : 'btn-danger'}"
+                    onclick="AdminApp.toggleQcDeactivated('${this._esc(user.email)}')">
+              ${user.deactivated ? 'Reactivate' : 'Deactivate'}
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+
+    wrap.innerHTML = `
+      <table class="admin-table">
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Role</th><th>Offices</th><th>Manager</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  },
+
+  populateQcModal(member, availableOffices, currentRole) {
+    const title = document.getElementById('qc-modal-title');
+    const emailInput = document.getElementById('qc-email');
+    const nameInput = document.getElementById('qc-name');
+    const roleGroup = document.getElementById('qc-role-group');
+    const roleSelect = document.getElementById('qc-role');
+    const officesList = document.getElementById('qc-assigned-offices-list');
+    const error = document.getElementById('qc-modal-error');
+
+    if (title) title.textContent = member ? 'Edit QC Member' : 'Add QC Member';
+    if (error) error.textContent = '';
+
+    if (emailInput) {
+      emailInput.value = member ? member.email : '';
+      emailInput.disabled = !!member;
+    }
+    if (nameInput) nameInput.value = member ? (member.name || '') : '';
+
+    // Role select: only a3 can choose between qc_manager and qc
+    if (roleGroup) roleGroup.style.display = (currentRole === 'a3') ? 'block' : 'none';
+    if (roleSelect && member) roleSelect.value = member.role || 'qc';
+
+    // Populate office checkboxes
+    if (officesList) {
+      const assignedSet = new Set((member && member.assignedOffices) ? member.assignedOffices.split(',').filter(Boolean) : []);
+      let officeHtml = '';
+
+      (availableOffices || []).forEach(office => {
+        const checked = assignedSet.has(office.officeId) ? 'checked' : '';
+        officeHtml += `
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer">
+            <input type="checkbox" value="${this._esc(office.officeId)}" ${checked}
+                   style="width:16px;height:16px;accent-color:var(--teal)">
+            <span>${this._esc(office.name)}</span>
+          </label>
+        `;
+      });
+
+      if ((availableOffices || []).length === 0) {
+        officeHtml = '<div style="color:var(--gray-400);font-size:13px;padding:8px 0">No offices available. Select your offices first.</div>';
+      }
+
+      officesList.innerHTML = officeHtml;
+    }
+  },
+
+
+  // ═══════════════════════════════════════════════════════
   // HELPERS
   // ═══════════════════════════════════════════════════════
 

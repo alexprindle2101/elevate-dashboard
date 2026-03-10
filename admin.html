@@ -78,6 +78,9 @@
       <button class="sidebar-link" data-page="people" onclick="AdminApp.navTo('people')">
         <span class="icon">👥</span> People
       </button>
+      <button class="sidebar-link" data-page="qc" onclick="AdminApp.navTo('qc')">
+        <span class="icon">🔍</span> Quality Control
+      </button>
       <button class="sidebar-link" data-page="settings" onclick="AdminApp.navTo('settings')">
         <span class="icon">⚙️</span> Settings
       </button>
@@ -143,6 +146,52 @@
             <div id="settings-admin-count"><strong>Admin Users:</strong> —</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Quality Control Page -->
+    <div id="page-qc" style="display:none">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <h1>Quality Control</h1>
+          <p id="qc-page-subtitle">Manage QC offices and team members</p>
+        </div>
+        <button class="btn btn-primary" id="qc-add-member-btn" onclick="AdminApp.showAddQcMemberModal()" style="display:none">+ Add QC Member</button>
+      </div>
+
+      <!-- My Offices Section (QC Manager view) -->
+      <div id="qc-offices-section" style="display:none">
+        <div style="background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius);padding:24px;margin-bottom:24px">
+          <h3 style="font-size:16px;font-weight:700;margin-bottom:4px">My Offices</h3>
+          <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px">Toggle the offices you work with. Your QC team members can only be assigned to offices you have selected.</p>
+          <div id="qc-offices-grid" class="qc-offices-grid"></div>
+          <div style="margin-top:16px;display:flex;align-items:center;gap:12px">
+            <button class="btn btn-primary btn-sm" onclick="AdminApp.saveQcOffices()">Save Office Selection</button>
+            <span id="qc-offices-saved" style="display:none;color:var(--sea-green);font-size:13px;font-weight:600">✓ Saved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Team Section (QC Manager view) -->
+      <div id="qc-team-section" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="font-size:16px;font-weight:700">My Team</h3>
+        </div>
+        <div id="qc-team-table-wrap"></div>
+      </div>
+
+      <!-- Assigned Offices Section (QC member view) -->
+      <div id="qc-member-section" style="display:none">
+        <div style="background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius);padding:24px">
+          <h3 style="font-size:16px;font-weight:700;margin-bottom:4px">My Assigned Offices</h3>
+          <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px">These offices have been assigned to you by your QC Manager.</p>
+          <div id="qc-member-offices-list"></div>
+        </div>
+      </div>
+
+      <!-- All QC Users Section (a3 Super Admin view) -->
+      <div id="qc-admin-section" style="display:none">
+        <div id="qc-all-users-wrap"></div>
       </div>
     </div>
   </main>
@@ -444,6 +493,45 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="AdminApp.closeOwnerModal()">Cancel</button>
       <button class="btn btn-primary" id="owner-modal-save" onclick="AdminApp.saveOwner()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- QC MEMBER MODAL -->
+<div id="qc-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="qc-modal-title">Add QC Member</div>
+
+    <div class="form-group">
+      <label for="qc-email">Email</label>
+      <input id="qc-email" type="email" placeholder="qc@company.com">
+    </div>
+
+    <div class="form-group">
+      <label for="qc-name">Name</label>
+      <input id="qc-name" type="text" placeholder="Full name">
+    </div>
+
+    <div id="qc-role-group" class="form-group" style="display:none">
+      <label for="qc-role">Role</label>
+      <select id="qc-role">
+        <option value="qc">QC</option>
+        <option value="qc_manager">QC Manager</option>
+      </select>
+    </div>
+
+    <div id="qc-assigned-offices-group" class="form-group">
+      <label>Assigned Offices</label>
+      <div id="qc-assigned-offices-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:8px 12px">
+      </div>
+      <p style="font-size:12px;color:var(--gray-400);margin-top:4px">Select offices this QC member can access.</p>
+    </div>
+
+    <div id="qc-modal-error" class="login-error" style="text-align:left"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="AdminApp.closeQcModal()">Cancel</button>
+      <button class="btn btn-primary" id="qc-modal-save" onclick="AdminApp.saveQcMember()">Save</button>
     </div>
   </div>
 </div>

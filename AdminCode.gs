@@ -431,6 +431,18 @@ function doPost(e) {
         return jsonResponse({ success: true });
       }
 
+      // ── QC OFFICE SELECTION ──
+      case 'updateQcOffices': {
+        const sheet = getOrCreateSheet(ADMIN_ROSTER_TAB);
+        const emailQC = (body.email || '').trim().toLowerCase();
+        const foundQC = findRowCI(sheet, 0, emailQC);
+        if (!foundQC) return jsonResponse({ success: false, error: 'User not found' });
+        var roleQC = (foundQC.rowData[2] || '').toString().trim();
+        if (roleQC !== 'qc_manager') return jsonResponse({ success: false, error: 'Not a QC Manager' });
+        sheet.getRange(foundQC.rowIndex, 8).setValue(body.assignedOffices || '');
+        return jsonResponse({ success: true });
+      }
+
       // ── OWNER CRUD ──
       case 'addOwner': {
         const sheet = getOrCreateSheet(OWNERS_TAB);
@@ -881,6 +893,53 @@ function readScoped(email) {
       owners: {},
       role: 'a1',
       userType: 'admin'
+    };
+  }
+
+  // ── qc_manager: sees ALL offices (for toggle selection) + their QC team ──
+  if (admin.role === 'qc_manager') {
+    // QC team: admins where managedBy = this qc_manager AND role = 'qc'
+    var scopedAdminsQM = {};
+    var rosterKeysQM = Object.keys(roster);
+    for (var qm = 0; qm < rosterKeysQM.length; qm++) {
+      var aqm = roster[rosterKeysQM[qm]];
+      if (aqm.role === 'qc' && aqm.managedBy === email) {
+        scopedAdminsQM[rosterKeysQM[qm]] = aqm;
+      }
+    }
+    scopedAdminsQM[email] = roster[email]; // include self
+
+    return {
+      adminRoster: scopedAdminsQM,
+      offices: allOffices,
+      owners: {},
+      role: 'qc_manager',
+      userType: 'admin',
+      assignedOffices: admin.assignedOffices || ''
+    };
+  }
+
+  // ── qc: sees only assigned offices ──
+  if (admin.role === 'qc') {
+    var idsQC = {};
+    var partsQC = (admin.assignedOffices || '').split(',');
+    for (var qc = 0; qc < partsQC.length; qc++) {
+      var idQC = partsQC[qc].trim();
+      if (idQC) idsQC[idQC] = true;
+    }
+    var scopedOfficesQC = allOffices.filter(function(o) { return idsQC[o.officeId]; });
+
+    var scopedAdminsQC = {};
+    scopedAdminsQC[email] = roster[email]; // self only
+
+    return {
+      adminRoster: scopedAdminsQC,
+      offices: scopedOfficesQC,
+      owners: {},
+      role: 'qc',
+      userType: 'admin',
+      assignedOffices: admin.assignedOffices || '',
+      managedBy: admin.managedBy || ''
     };
   }
 

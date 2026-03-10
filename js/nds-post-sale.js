@@ -155,10 +155,10 @@ const PostSale = {
       </div>
 
       <div class="wizard-field" id="ps-dsi-field">
-        <label class="wizard-label">DSI Number</label>
-        <input type="text" class="wizard-input" id="ps-dsi" value="${this._esc(d.dsi)}" placeholder="Enter 12+ character DSI" oninput="PostSale._updateDSIHint()">
+        <label class="wizard-label">SPM Number</label>
+        <input type="text" class="wizard-input" id="ps-dsi" value="${this._esc(d.dsi)}" placeholder="Enter 12+ character SPM" oninput="PostSale._updateDSIHint()">
         <div class="wizard-hint" id="ps-dsi-hint">${d.dsi.length}/12 min characters</div>
-        <div class="wizard-error">DSI must be at least 12 characters</div>
+        <div class="wizard-error">SPM must be at least 12 characters</div>
       </div>
 
       <div class="wizard-field">
@@ -313,7 +313,7 @@ const PostSale = {
         <div class="review-row"><span class="review-row-label">Rep</span><span class="review-row-value">${this._esc(session?.name || '')}</span></div>
         <div class="review-row"><span class="review-row-label">Date</span><span class="review-row-value">${this._formatDate(d.dateOfSale)}</span></div>
         <div class="review-row"><span class="review-row-label">Campaign</span><span class="review-row-value">AT&T B2B</span></div>
-        <div class="review-row"><span class="review-row-label">DSI</span><span class="review-row-value">${this._esc(d.dsi)}</span></div>
+        <div class="review-row"><span class="review-row-label">SPM</span><span class="review-row-value">${this._esc(d.dsi)}</span></div>
         <div class="review-row"><span class="review-row-label">Account Type</span><span class="review-row-value">${d.accountType}</span></div>
         ${d.trainee ? `<div class="review-row"><span class="review-row-label">Trainee</span><span class="review-row-value">${this._esc(d.traineeName)}</span></div>` : ''}
         <div class="review-row"><span class="review-row-label">Processed Via</span><span class="review-row-value${d.orderChannel === 'Tower' ? '" style="color:var(--orange);font-weight:700' : ''}">${d.orderChannel}${d.orderChannel === 'Tower' ? ' (no leaderboard)' : ''}</span></div>
@@ -521,7 +521,7 @@ const PostSale = {
       msg += '**' + payload.repName + '** made a sale with AT&T: B2B!\n';
       // Line 2: Account type
       msg += (payload.accountType || 'Business') + ' Account\n';
-      // Line 3: DSI
+      // Line 3: SPM
       msg += payload.dsi + '\n';
       // Product bullet lines
       if (payload.air) { msg += '• Internet Air\n'; units++; }

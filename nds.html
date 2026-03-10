@@ -350,7 +350,7 @@
         </div>
       </div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px">
-        <input id="all-orders-search" type="text" placeholder="Search by name or DSI..." oninput="Orders.applyFilters('all')" style="flex:1;min-width:160px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 12px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;outline:none">
+        <input id="all-orders-search" type="text" placeholder="Search by name or SPM..." oninput="Orders.applyFilters('all')" style="flex:1;min-width:160px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 12px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;outline:none">
         <select id="all-orders-filter-rep" onchange="Orders.applyFilters('all')" style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 12px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:12px;cursor:pointer;outline:none">
           <option value="">All Reps</option>
         </select>
@@ -399,7 +399,7 @@
           <thead>
             <tr style="background:#F5F2EE">
               <th style="text-align:left;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Rep</th>
-              <th style="text-align:left;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">DSI</th>
+              <th style="text-align:left;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">SPM</th>
               <th style="text-align:left;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Date</th>
               <th style="text-align:left;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Products</th>
               <th style="text-align:center;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Status</th>
@@ -425,7 +425,7 @@
         </div>
       </div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px">
-        <input id="my-orders-search" type="text" placeholder="Search by DSI..." oninput="Orders.applyFilters('my')" style="flex:1;min-width:160px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 12px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;outline:none">
+        <input id="my-orders-search" type="text" placeholder="Search by SPM..." oninput="Orders.applyFilters('my')" style="flex:1;min-width:160px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 12px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;outline:none">
         <select id="my-orders-filter-status" onchange="Orders.applyFilters('my')" style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 12px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:12px;cursor:pointer;outline:none">
           <option value="">All Statuses</option>
           <option value="Posted">Posted</option>
@@ -449,7 +449,7 @@
         <table style="width:100%;border-collapse:collapse">
           <thead>
             <tr style="background:#F5F2EE">
-              <th style="text-align:left;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">DSI</th>
+              <th style="text-align:left;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">SPM</th>
               <th style="text-align:left;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Date</th>
               <th style="text-align:left;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Products</th>
               <th style="text-align:center;padding:12px;font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;color:var(--silver-dim);text-transform:uppercase">Status</th>
@@ -508,7 +508,7 @@
       </div>
 
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-        <input type="text" id="payroll-search" placeholder="Search by rep, DSI, or SPE..."
+        <input type="text" id="payroll-search" placeholder="Search by rep, SPM, or SPE..."
           oninput="App._filterPayrollOrders()"
           style="flex:1;min-width:200px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 14px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;outline:none">
       </div>
@@ -577,8 +577,8 @@
       <input id="order-edit-rep" type="text" placeholder="Rep name"
         style="width:100%;box-sizing:border-box;background:#F5F2EE;border:1px solid rgba(0,0,0,0.3);border-radius:8px;padding:10px 14px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;outline:none;margin-bottom:14px">
 
-      <label style="font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim);display:block;margin-bottom:6px">DSI</label>
-      <input id="order-edit-dsi" type="text" placeholder="DSI number"
+      <label style="font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim);display:block;margin-bottom:6px">SPM</label>
+      <input id="order-edit-dsi" type="text" placeholder="SPM number"
         style="width:100%;box-sizing:border-box;background:#F5F2EE;border:1px solid rgba(0,0,0,0.3);border-radius:8px;padding:10px 14px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;outline:none;margin-bottom:14px">
 
       <label style="font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim);display:block;margin-bottom:6px">Date of Sale</label>

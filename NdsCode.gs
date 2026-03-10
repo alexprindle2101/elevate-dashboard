@@ -63,7 +63,7 @@ const OL = {
   REP_NAME: 2,
   DATE_OF_SALE: 3,
   CAMPAIGN: 4,
-  DSI: 5,
+  DSI: 5,  // SPM in UI — kept as DSI internally for backward compat
   ACCOUNT_TYPE: 6,
   CLIENT_NAME: 7,
   TRAINEE: 8,
@@ -102,9 +102,10 @@ const TOL_HEADER_MAP = {
   'order date': 'ORDER_DATE',
   'order time (timezone)': 'ORDER_TIME',
   'order time': 'ORDER_TIME',
-  'sp.spm number': 'DSI',
-  'spm number': 'DSI',
-  'dsi': 'DSI',
+  'sp.spm number': 'SPM',
+  'spm number': 'SPM',
+  'spm': 'SPM',
+  'dsi': 'SPM',
   'spe.name': 'SPE',
   'spe name': 'SPE',
   'spe': 'SPE',
@@ -204,7 +205,7 @@ function getOrCreateSheet(ss, tabName, baseName) {
       case TAB.SALES:
         sheet.appendRow([
           'Timestamp', 'Email', 'Rep Name', 'Date of Sale', 'Campaign',
-          'DSI', 'Account Type', 'Client Name', 'Trainee', 'Trainee Name',
+          'SPM', 'Account Type', 'Client Name', 'Trainee', 'Trainee Name',
           'Air', 'New Phones', 'BYODs', 'Cell',
           'Ooma Package', 'Account Notes', 'Activation Support', 'Team Emoji',
           'Yeses', 'Units', 'Status', 'Notes', 'Paid Out', 'Tickets',

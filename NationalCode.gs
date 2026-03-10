@@ -69,6 +69,11 @@ function doGet(e) {
       return jsonResp(readLocalHeadcount());
     }
 
+    // ── Debug: dump raw NLR owner tab data (columns A-AC) ──
+    if (action === 'debugNLR') {
+      return jsonResp(debugNLRProductionSection());
+    }
+
     if (owner) {
       // Single owner detail request
       const data = loadOwnerDetail(campaign, owner);
@@ -2019,4 +2024,83 @@ function ratingToGrade(rating) {
   if (rating >= 3.0) return 'C';
   if (rating >= 2.0) return 'D';
   return 'F';
+}
+
+// ══════════════════════════════════════════════════
+// DEBUG: Dump NLR production section (cols J-AC) from first owner tab
+// Temporary — remove after analysis
+// ══════════════════════════════════════════════════
+function debugNLRProductionSection() {
+  var ss = SpreadsheetApp.openById(SHEETS.NLR_B2B);
+  var SKIP_TABS = {
+    'input - sales qual metrics': true,
+    'input - comm per rep and total dd': true,
+    'input - market metrics': true,
+    'sheet2': true
+  };
+
+  var allSheets = ss.getSheets();
+  var result = {};
+
+  for (var t = 0; t < allSheets.length; t++) {
+    var sheet = allSheets[t];
+    var tabName = sheet.getName().trim();
+    if (SKIP_TABS[tabName.toLowerCase()]) continue;
+
+    var lastRow = sheet.getLastRow();
+    var lastCol = Math.min(sheet.getLastColumn(), 29); // Cap at AC (col 29)
+    if (lastRow < 5 || lastCol < 10) continue;
+
+    // Read full data range (all rows, cols A-AC)
+    var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+
+    // Find "Production" in column J (index 9)
+    var productionRow = -1;
+    for (var i = 0; i < data.length; i++) {
+      var cellJ = String(data[i][9] || '').trim().toLowerCase();
+      if (cellJ === 'production') {
+        productionRow = i;
+        break;
+      }
+    }
+
+    // Also scan all of column J to see what's there
+    var colJValues = [];
+    for (var i = 0; i < data.length; i++) {
+      var val = data[i][9];
+      if (val !== '' && val !== null && val !== undefined) {
+        colJValues.push({ row: i, value: String(val) });
+      }
+    }
+
+    // If found production, grab rows from there to end (cols J-AC)
+    var productionSection = null;
+    if (productionRow >= 0) {
+      productionSection = [];
+      for (var i = productionRow; i < Math.min(data.length, productionRow + 30); i++) {
+        var row = [];
+        for (var c = 9; c < data[i].length; c++) { // col J = index 9
+          var val = data[i][c];
+          if (val instanceof Date) {
+            val = formatDate(val);
+          }
+          row.push(val);
+        }
+        productionSection.push(row);
+      }
+    }
+
+    result[tabName] = {
+      totalRows: lastRow,
+      totalCols: lastCol,
+      productionRowIdx: productionRow,
+      colJValues: colJValues,
+      productionSection: productionSection
+    };
+
+    // Only dump first owner tab for brevity
+    break;
+  }
+
+  return result;
 }

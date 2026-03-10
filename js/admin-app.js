@@ -555,7 +555,7 @@ const AdminApp = {
     if (this.state.currentRole !== 'a3') return;
     this.state.editingOfficeId = null;
     AdminRender.populateOfficeModal(null);
-    document.getElementById('office-modal')?.classList.add('open');
+    document.getElementById('office-settings-page')?.classList.add('open');
   },
 
   showEditOfficeModal(officeId) {
@@ -563,11 +563,11 @@ const AdminApp = {
     this.state.editingOfficeId = officeId;
     const office = this.state.offices.find(o => o.officeId === officeId);
     AdminRender.populateOfficeModal(office);
-    document.getElementById('office-modal')?.classList.add('open');
+    document.getElementById('office-settings-page')?.classList.add('open');
   },
 
   closeOfficeModal() {
-    document.getElementById('office-modal')?.classList.remove('open');
+    document.getElementById('office-settings-page')?.classList.remove('open');
     const error = document.getElementById('office-modal-error');
     if (error) error.textContent = '';
   },
@@ -595,7 +595,14 @@ const AdminApp = {
 
     const payrollManagerEmail = document.getElementById('office-payroll-manager')?.value || '';
     const payrollMode = document.getElementById('office-payroll-mode')?.value || 'commission-split';
-    const discordWebhookUrl = document.getElementById('office-discord-webhook')?.value?.trim() || '';
+    const chatPlatform = document.getElementById('office-chat-platform')?.value || 'none';
+    // Read webhook from the active platform's input
+    let discordWebhookUrl = '';
+    if (chatPlatform === 'discord') {
+      discordWebhookUrl = document.getElementById('office-chat-webhook')?.value?.trim() || '';
+    } else if (chatPlatform === 'groupme') {
+      discordWebhookUrl = document.getElementById('office-chat-webhook-gm')?.value?.trim() || '';
+    }
     const logoUrl = document.getElementById('office-logo-url')?.value?.trim();
     const logoIconUrl = document.getElementById('office-logo-icon-url')?.value?.trim();
     const headerLogoStyle = document.getElementById('office-header-logo-style')?.value || 'icon';
@@ -608,7 +615,7 @@ const AdminApp = {
     if (saveBtn) { saveBtn.textContent = 'Saving...'; saveBtn.disabled = true; }
 
     try {
-      const payload = { name, templateType, sheetId, appsScriptUrl, apiKey, ownerEmail, ownerName, ownerLevel, payrollManagerEmail, payrollMode, discordWebhookUrl, logoUrl, logoIconUrl, headerLogoStyle, status };
+      const payload = { name, templateType, sheetId, appsScriptUrl, apiKey, ownerEmail, ownerName, ownerLevel, payrollManagerEmail, payrollMode, chatPlatform, discordWebhookUrl, logoUrl, logoIconUrl, headerLogoStyle, status };
 
       if (this.state.editingOfficeId) {
         payload.officeId = this.state.editingOfficeId;

@@ -157,6 +157,7 @@ const App = {
         if (oc.headerLogoStyle) OFFICE_CONFIG.headerLogoStyle = oc.headerLogoStyle;
         if (oc.payrollManagerEmail) OFFICE_CONFIG.payrollManagerEmail = oc.payrollManagerEmail;
         if (oc.discordWebhookUrl) OFFICE_CONFIG.discordWebhookUrl = oc.discordWebhookUrl;
+        if (oc.chatPlatform) OFFICE_CONFIG.chatPlatform = oc.chatPlatform;
         if (oc.payrollMode) OFFICE_CONFIG.payrollMode = oc.payrollMode;
         if (oc.ownerEmail) OFFICE_CONFIG.ownerEmail = oc.ownerEmail;
         if (oc.ownerName) OFFICE_CONFIG.ownerName = oc.ownerName;

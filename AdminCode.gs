@@ -42,7 +42,7 @@ function getOrCreateSheet(name) {
           'officeId', 'name', 'templateType', 'sheetId', 'appsScriptUrl',
           'apiKey', 'status', 'ownerEmail', 'ownerName', 'ownerLevel',
           'logoUrl', 'logoIconUrl', 'brandColors', 'createdDate', 'discordWebhookUrl',
-          'headerLogoStyle', 'payrollManagerEmail', 'payrollMode'
+          'headerLogoStyle', 'payrollManagerEmail', 'payrollMode', 'chatPlatform'
         ]);
         break;
       case OWNERS_TAB:
@@ -207,6 +207,7 @@ function doGet(e) {
                 logoUrl: o.logoUrl || '',
                 logoIconUrl: o.logoIconUrl || '',
                 discordWebhookUrl: o.discordWebhookUrl || '',
+                chatPlatform: o.chatPlatform || 'none',
                 headerLogoStyle: o.headerLogoStyle || 'icon',
                 payrollManagerEmail: o.payrollManagerEmail || '',
                 payrollMode: o.payrollMode || 'commission-split',
@@ -349,7 +350,8 @@ function doPost(e) {
           body.discordWebhookUrl || '',
           body.headerLogoStyle || 'icon',
           body.payrollManagerEmail || '',
-          body.payrollMode || 'commission-split'
+          body.payrollMode || 'commission-split',
+          body.chatPlatform || 'none'
         ]);
         return jsonResponse({ success: true, officeId: officeId });
       }
@@ -376,6 +378,7 @@ function doPost(e) {
         if (body.headerLogoStyle !== undefined) sheet.getRange(row, 16).setValue(body.headerLogoStyle);
         if (body.payrollManagerEmail !== undefined) sheet.getRange(row, 17).setValue(body.payrollManagerEmail);
         if (body.payrollMode !== undefined) sheet.getRange(row, 18).setValue(body.payrollMode);
+        if (body.chatPlatform !== undefined) sheet.getRange(row, 19).setValue(body.chatPlatform);
         return jsonResponse({ success: true });
       }
 
@@ -553,7 +556,8 @@ function readOffices() {
       discordWebhookUrl: (data[i][14] || '').toString().trim(),
       headerLogoStyle: (data[i][15] || '').toString().trim() || 'icon',
       payrollManagerEmail: (data[i][16] || '').toString().trim().toLowerCase(),
-      payrollMode: (data[i][17] || 'commission-split').toString().trim()
+      payrollMode: (data[i][17] || 'commission-split').toString().trim(),
+      chatPlatform: (data[i][18] || 'none').toString().trim()
     });
   }
   return offices;
@@ -576,7 +580,8 @@ function readOfficesBasic() {
       apiKey: (data[i][5] || '').toString().trim(),
       logoUrl: (data[i][10] || '').toString().trim(),
       logoIconUrl: (data[i][11] || '').toString().trim(),
-      discordWebhookUrl: (data[i][14] || '').toString().trim()
+      discordWebhookUrl: (data[i][14] || '').toString().trim(),
+      chatPlatform: (data[i][18] || 'none').toString().trim()
     });
   }
   return offices;

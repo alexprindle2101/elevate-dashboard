@@ -285,10 +285,6 @@ const AdminRender = {
       });
     }
 
-    // Discord webhook
-    const discordInput = document.getElementById('office-discord-webhook');
-    if (discordInput) discordInput.value = office ? (office.discordWebhookUrl || '') : '';
-
     if (logoUrlInput) logoUrlInput.value = office ? office.logoUrl : '';
     if (logoIconUrlInput) logoIconUrlInput.value = office ? office.logoIconUrl : '';
     const headerLogoStyleSelect = document.getElementById('office-header-logo-style');
@@ -299,19 +295,34 @@ const AdminRender = {
     const payrollModeSelect = document.getElementById('office-payroll-mode');
     if (payrollModeSelect) payrollModeSelect.value = office ? (office.payrollMode || 'commission-split') : 'commission-split';
 
-    // Advanced Settings: auto-expand when editing (fields have values), collapse for new
-    const advancedToggle = document.getElementById('advanced-toggle-btn');
-    const advancedFields = document.getElementById('advanced-fields');
-    if (advancedToggle && advancedFields) {
-      const hasValues = office && (office.sheetId || office.appsScriptUrl || office.apiKey);
-      if (hasValues) {
-        advancedToggle.classList.add('open');
-        advancedFields.classList.remove('collapsed');
-      } else {
-        advancedToggle.classList.remove('open');
-        advancedFields.classList.add('collapsed');
-      }
+    // Chat platform + webhook
+    const chatPlatform = office ? (office.chatPlatform || 'none') : 'none';
+    const chatPlatformSelect = document.getElementById('office-chat-platform');
+    if (chatPlatformSelect) chatPlatformSelect.value = chatPlatform;
+
+    // Set webhook value into the correct field based on platform
+    const webhookUrl = office ? (office.discordWebhookUrl || '') : '';
+    const discordInput = document.getElementById('office-chat-webhook');
+    const groupmeInput = document.getElementById('office-chat-webhook-gm');
+    if (chatPlatform === 'groupme') {
+      if (groupmeInput) groupmeInput.value = webhookUrl;
+      if (discordInput) discordInput.value = '';
+    } else {
+      if (discordInput) discordInput.value = webhookUrl;
+      if (groupmeInput) groupmeInput.value = '';
     }
+
+    // Show/hide the correct chat setup panel
+    this.onChatPlatformChange();
+  },
+
+  // Chat platform toggle — show/hide setup panels
+  onChatPlatformChange() {
+    const platform = document.getElementById('office-chat-platform')?.value || 'none';
+    const discordPanel = document.getElementById('chat-setup-discord');
+    const groupmePanel = document.getElementById('chat-setup-groupme');
+    if (discordPanel) discordPanel.style.display = platform === 'discord' ? '' : 'none';
+    if (groupmePanel) groupmePanel.style.display = platform === 'groupme' ? '' : 'none';
   },
 
 

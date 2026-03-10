@@ -149,112 +149,170 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
-     OFFICE MODAL
+     OFFICE SETTINGS PAGE (full-page overlay)
      ═══════════════════════════════════════════════════════ -->
-<div id="office-modal" class="modal-overlay">
-  <div class="modal">
-    <div class="modal-title" id="office-modal-title">Add Office</div>
+<div id="office-settings-page" class="office-settings-overlay">
+  <div class="office-settings-container">
 
-    <div class="form-group">
-      <label for="office-name">Office Name</label>
-      <input id="office-name" type="text" placeholder="e.g. Dallas AT&T B2B">
-    </div>
-
-    <div class="form-group">
-      <label for="office-template">Dashboard Template</label>
-      <select id="office-template"></select>
-    </div>
-
-    <div class="form-group">
-      <label for="office-owner-select">Office Owner</label>
-      <select id="office-owner-select">
-        <!-- Populated dynamically from _Owners tab -->
-      </select>
-      <div class="hint">Select from the Owners tab. Add new owners in the Owners page first.</div>
-    </div>
-
-    <div class="form-group">
-      <label for="office-payroll-manager">Payroll Manager</label>
-      <select id="office-payroll-manager">
-        <!-- Populated with admins eligible for this office -->
-      </select>
-      <div class="hint">Admin who manages payroll for this office.</div>
-    </div>
-
-    <div class="form-group">
-      <label for="office-payroll-mode">Payroll Mode</label>
-      <select id="office-payroll-mode">
-        <option value="commission-split">Commission Split (trainee orders on payroll)</option>
-        <option value="flat-rate">Flat Rate (trainee status not payroll-relevant)</option>
-      </select>
-      <div class="hint">Commission Split includes trainee orders in payroll; Flat Rate only shows codes-swap orders.</div>
-    </div>
-
-    <div class="advanced-settings-wrap">
-      <button type="button" id="advanced-toggle-btn" class="advanced-toggle" onclick="this.classList.toggle('open'); document.getElementById('advanced-fields').classList.toggle('collapsed')">
-        Advanced Settings
-      </button>
-      <div id="advanced-fields" class="advanced-fields collapsed">
-        <div class="form-group">
-          <label for="office-sheet-id">Google Sheet ID</label>
-          <input id="office-sheet-id" type="text" placeholder="Paste the sheet ID from the URL">
-          <div class="hint">Found in the Google Sheet URL: docs.google.com/spreadsheets/d/<strong>[THIS PART]</strong>/edit</div>
-        </div>
-
-        <div class="form-group">
-          <label for="office-script-url">Apps Script URL</label>
-          <input id="office-script-url" type="text" placeholder="Deployed Code.gs web app URL">
-          <div class="hint">Deploy the office's Code.gs as a web app and paste the URL here</div>
-        </div>
-
-        <div class="form-group">
-          <label for="office-api-key">API Key</label>
-          <input id="office-api-key" type="text" placeholder="API key matching Script Properties">
-        </div>
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label for="office-discord-webhook">Discord Webhook URL</label>
-      <input id="office-discord-webhook" type="text" placeholder="https://discord.com/api/webhooks/...">
-      <div class="hint">Sale notifications post to this Discord channel. Get it from Discord → Channel Settings → Integrations → Webhooks.</div>
-    </div>
-
-    <div class="form-group">
-      <label for="office-logo-url">Full Logo (wordmark)</label>
-      <input id="office-logo-url" type="text" placeholder="e.g. references/logos/elevate-logo-full-standard-blue.png">
-      <div class="hint">Path or URL to the full wordmark logo</div>
-    </div>
-
-    <div class="form-group">
-      <label for="office-logo-icon-url">Icon Logo (symbol)</label>
-      <input id="office-logo-icon-url" type="text" placeholder="e.g. references/logos/elevate-logo-symbol-only-blue.png">
-      <div class="hint">Path or URL to the small icon/symbol logo (favicon, loading)</div>
-    </div>
-
-    <div class="form-group">
-      <label for="office-header-logo-style">Header Logo Style</label>
-      <select id="office-header-logo-style">
-        <option value="icon">Icon + Name (best for square logos)</option>
-        <option value="full">Full Logo (best for wide/horizontal logos)</option>
-      </select>
-      <div class="hint">Controls how the logo appears in the dashboard header bar</div>
-    </div>
-
-    <div class="form-group">
-      <label for="office-status">Status</label>
-      <select id="office-status">
-        <option value="setup">Setup</option>
-        <option value="active">Active</option>
-        <option value="inactive">Inactive</option>
-      </select>
-    </div>
-
-    <div id="office-modal-error" class="login-error" style="text-align:left"></div>
-
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="AdminApp.closeOfficeModal()">Cancel</button>
+    <!-- Header bar -->
+    <div class="office-settings-header">
+      <button class="btn btn-secondary" onclick="AdminApp.closeOfficeModal()">&larr; Back to Offices</button>
+      <h2 id="office-modal-title">Office Settings</h2>
       <button class="btn btn-primary" id="office-modal-save" onclick="AdminApp.saveOffice()">Save Office</button>
+    </div>
+
+    <div id="office-modal-error" class="login-error" style="text-align:left;margin-bottom:16px"></div>
+
+    <div class="office-settings-grid">
+
+      <!-- ── LEFT COLUMN ── -->
+      <div class="office-settings-col">
+
+        <!-- GENERAL -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">General</h3>
+          <div class="form-group">
+            <label for="office-name">Office Name</label>
+            <input id="office-name" type="text" placeholder="e.g. Dallas AT&T B2B">
+          </div>
+          <div class="form-group">
+            <label for="office-template">Dashboard Template</label>
+            <select id="office-template"></select>
+          </div>
+          <div class="form-group">
+            <label for="office-status">Status</label>
+            <select id="office-status">
+              <option value="setup">Setup</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- PEOPLE -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">People</h3>
+          <div class="form-group">
+            <label for="office-owner-select">Office Owner</label>
+            <select id="office-owner-select"></select>
+            <div class="hint">Select from the Owners tab. Add new owners in the Owners page first.</div>
+          </div>
+          <div class="form-group">
+            <label for="office-payroll-manager">Payroll Manager</label>
+            <select id="office-payroll-manager"></select>
+            <div class="hint">Admin who manages payroll for this office.</div>
+          </div>
+          <div class="form-group">
+            <label for="office-payroll-mode">Payroll Mode</label>
+            <select id="office-payroll-mode">
+              <option value="commission-split">Commission Split (trainee orders on payroll)</option>
+              <option value="flat-rate">Flat Rate (trainee status not payroll-relevant)</option>
+            </select>
+            <div class="hint">Commission Split includes trainee orders in payroll; Flat Rate only shows codes-swap orders.</div>
+          </div>
+        </div>
+
+        <!-- BRANDING -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">Branding</h3>
+          <div class="form-group">
+            <label for="office-logo-url">Full Logo (wordmark)</label>
+            <input id="office-logo-url" type="text" placeholder="e.g. references/logos/elevate-logo-full-standard-blue.png">
+            <div class="hint">Path or URL to the full wordmark logo</div>
+          </div>
+          <div class="form-group">
+            <label for="office-logo-icon-url">Icon Logo (symbol)</label>
+            <input id="office-logo-icon-url" type="text" placeholder="e.g. references/logos/elevate-logo-symbol-only-blue.png">
+            <div class="hint">Path or URL to the small icon/symbol logo (favicon, loading)</div>
+          </div>
+          <div class="form-group">
+            <label for="office-header-logo-style">Header Logo Style</label>
+            <select id="office-header-logo-style">
+              <option value="icon">Icon + Name (best for square logos)</option>
+              <option value="full">Full Logo (best for wide/horizontal logos)</option>
+            </select>
+            <div class="hint">Controls how the logo appears in the dashboard header bar</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── RIGHT COLUMN ── -->
+      <div class="office-settings-col">
+
+        <!-- CHAT NOTIFICATIONS -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">Chat Notifications</h3>
+          <p class="settings-section-desc">Automatically post sale notifications to your team's group chat when reps submit orders.</p>
+
+          <div class="form-group">
+            <label for="office-chat-platform">Chat Platform</label>
+            <select id="office-chat-platform" onchange="AdminRender.onChatPlatformChange()">
+              <option value="none">None (notifications off)</option>
+              <option value="discord">Discord</option>
+              <option value="groupme">GroupMe</option>
+            </select>
+          </div>
+
+          <!-- Discord setup -->
+          <div id="chat-setup-discord" class="chat-setup-panel" style="display:none">
+            <div class="form-group">
+              <label for="office-chat-webhook">Discord Webhook URL</label>
+              <input id="office-chat-webhook" type="text" placeholder="https://discord.com/api/webhooks/...">
+            </div>
+            <div class="setup-instructions">
+              <strong>How to set up Discord webhook:</strong>
+              <ol>
+                <li>Open your Discord server</li>
+                <li>Right-click the channel you want notifications in</li>
+                <li>Click <strong>Edit Channel</strong> &rarr; <strong>Integrations</strong></li>
+                <li>Click <strong>Webhooks</strong> &rarr; <strong>New Webhook</strong></li>
+                <li>Name it (e.g. "Sales Bot"), then click <strong>Copy Webhook URL</strong></li>
+                <li>Paste the URL above</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- GroupMe setup -->
+          <div id="chat-setup-groupme" class="chat-setup-panel" style="display:none">
+            <div class="form-group">
+              <label for="office-chat-webhook">GroupMe Bot ID</label>
+              <input id="office-chat-webhook-gm" type="text" placeholder="e.g. abc123def456...">
+            </div>
+            <div class="setup-instructions">
+              <strong>How to set up GroupMe bot:</strong>
+              <ol>
+                <li>Go to <a href="https://dev.groupme.com/bots" target="_blank" style="color:var(--teal)">dev.groupme.com/bots</a> and sign in</li>
+                <li>Click <strong>Create Bot</strong></li>
+                <li>Select the group chat you want notifications in</li>
+                <li>Give it a name (e.g. "Sales Bot") and optionally an avatar URL</li>
+                <li>Click <strong>Submit</strong></li>
+                <li>Copy the <strong>Bot ID</strong> and paste it above</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADVANCED / TECHNICAL -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">Technical</h3>
+          <div class="form-group">
+            <label for="office-sheet-id">Google Sheet ID</label>
+            <input id="office-sheet-id" type="text" placeholder="Paste the sheet ID from the URL">
+            <div class="hint">Found in the Google Sheet URL: docs.google.com/spreadsheets/d/<strong>[THIS PART]</strong>/edit</div>
+          </div>
+          <div class="form-group">
+            <label for="office-script-url">Apps Script URL</label>
+            <input id="office-script-url" type="text" placeholder="Deployed Code.gs web app URL">
+            <div class="hint">Deploy the office's Code.gs as a web app and paste the URL here</div>
+          </div>
+          <div class="form-group">
+            <label for="office-api-key">API Key</label>
+            <input id="office-api-key" type="text" placeholder="API key matching Script Properties">
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 </div>

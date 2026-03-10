@@ -509,15 +509,28 @@ const PostSale = {
 
   _fireDiscordWebhook(payload) {
     try {
-      // Build message matching #production format
+      const platform = OFFICE_CONFIG.chatPlatform || 'discord';  // default discord for backward compat
+      const webhookId = OFFICE_CONFIG.discordWebhookUrl;  // stores URL (discord) or bot ID (groupme)
+
+      if (!webhookId || platform === 'none') {
+        console.warn('[PostSale] No chat webhook configured for this office (platform:', platform, ')');
+        return;
+      }
+
+      // Build message text
       let msg = '';
       let units = 0;
-      // Line 1: **Rep** made a sale with AT&T: B2B!
-      msg += '**' + payload.repName + '** made a sale with AT&T: B2B!\n';
-      // Line 2: Account type
+
+      if (platform === 'discord') {
+        // Discord markdown: **bold**
+        msg += '**' + payload.repName + '** made a sale with AT&T: B2B!\n';
+      } else {
+        // GroupMe: plain text, no markdown
+        msg += payload.repName + ' made a sale with AT&T: B2B!\n';
+      }
       msg += 'Consumer Account\n';
-      // Line 3: SPM
       msg += payload.dsi + '\n';
+
       // Product bullet lines
       if (payload.air) { msg += '• Internet Air\n'; units++; }
       if (payload.newPhones || payload.byods) {
@@ -525,7 +538,7 @@ const PostSale = {
         units += (payload.newPhones || 0) + (payload.byods || 0);
       }
 
-      // Hashtags (optional, from form)
+      // Hashtags (optional)
       const tags = this._formData.hashtags?.trim();
       if (tags) msg += tags + '\n';
 
@@ -535,23 +548,32 @@ const PostSale = {
 
       const finalMsg = msg.trim();
 
-      // Per-office Discord webhook URL (from _Offices tab) — no fallback
-      const webhookUrl = OFFICE_CONFIG.discordWebhookUrl;
-      if (!webhookUrl) {
-        console.warn('[PostSale] No Discord webhook configured for this office');
-        return;
+      // Platform-specific POST
+      let url, opts;
+      if (platform === 'groupme') {
+        url = 'https://api.groupme.com/v3/bots/post';
+        opts = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bot_id: webhookId, text: finalMsg })
+        };
+      } else {
+        // Discord (default)
+        url = webhookId;
+        opts = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: finalMsg })
+        };
       }
 
-      const webhookBody = JSON.stringify({ content: finalMsg });
-
-      const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: webhookBody };
-      fetch(webhookUrl, opts)
-        .then(r => { if (!r.ok) console.warn('[PostSale] Discord webhook HTTP', r.status); })
+      console.log('[PostSale] Firing', platform, 'webhook');
+      fetch(url, opts)
+        .then(r => { if (!r.ok) console.warn('[PostSale]', platform, 'webhook HTTP', r.status); })
         .catch(err => {
-          console.warn('[PostSale] Discord webhook failed, retrying…', err.message);
-          // Retry once after 2s
+          console.warn('[PostSale]', platform, 'webhook failed, retrying…', err.message);
           setTimeout(() => {
-            fetch(webhookUrl, opts)
+            fetch(url, opts)
               .then(r => { if (!r.ok) console.warn('[PostSale] Retry HTTP', r.status); })
               .catch(e2 => console.warn('[PostSale] Retry failed:', e2.message));
           }, 2000);

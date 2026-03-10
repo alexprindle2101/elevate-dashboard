@@ -1765,10 +1765,40 @@ function buildLeaderboardHtml(lb) {
 // ═══════════════════════════════════════════════════════════════
 // LEADERBOARD CHAT POST — Emoji-text format for Discord/GroupMe
 // ═══════════════════════════════════════════════════════════════
-// Set up:
-//   1. Add Script Properties: CHAT_WEBHOOK_URL, CHAT_PLATFORM (discord|groupme)
-//   2. Create a time-based trigger for postLeaderboardToChat()
-//
+// Run setupLeaderboardChat() ONCE to configure, then it auto-posts daily.
+
+/**
+ * ONE-TIME SETUP — run this manually from the Apps Script editor.
+ * Sets Script Properties and creates a daily 6pm trigger.
+ */
+function setupLeaderboardChat() {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('OFFICE_NAME', 'Delagroup');
+  props.setProperty('CHAT_PLATFORM', 'discord');
+  props.setProperty('CHAT_WEBHOOK_URL',
+    'https://discord.com/api/webhooks/1480760352143835186/-5_VNhXKQ0eKXGwzzND5efpOqy1DXymhdDZ96CT8tzunTSWauJ86h2xS6ucSvBRTcnv4');
+
+  // Remove any existing leaderboard triggers to avoid duplicates
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'postLeaderboardToChat') {
+      ScriptApp.deleteTrigger(triggers[i]);
+      Logger.log('Removed existing trigger');
+    }
+  }
+
+  // Create daily trigger at 6 PM (office timezone)
+  ScriptApp.newTrigger('postLeaderboardToChat')
+    .timeBased()
+    .everyDays(1)
+    .atHour(18)
+    .create();
+
+  Logger.log('✅ Setup complete! Leaderboard will post daily at ~6 PM.');
+  Logger.log('Properties set: OFFICE_NAME=Delagroup, CHAT_PLATFORM=discord');
+  Logger.log('Run postLeaderboardToChat() manually to test now.');
+}
+
 // CHAT_WEBHOOK_URL = full Discord webhook URL, or GroupMe bot_id
 // CHAT_PLATFORM    = 'discord' or 'groupme'
 

@@ -542,6 +542,115 @@ body {
 
 .admin-table tr:hover td { background: rgba(44,110,106,0.02); }
 
+/* ── OWNER ACCORDION CARDS ── */
+.owner-tree-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.owner-card {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.owner-card:last-child { margin-bottom: 0; }
+.owner-card:hover {
+  border-color: var(--verdigris);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Depth-based left border accent */
+.owner-card[data-depth="0"] { border-left: 4px solid var(--teal); }
+.owner-card[data-depth="1"] { border-left: 3px solid var(--verdigris); }
+.owner-card[data-depth="2"] { border-left: 3px solid var(--periwinkle); }
+.owner-card[data-depth="3"] { border-left: 2px solid var(--gray-200); }
+
+.owner-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  cursor: pointer;
+  gap: 12px;
+  user-select: none;
+  transition: background 0.15s;
+}
+.owner-card-header:hover { background: var(--teal-light); }
+
+.owner-card-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.owner-card-chevron {
+  font-size: 10px;
+  color: var(--gray-400);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+.owner-card--expanded > .owner-card-header .owner-card-chevron {
+  transform: rotate(90deg);
+}
+.owner-card--leaf .owner-card-chevron { visibility: hidden; }
+
+.owner-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--black);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.owner-card-level {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--gray-500);
+  background: var(--gray-50);
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.owner-card-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.badge-teal { background: var(--teal); color: #fff; }
+.badge-blue { background: #3B82F6; color: #fff; }
+
+.owner-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.owner-card-children {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 0 16px;
+  background: var(--cream);
+}
+.owner-card--expanded > .owner-card-children {
+  padding: 8px 16px 12px;
+}
+
 /* ── MODAL ── */
 .modal-overlay {
   position: fixed;
@@ -785,4 +894,12 @@ body {
   .cards-grid { grid-template-columns: 1fr; }
   .office-settings-grid { grid-template-columns: 1fr; }
   .office-settings-container { padding: 16px; }
+  .owner-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+  .owner-card-actions { width: 100%; justify-content: flex-start; }
+  .owner-card-children { padding-left: 8px; padding-right: 8px; }
 }

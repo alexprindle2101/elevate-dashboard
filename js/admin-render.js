@@ -473,69 +473,124 @@ const AdminRender = {
       return;
     }
 
-    let rows = '';
-    const renderNode = (node, depth) => {
-      const indent = depth * 28;
-      const connector = depth > 0 ? '<span style="color:var(--gray-400);margin-right:6px">└</span>' : '';
+    // Expand/Collapse All control
+    let html = `
+      <div class="owner-tree-controls">
+        <button class="btn btn-secondary btn-sm" onclick="AdminRender.toggleAllOwnerCards(this)">Expand All</button>
+      </div>
+    `;
+
+    // Recursive card builder
+    const renderCard = (node, depth) => {
       const levelLabel = this._ownerLevelLabel(node.level);
       const statusClass = node.deactivated ? 'inactive' : 'active';
       const statusLabel = node.deactivated ? 'Deactivated' : 'Active';
-      const officesBadge = node.officeCount > 0
-        ? `<span style="background:var(--teal);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${node.officeCount}</span>`
-        : '<span style="color:var(--gray-400)">0</span>';
+      const hasChildren = node.children && node.children.length > 0;
+      const leafClass = hasChildren ? '' : 'owner-card--leaf';
       const downlineCount = this._countDescendants(node);
-      const downlineBadge = downlineCount > 0
-        ? `<span style="background:var(--blue-core);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${downlineCount}</span>`
-        : '<span style="color:var(--gray-400)">0</span>';
+      const cssDepth = Math.min(depth, 3);
 
-      rows += `
-        <tr>
-          <td style="padding-left:${indent + 12}px">
-            ${connector}<strong>${this._esc(node.name || '—')}</strong>
-          </td>
-          <td>${this._esc(node.email)}</td>
-          <td>${this._esc(levelLabel)}</td>
-          <td style="text-align:center">${officesBadge}</td>
-          <td style="text-align:center">${downlineBadge}</td>
-          <td>
-            <span class="status-badge ${statusClass}">
-              <span class="dot"></span> ${statusLabel}
-            </span>
-          </td>
-          ${isA3 ? `
-          <td>
-            <button class="btn btn-secondary btn-sm" onclick="AdminApp.showEditOwnerModal('${this._esc(node.email)}')">Edit</button>
-            <button class="btn btn-sm ${node.deactivated ? 'btn-primary' : 'btn-danger'}"
-                    onclick="AdminApp.toggleOwnerDeactivated('${this._esc(node.email)}')">
-              ${node.deactivated ? 'Reactivate' : 'Deactivate'}
-            </button>
-            <button class="btn btn-danger btn-sm" onclick="AdminApp.deleteOwner('${this._esc(node.email)}')">Delete</button>
-          </td>
-          ` : '<td></td>'}
-        </tr>
+      const officesBadge = node.officeCount > 0
+        ? `<span class="owner-card-badge badge-teal">${node.officeCount} office${node.officeCount !== 1 ? 's' : ''}</span>`
+        : '';
+      const downlineBadge = downlineCount > 0
+        ? `<span class="owner-card-badge badge-blue">${downlineCount} downline</span>`
+        : '';
+
+      let card = `
+        <div class="owner-card ${leafClass}" data-email="${this._esc(node.email)}" data-depth="${cssDepth}">
+          <div class="owner-card-header" onclick="AdminRender.toggleOwnerCard(this)">
+            <div class="owner-card-info">
+              <span class="owner-card-chevron">&#9654;</span>
+              <strong class="owner-card-name">${this._esc(node.name || '—')}</strong>
+              <span class="owner-card-level">${this._esc(levelLabel)}</span>
+              ${officesBadge}
+              ${downlineBadge}
+              <span class="status-badge ${statusClass}">
+                <span class="dot"></span> ${statusLabel}
+              </span>
+            </div>
+            ${isA3 ? `
+            <div class="owner-card-actions" onclick="event.stopPropagation()">
+              <button class="btn btn-secondary btn-sm" onclick="AdminApp.showEditOwnerModal('${this._esc(node.email)}')">Edit</button>
+              <button class="btn btn-sm ${node.deactivated ? 'btn-primary' : 'btn-danger'}"
+                      onclick="AdminApp.toggleOwnerDeactivated('${this._esc(node.email)}')">
+                ${node.deactivated ? 'Reactivate' : 'Deactivate'}
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="AdminApp.deleteOwner('${this._esc(node.email)}')">Delete</button>
+            </div>
+            ` : ''}
+          </div>
       `;
 
-      node.children.forEach(child => renderNode(child, depth + 1));
+      if (hasChildren) {
+        card += `<div class="owner-card-children">`;
+        node.children.forEach(child => { card += renderCard(child, depth + 1); });
+        card += `</div>`;
+      }
+
+      card += `</div>`;
+      return card;
     };
 
-    rootNodes.forEach(root => renderNode(root, 0));
+    rootNodes.forEach(root => { html += renderCard(root, 0); });
+    wrap.innerHTML = html;
+  },
 
-    wrap.innerHTML = `
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Level</th>
-            <th style="text-align:center">Offices</th>
-            <th style="text-align:center">Downline</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
+  // Toggle a single owner card expanded/collapsed
+  toggleOwnerCard(headerEl) {
+    const card = headerEl.closest('.owner-card');
+    if (!card || card.classList.contains('owner-card--leaf')) return;
+
+    const children = card.querySelector(':scope > .owner-card-children');
+    if (!children) return;
+
+    const isExpanded = card.classList.contains('owner-card--expanded');
+
+    if (isExpanded) {
+      // Collapse: snap max-height to scrollHeight, force reflow, then set to 0
+      children.style.maxHeight = children.scrollHeight + 'px';
+      children.offsetHeight; // force reflow
+      children.style.maxHeight = '0';
+      card.classList.remove('owner-card--expanded');
+    } else {
+      // Expand: set max-height to scrollHeight for animation
+      card.classList.add('owner-card--expanded');
+      children.style.maxHeight = children.scrollHeight + 'px';
+
+      // After transition, switch to 'none' so nested expansions work
+      const onEnd = () => {
+        if (card.classList.contains('owner-card--expanded')) {
+          children.style.maxHeight = 'none';
+        }
+        children.removeEventListener('transitionend', onEnd);
+      };
+      children.addEventListener('transitionend', onEnd);
+    }
+  },
+
+  // Toggle all owner cards expanded/collapsed
+  toggleAllOwnerCards(btn) {
+    const wrap = document.getElementById('owners-tree-wrap');
+    if (!wrap) return;
+
+    const allCards = wrap.querySelectorAll('.owner-card:not(.owner-card--leaf)');
+    const anyCollapsed = Array.from(allCards).some(c => !c.classList.contains('owner-card--expanded'));
+
+    allCards.forEach(card => {
+      const children = card.querySelector(':scope > .owner-card-children');
+      if (!children) return;
+
+      if (anyCollapsed) {
+        card.classList.add('owner-card--expanded');
+        children.style.maxHeight = 'none';
+      } else {
+        card.classList.remove('owner-card--expanded');
+        children.style.maxHeight = '0';
+      }
+    });
+
+    if (btn) btn.textContent = anyCollapsed ? 'Collapse All' : 'Expand All';
   },
 
 

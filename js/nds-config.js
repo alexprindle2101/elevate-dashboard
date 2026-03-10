@@ -6,7 +6,7 @@
 
 const OFFICE_CONFIG = {
   officeName: "Delagroup",
-  officeId: "off_nds_001",  // Per-office identifier — tabs are suffixed with this
+  officeId: "off_nds_006",  // Per-office identifier — tabs are suffixed with this
 
   // ── Apps Script Middleware ──
   // All reads and writes go through Apps Script to keep the sheet private.

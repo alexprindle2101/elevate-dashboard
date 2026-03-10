@@ -28,7 +28,7 @@ function officeTab(base, officeId) {
 }
 
 // Default officeId when none is provided
-const DEFAULT_OFFICE_ID = 'off_001';
+const DEFAULT_OFFICE_ID = 'off_nds_006';
 
 
 // === Build team emoji maps dynamically from _Teams tab ===

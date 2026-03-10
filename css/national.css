@@ -875,10 +875,56 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
    SALES TAB
    ═══════════════════════════════════════════════════════ */
 .sales-summary {
+  margin-bottom: 16px;
+}
+.sales-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+}
+.sales-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.sales-metric-group {
+  background: rgba(255,255,255,0.5);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.sales-metric-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-500);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--gray-100);
+}
+.sales-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.sales-metric-row span:first-child {
+  color: var(--gray-600);
+  font-weight: 500;
+}
+.sales-metric-row .num {
+  font-weight: 700;
+  color: var(--gray-800);
+}
+.sales-metric-row .num small {
+  font-weight: 500;
+  color: var(--gray-400);
+  font-size: 11px;
+}
+.sales-reps {
+  margin-bottom: 16px;
 }
 
 /* ═══════════════════════════════════════════════════════

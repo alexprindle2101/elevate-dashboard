@@ -211,6 +211,18 @@ const NationalApp = {
         console.warn('[NationalApp] B2B headcount fetch failed:', err.message);
       }
     }
+
+    // Step 5: Enrich B2B owners with production/sales data from local _B2B_Production tab
+    if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
+      try {
+        const prodData = await this._fetchB2BProduction();
+        if (prodData && prodData.owners && Object.keys(prodData.owners).length) {
+          this._enrichOwnersWithProduction(prodData.owners);
+        }
+      } catch (err) {
+        console.warn('[NationalApp] B2B production fetch failed:', err.message);
+      }
+    }
   },
 
   // ── Fetch ALL recruiting data from Ken's national sheet via NationalCode.gs ──
@@ -314,6 +326,68 @@ const NationalApp = {
     const result = await resp.json();
     if (result.error) throw new Error(result.error);
     return result;
+  },
+
+  // ── Fetch B2B production/sales data from local _B2B_Production tab ──
+  async _fetchB2BProduction() {
+    const url = NATIONAL_CONFIG.appsScriptUrl +
+      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+      '&action=b2bProduction' +
+      '&_t=' + Date.now();
+    const resp = await fetch(url);
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
+
+  // ── Enrich B2B owners with NLR production/sales data ──
+  _enrichOwnersWithProduction(prodOwners) {
+    // Build lowercase lookup of production tab names
+    const prodKeys = Object.keys(prodOwners);
+    const prodLower = {};
+    for (const key of prodKeys) {
+      prodLower[key.toLowerCase()] = key;
+    }
+
+    let matched = 0;
+    for (const owner of this.state.owners) {
+      const ownerLc = owner.name.toLowerCase().trim();
+
+      // Try exact match first
+      let prodKey = prodLower[ownerLc];
+
+      // Try starts-with
+      if (!prodKey) {
+        for (const lc in prodLower) {
+          if (lc.startsWith(ownerLc) || ownerLc.startsWith(lc)) {
+            prodKey = prodLower[lc];
+            break;
+          }
+        }
+      }
+
+      // Try contains
+      if (!prodKey) {
+        for (const lc in prodLower) {
+          if (lc.indexOf(ownerLc) >= 0 || ownerLc.indexOf(lc) >= 0) {
+            prodKey = prodLower[lc];
+            break;
+          }
+        }
+      }
+
+      if (!prodKey) continue;
+
+      const prod = prodOwners[prodKey];
+      if (prod.summary) {
+        owner.sales.summary = prod.summary;
+      }
+      if (prod.reps && prod.reps.length) {
+        owner.sales.reps = prod.reps;
+      }
+      matched++;
+    }
+    console.log('[NationalApp] Production enrichment: matched', matched, 'of', this.state.owners.length, 'owners');
   },
 
   // ── Import NLR headcount data into local sheet (one-time sync) ──
@@ -645,7 +719,7 @@ const NationalApp = {
           rows: this._buildRows(0, actualsFull)
         },
         sales: {
-          summary: { totalSales: 0, newInternet: 0, upgrades: 0, videoSales: 0, abpMix: '—', gigMix: '—' },
+          summary: null,
           reps: []
         },
         audit: {
@@ -957,7 +1031,7 @@ const NationalApp = {
         },
         // Sales
         sales: {
-          summary: d.s || { totalSales: 0, newInternet: 0, upgrades: 0, videoSales: 0, abpMix: '—', gigMix: '—' },
+          summary: d.s || null,
           reps: []
         },
         // Audit
@@ -1055,6 +1129,18 @@ const NationalApp = {
             }
           } catch (err) {
             console.warn('[NationalApp] Post-import headcount re-fetch failed:', err.message);
+          }
+        }
+
+        // Re-enrich B2B owners with production/sales data
+        if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
+          try {
+            const prodData = await this._fetchB2BProduction();
+            if (prodData && prodData.owners && Object.keys(prodData.owners).length) {
+              this._enrichOwnersWithProduction(prodData.owners);
+            }
+          } catch (err) {
+            console.warn('[NationalApp] Post-import production re-fetch failed:', err.message);
           }
         }
 
@@ -1583,63 +1669,127 @@ const NationalApp = {
   // RENDER: Sales Tab
   // ══════════════════════════════════════════════════
 
+  _pct(v) {
+    if (v === null || v === undefined || v === '' || v === 0) return '—';
+    // Already a decimal like 0.42 → 42%
+    if (typeof v === 'number' && v > 0 && v <= 1) return Math.round(v * 100) + '%';
+    if (typeof v === 'number' && v > 1) return Math.round(v) + '%';
+    return String(v);
+  },
+
   renderSalesTab(owner) {
     const s = owner.sales;
+    const sm = s.summary;
 
-    const summary = document.getElementById('sales-summary');
-    summary.innerHTML = [
-      { label: 'Total Sales', value: s.summary.totalSales },
-      { label: 'New Internet', value: s.summary.newInternet },
-      { label: 'Upgrades', value: s.summary.upgrades },
-      { label: 'Video Sales', value: s.summary.videoSales },
-      { label: 'ABP Mix %', value: s.summary.abpMix },
-      { label: '1Gig+ Mix %', value: s.summary.gigMix }
-    ].map(k => `
-      <div class="health-kpi">
-        <div class="health-kpi-value">${k.value}</div>
-        <div class="health-kpi-label">${k.label}</div>
-      </div>
-    `).join('');
+    // ── Card 1: Owner Summary ──
+    const summaryEl = document.getElementById('sales-summary');
+    if (sm) {
+      summaryEl.innerHTML = `
+        <div class="coaching-section">
+          <div class="coaching-label">Owner Overview</div>
+          <div class="sales-kpi-grid">
+            ${[
+              { label: 'Total Volume', value: sm.totalVolume, cls: 'big' },
+              { label: 'Rep Count', value: sm.repCount },
+              { label: 'Sales / Rep', value: sm.salesPerRep },
+              { label: 'Order Count', value: sm.orderCount }
+            ].map(k => `
+              <div class="health-kpi${k.cls ? ' ' + k.cls : ''}">
+                <div class="health-kpi-value">${k.value}</div>
+                <div class="health-kpi-label">${k.label}</div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="sales-metrics-grid">
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Sales Breakdown</div>
+              <div class="sales-metric-row"><span>Internet</span><span class="num">${sm.internet}</span></div>
+              <div class="sales-metric-row"><span>VOIP</span><span class="num">${sm.voip}</span></div>
+              <div class="sales-metric-row"><span>Wireless</span><span class="num">${sm.wireless}</span></div>
+              <div class="sales-metric-row"><span>AIR/AWB</span><span class="num">${sm.airAwb}</span></div>
+            </div>
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Order Timing</div>
+              <div class="sales-metric-row"><span>Before 12 PM</span><span class="num">${sm.ordersBefore} <small>(${this._pct(sm.earlyPct)})</small></span></div>
+              <div class="sales-metric-row"><span>After 5 PM</span><span class="num">${sm.ordersAfter} <small>(${this._pct(sm.latePct)})</small></span></div>
+            </div>
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Performance %</div>
+              <div class="sales-metric-row"><span>Weekend Selling</span><span class="num">${this._pct(sm.weekendPct)}</span></div>
+              <div class="sales-metric-row"><span>Rep Tier Attainment</span><span class="num">${this._pct(sm.tierPct)}</span></div>
+              <div class="sales-metric-row"><span>ABP</span><span class="num">${this._pct(sm.abpPct)}</span></div>
+              <div class="sales-metric-row"><span>CRU</span><span class="num">${this._pct(sm.cruPct)}</span></div>
+              <div class="sales-metric-row"><span>New Wireless</span><span class="num">${this._pct(sm.newWrlsPct)}</span></div>
+              <div class="sales-metric-row"><span>BYOD</span><span class="num">${this._pct(sm.byodPct)}</span></div>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      summaryEl.innerHTML = `
+        <div class="coaching-section">
+          <div class="coaching-label">Owner Overview</div>
+          <div class="empty-state">
+            <div class="empty-state-text">No production data yet. Click "Import Recruiting" to pull sales data from NLR.</div>
+          </div>
+        </div>`;
+    }
 
+    // ── Card 2: Rep Breakdown Table ──
     const repsEl = document.getElementById('sales-reps-table');
     if (s.reps.length) {
       repsEl.innerHTML = `
-        <div class="section-label">Rep Sales Breakdown (Tableau)</div>
-        <div class="data-table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th class="num">New Internet</th>
-                <th class="num">Upgrade</th>
-                <th class="num">Video</th>
-                <th class="num">Sales (All)</th>
-                <th class="num">ABP Mix</th>
-                <th class="num">1Gig+ Mix</th>
-                <th class="num">Tech Install</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${s.reps.map(rep => `
+        <div class="coaching-section">
+          <div class="coaching-label">Rep Breakdown <span class="coaching-sublabel">${s.reps.length} reps</span></div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <td class="bold">${this._esc(rep.name)}</td>
-                  <td class="num">${rep.newInternet || 0}</td>
-                  <td class="num">${rep.upgrade || 0}</td>
-                  <td class="num">${rep.video || 0}</td>
-                  <td class="num">${rep.salesAll || 0}</td>
-                  <td class="num">${rep.abpMix || '—'}</td>
-                  <td class="num">${rep.gigMix || '—'}</td>
-                  <td class="num">${rep.techInstall || '—'}</td>
+                  <th>Rep Name</th>
+                  <th class="num">Volume</th>
+                  <th class="num">Orders</th>
+                  <th class="num">Sales/Rep</th>
+                  <th class="num">Internet</th>
+                  <th class="num">VOIP</th>
+                  <th class="num">Wireless</th>
+                  <th class="num">AIR/AWB</th>
+                  <th class="num">Early %</th>
+                  <th class="num">Late %</th>
+                  <th class="num">ABP %</th>
+                  <th class="num">CRU %</th>
+                  <th class="num">New Wrls %</th>
+                  <th class="num">BYOD %</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${s.reps.map(rep => `
+                  <tr>
+                    <td class="bold">${this._esc(rep.name)}</td>
+                    <td class="num">${rep.totalVolume}</td>
+                    <td class="num">${rep.orderCount}</td>
+                    <td class="num">${rep.salesPerRep}</td>
+                    <td class="num">${rep.internet}</td>
+                    <td class="num">${rep.voip}</td>
+                    <td class="num">${rep.wireless}</td>
+                    <td class="num">${rep.airAwb}</td>
+                    <td class="num">${this._pct(rep.earlyPct)}</td>
+                    <td class="num">${this._pct(rep.latePct)}</td>
+                    <td class="num">${this._pct(rep.abpPct)}</td>
+                    <td class="num">${this._pct(rep.cruPct)}</td>
+                    <td class="num">${this._pct(rep.newWrlsPct)}</td>
+                    <td class="num">${this._pct(rep.byodPct)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>`;
     } else {
       repsEl.innerHTML = `
-        <div class="section-label">Rep Sales Breakdown</div>
-        <div class="empty-state">
-          <div class="empty-state-text">Sales data will populate from Campaign Tracker Section 3 (Tableau).</div>
+        <div class="coaching-section">
+          <div class="coaching-label">Rep Breakdown</div>
+          <div class="empty-state">
+            <div class="empty-state-text">No rep data yet. Click "Import Recruiting" to pull sales data from NLR.</div>
+          </div>
         </div>`;
     }
   },

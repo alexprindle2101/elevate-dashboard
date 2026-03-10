@@ -69,9 +69,9 @@ function doGet(e) {
       return jsonResp(readLocalHeadcount());
     }
 
-    // ── Debug: dump raw NLR owner tab data (columns A-AC) ──
-    if (action === 'debugNLR') {
-      return jsonResp(debugNLRProductionSection());
+    // ── B2B production/sales data (local copy in _B2B_Production tab) ──
+    if (action === 'b2bProduction') {
+      return jsonResp(readLocalProduction());
     }
 
     if (owner) {
@@ -228,6 +228,14 @@ function importLatestRecruiting(weekCount) {
     Logger.log('NLR applies import: ' + JSON.stringify(appliesResult));
   } catch (err) {
     Logger.log('NLR applies import failed (non-fatal): ' + err.message);
+  }
+
+  // 6b. Import production data from NLR B2B sheet
+  try {
+    var prodResult = importNLRProduction();
+    Logger.log('NLR production import: ' + JSON.stringify(prodResult));
+  } catch (err) {
+    Logger.log('NLR production import failed (non-fatal): ' + err.message);
   }
 
   // 7. Return success + fresh data
@@ -1661,6 +1669,289 @@ function readLocalApplies() {
 }
 
 // ══════════════════════════════════════════════════
+// READ NLR PRODUCTION from NLR B2B owner tabs
+// Each tab has a "Production" merged cell in column J (index 9).
+// Below that: headers row with "Owner Name","Rep","Total Volume", etc.
+// Then owner total row + per-rep rows.
+// ══════════════════════════════════════════════════
+
+function readNLRProduction() {
+  if (!SHEETS.NLR_B2B) return { owners: {} };
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NLR_B2B);
+  } catch (err) {
+    return { error: 'Cannot open NLR B2B sheet: ' + err.message, owners: {} };
+  }
+
+  var SKIP_TABS = {
+    'input - sales qual metrics': true,
+    'input - comm per rep and total dd': true,
+    'input - market metrics': true,
+    'sheet2': true
+  };
+
+  var allSheets = ss.getSheets();
+  var owners = {};
+
+  for (var t = 0; t < allSheets.length; t++) {
+    var sheet = allSheets[t];
+    var tabName = sheet.getName().trim();
+    if (SKIP_TABS[tabName.toLowerCase()]) continue;
+
+    var lastRow = sheet.getLastRow();
+    var lastCol = Math.min(sheet.getLastColumn(), 29); // Cap at AC
+    if (lastRow < 10 || lastCol < 15) continue;
+
+    var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+
+    // Find "Production" in column J (index 9)
+    var productionRow = -1;
+    for (var i = 0; i < data.length; i++) {
+      var cellJ = String(data[i][9] || '').trim().toLowerCase();
+      if (cellJ === 'production') {
+        productionRow = i;
+        break;
+      }
+    }
+    if (productionRow < 0) continue;
+
+    // Find the main headers row: look for "Owner Name" in col J below the Production marker
+    var headersRow = -1;
+    for (var i = productionRow + 1; i < Math.min(data.length, productionRow + 15); i++) {
+      var cellJ = String(data[i][9] || '').trim().toLowerCase();
+      if (cellJ === 'owner name') {
+        headersRow = i;
+        break;
+      }
+    }
+    if (headersRow < 0) continue;
+
+    // Build column map from headers (col J onward = index 9+)
+    var headers = [];
+    for (var c = 9; c < data[headersRow].length; c++) {
+      headers.push(String(data[headersRow][c] || '').trim().toLowerCase());
+    }
+
+    var colIdx = function(patterns) {
+      for (var p = 0; p < patterns.length; p++) {
+        for (var i = 0; i < headers.length; i++) {
+          if (headers[i].indexOf(patterns[p]) >= 0) return i;
+        }
+      }
+      return -1;
+    };
+
+    var cols = {
+      ownerName:    colIdx(['owner name']),
+      rep:          colIdx(['rep']),
+      totalVolume:  colIdx(['total volume']),
+      repCount:     colIdx(['rep count']),
+      salesPerRep:  colIdx(['sales per rep']),
+      orderCount:   colIdx(['order count']),
+      ordersBefore: colIdx(['orders before']),
+      earlyPct:     colIdx(['early order']),
+      ordersAfter:  colIdx(['orders after']),
+      latePct:      colIdx(['late order']),
+      internet:     colIdx(['internet']),
+      voip:         colIdx(['voip']),
+      wireless:     colIdx(['wrls']),
+      airAwb:       colIdx(['air/awb', 'air']),
+      weekendPct:   colIdx(['weekend']),
+      tierPct:      colIdx(['tier']),
+      abpPct:       colIdx(['abp']),
+      cruPct:       colIdx(['cru']),
+      newWrlsPct:   colIdx(['new wireless']),
+      byodPct:      colIdx(['byod'])
+    };
+
+    // Read data rows below headers (owner total + reps)
+    var ownerTotal = null;
+    var reps = [];
+
+    for (var i = headersRow + 1; i < data.length; i++) {
+      var row = data[i];
+      var nameVal = cols.ownerName >= 0 ? String(row[9 + cols.ownerName] || '').trim() : '';
+      if (!nameVal) break; // Empty name = end of section
+
+      var repVal = cols.rep >= 0 ? String(row[9 + cols.rep] || '').trim() : '';
+      var entry = {
+        name: nameVal,
+        rep: repVal,
+        totalVolume:  cols.totalVolume >= 0 ? num(row[9 + cols.totalVolume]) : 0,
+        repCount:     cols.repCount >= 0 ? num(row[9 + cols.repCount]) : 0,
+        salesPerRep:  cols.salesPerRep >= 0 ? numDec(row[9 + cols.salesPerRep]) : 0,
+        orderCount:   cols.orderCount >= 0 ? num(row[9 + cols.orderCount]) : 0,
+        ordersBefore: cols.ordersBefore >= 0 ? num(row[9 + cols.ordersBefore]) : 0,
+        earlyPct:     cols.earlyPct >= 0 ? numDec(row[9 + cols.earlyPct]) : 0,
+        ordersAfter:  cols.ordersAfter >= 0 ? num(row[9 + cols.ordersAfter]) : 0,
+        latePct:      cols.latePct >= 0 ? numDec(row[9 + cols.latePct]) : 0,
+        internet:     cols.internet >= 0 ? num(row[9 + cols.internet]) : 0,
+        voip:         cols.voip >= 0 ? num(row[9 + cols.voip]) : 0,
+        wireless:     cols.wireless >= 0 ? num(row[9 + cols.wireless]) : 0,
+        airAwb:       cols.airAwb >= 0 ? num(row[9 + cols.airAwb]) : 0,
+        weekendPct:   cols.weekendPct >= 0 ? numDec(row[9 + cols.weekendPct]) : 0,
+        tierPct:      cols.tierPct >= 0 ? numDec(row[9 + cols.tierPct]) : 0,
+        abpPct:       cols.abpPct >= 0 ? numDec(row[9 + cols.abpPct]) : 0,
+        cruPct:       cols.cruPct >= 0 ? numDec(row[9 + cols.cruPct]) : 0,
+        newWrlsPct:   cols.newWrlsPct >= 0 ? numDec(row[9 + cols.newWrlsPct]) : 0,
+        byodPct:      cols.byodPct >= 0 ? numDec(row[9 + cols.byodPct]) : 0
+      };
+
+      // First row is the owner total (rep column = "Total")
+      if (repVal.toLowerCase() === 'total' || !ownerTotal) {
+        ownerTotal = entry;
+      } else {
+        reps.push(entry);
+      }
+    }
+
+    if (ownerTotal) {
+      owners[tabName] = {
+        summary: ownerTotal,
+        reps: reps
+      };
+    }
+  }
+
+  return { owners: owners };
+}
+
+// ── Helper: num with decimal preservation ──
+function numDec(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  var n = Number(v);
+  return isNaN(n) ? 0 : Math.round(n * 100) / 100;
+}
+
+// ══════════════════════════════════════════════════
+// IMPORT NLR PRODUCTION → LOCAL _B2B_Production TAB
+// ══════════════════════════════════════════════════
+
+function importNLRProduction() {
+  var nlrResult = readNLRProduction();
+  if (nlrResult.error) return nlrResult;
+  var nlrOwners = nlrResult.owners || {};
+  if (!Object.keys(nlrOwners).length) return { error: 'No production data found in NLR sheet' };
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    return { error: 'Cannot open national sheet: ' + err.message };
+  }
+
+  var TAB_NAME = '_B2B_Production';
+  var HEADERS = ['Owner', 'Type', 'Name', 'Rep', 'TotalVolume', 'RepCount', 'SalesPerRep',
+    'OrderCount', 'OrdersBefore', 'EarlyPct', 'OrdersAfter', 'LatePct',
+    'Internet', 'VOIP', 'Wireless', 'AirAwb', 'WeekendPct', 'TierPct',
+    'AbpPct', 'CruPct', 'NewWrlsPct', 'ByodPct'];
+
+  var sheet = ss.getSheetByName(TAB_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(TAB_NAME);
+    sheet.appendRow(HEADERS);
+  } else {
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.getRange(2, 1, lastRow - 1, HEADERS.length).clearContent();
+    }
+  }
+
+  var rows = [];
+  var ownerNames = Object.keys(nlrOwners).sort();
+  for (var o = 0; o < ownerNames.length; o++) {
+    var oName = ownerNames[o];
+    var d = nlrOwners[oName];
+
+    // Write summary row
+    var s = d.summary;
+    rows.push([oName, 'summary', s.name, s.rep, s.totalVolume, s.repCount, s.salesPerRep,
+      s.orderCount, s.ordersBefore, s.earlyPct, s.ordersAfter, s.latePct,
+      s.internet, s.voip, s.wireless, s.airAwb, s.weekendPct, s.tierPct,
+      s.abpPct, s.cruPct, s.newWrlsPct, s.byodPct]);
+
+    // Write rep rows
+    for (var r = 0; r < d.reps.length; r++) {
+      var rep = d.reps[r];
+      rows.push([oName, 'rep', rep.name, rep.rep, rep.totalVolume, rep.repCount, rep.salesPerRep,
+        rep.orderCount, rep.ordersBefore, rep.earlyPct, rep.ordersAfter, rep.latePct,
+        rep.internet, rep.voip, rep.wireless, rep.airAwb, rep.weekendPct, rep.tierPct,
+        rep.abpPct, rep.cruPct, rep.newWrlsPct, rep.byodPct]);
+    }
+  }
+
+  if (rows.length) {
+    sheet.getRange(2, 1, rows.length, HEADERS.length).setValues(rows);
+  }
+
+  return { success: true, ownersImported: ownerNames.length, rowsWritten: rows.length };
+}
+
+// ══════════════════════════════════════════════════
+// READ LOCAL PRODUCTION from _B2B_Production tab
+// Returns { owners: { "Name": { summary: {...}, reps: [{...}] } } }
+// ══════════════════════════════════════════════════
+
+function readLocalProduction() {
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    return { owners: {} };
+  }
+
+  var sheet = ss.getSheetByName('_B2B_Production');
+  if (!sheet) return { owners: {} };
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { owners: {} };
+
+  var owners = {};
+  for (var i = 1; i < data.length; i++) {
+    var oName = String(data[i][0] || '').trim();
+    if (!oName) continue;
+    var type = String(data[i][1] || '').trim();
+
+    var entry = {
+      name:         String(data[i][2] || ''),
+      rep:          String(data[i][3] || ''),
+      totalVolume:  num(data[i][4]),
+      repCount:     num(data[i][5]),
+      salesPerRep:  numDec(data[i][6]),
+      orderCount:   num(data[i][7]),
+      ordersBefore: num(data[i][8]),
+      earlyPct:     numDec(data[i][9]),
+      ordersAfter:  num(data[i][10]),
+      latePct:      numDec(data[i][11]),
+      internet:     num(data[i][12]),
+      voip:         num(data[i][13]),
+      wireless:     num(data[i][14]),
+      airAwb:       num(data[i][15]),
+      weekendPct:   numDec(data[i][16]),
+      tierPct:      numDec(data[i][17]),
+      abpPct:       numDec(data[i][18]),
+      cruPct:       numDec(data[i][19]),
+      newWrlsPct:   numDec(data[i][20]),
+      byodPct:      numDec(data[i][21])
+    };
+
+    if (!owners[oName]) {
+      owners[oName] = { summary: null, reps: [] };
+    }
+
+    if (type === 'summary') {
+      owners[oName].summary = entry;
+    } else {
+      owners[oName].reps.push(entry);
+    }
+  }
+
+  return { owners: owners };
+}
+
+// ══════════════════════════════════════════════════
 // READ LOCAL HEADCOUNT from _B2B_Headcount tab
 // Returns same shape as readNLRHeadcount():
 // { owners: { "Name": { current: {...}, trend: [{...}] } } }
@@ -2026,81 +2317,3 @@ function ratingToGrade(rating) {
   return 'F';
 }
 
-// ══════════════════════════════════════════════════
-// DEBUG: Dump NLR production section (cols J-AC) from first owner tab
-// Temporary — remove after analysis
-// ══════════════════════════════════════════════════
-function debugNLRProductionSection() {
-  var ss = SpreadsheetApp.openById(SHEETS.NLR_B2B);
-  var SKIP_TABS = {
-    'input - sales qual metrics': true,
-    'input - comm per rep and total dd': true,
-    'input - market metrics': true,
-    'sheet2': true
-  };
-
-  var allSheets = ss.getSheets();
-  var result = {};
-
-  for (var t = 0; t < allSheets.length; t++) {
-    var sheet = allSheets[t];
-    var tabName = sheet.getName().trim();
-    if (SKIP_TABS[tabName.toLowerCase()]) continue;
-
-    var lastRow = sheet.getLastRow();
-    var lastCol = Math.min(sheet.getLastColumn(), 29); // Cap at AC (col 29)
-    if (lastRow < 5 || lastCol < 10) continue;
-
-    // Read full data range (all rows, cols A-AC)
-    var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-
-    // Find "Production" in column J (index 9)
-    var productionRow = -1;
-    for (var i = 0; i < data.length; i++) {
-      var cellJ = String(data[i][9] || '').trim().toLowerCase();
-      if (cellJ === 'production') {
-        productionRow = i;
-        break;
-      }
-    }
-
-    // Also scan all of column J to see what's there
-    var colJValues = [];
-    for (var i = 0; i < data.length; i++) {
-      var val = data[i][9];
-      if (val !== '' && val !== null && val !== undefined) {
-        colJValues.push({ row: i, value: String(val) });
-      }
-    }
-
-    // If found production, grab rows from there to end (cols J-AC)
-    var productionSection = null;
-    if (productionRow >= 0) {
-      productionSection = [];
-      for (var i = productionRow; i < Math.min(data.length, productionRow + 30); i++) {
-        var row = [];
-        for (var c = 9; c < data[i].length; c++) { // col J = index 9
-          var val = data[i][c];
-          if (val instanceof Date) {
-            val = formatDate(val);
-          }
-          row.push(val);
-        }
-        productionSection.push(row);
-      }
-    }
-
-    result[tabName] = {
-      totalRows: lastRow,
-      totalCols: lastCol,
-      productionRowIdx: productionRow,
-      colJValues: colJValues,
-      productionSection: productionSection
-    };
-
-    // Only dump first owner tab for brevity
-    break;
-  }
-
-  return result;
-}

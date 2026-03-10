@@ -1760,3 +1760,111 @@ function buildLeaderboardHtml(lb) {
   html += '</body></html>';
   return html;
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// LEADERBOARD CHAT POST — Emoji-text format for Discord/GroupMe
+// ═══════════════════════════════════════════════════════════════
+// Set up:
+//   1. Add Script Properties: CHAT_WEBHOOK_URL, CHAT_PLATFORM (discord|groupme)
+//   2. Create a time-based trigger for postLeaderboardToChat()
+//
+// CHAT_WEBHOOK_URL = full Discord webhook URL, or GroupMe bot_id
+// CHAT_PLATFORM    = 'discord' or 'groupme'
+
+function postLeaderboardToChat() {
+  var props = PropertiesService.getScriptProperties();
+  var webhookUrl = (props.getProperty('CHAT_WEBHOOK_URL') || '').trim();
+  var platform   = (props.getProperty('CHAT_PLATFORM') || 'discord').trim().toLowerCase();
+  if (!webhookUrl || platform === 'none') {
+    Logger.log('[LeaderboardPost] No webhook configured — skipping');
+    return;
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var officeId = DEFAULT_OFFICE_ID;
+  var officeName = props.getProperty('OFFICE_NAME') || 'OFFICE';
+
+  // --- Read leaderboard data ---
+  var lb = readLeaderboard(ss, officeId);
+  var allPeople = (lb.reps || []).concat(lb.leaders || []);
+  allPeople.sort(function(a, b) { return (b.tw.units || 0) - (a.tw.units || 0); });
+
+  // --- Build individual rankings ---
+  var medals = ['🥇', '🥈', '🥉'];
+  var lines = [];
+  lines.push('🔥 ' + officeName.toUpperCase() + ' WEEKLY 🔥');
+  lines.push('━━━━━━━━━━━━━━━━━━━');
+  lines.push('');
+
+  var officeTotal = 0;
+  var shown = 0;
+  for (var i = 0; i < allPeople.length; i++) {
+    var p = allPeople[i];
+    var units = p.tw.units || 0;
+    officeTotal += units;
+    if (units <= 0) continue;
+    var medal = shown < 3 ? medals[shown] : '🏅';
+    lines.push(medal + ' ' + p.name + ' — ' + units);
+    shown++;
+  }
+
+  if (shown === 0) {
+    lines.push('No sales this week yet.');
+  }
+
+  // --- Build team rankings ---
+  var teamTotals = {};
+  for (var j = 0; j < allPeople.length; j++) {
+    var person = allPeople[j];
+    var team = person.team || 'Unassigned';
+    if (team === 'Unassigned' || !team) continue;
+    if (!teamTotals[team]) teamTotals[team] = 0;
+    teamTotals[team] += (person.tw.units || 0);
+  }
+
+  var teamArr = [];
+  for (var tName in teamTotals) {
+    if (teamTotals[tName] > 0) {
+      teamArr.push({ name: tName, units: teamTotals[tName] });
+    }
+  }
+  teamArr.sort(function(a, b) { return b.units - a.units; });
+
+  if (teamArr.length > 0) {
+    lines.push('');
+    lines.push('━━━━━━━━━━━━━━━━━━━');
+    lines.push('⚔️ TEAM RANKINGS ⚔️');
+    lines.push('━━━━━━━━━━━━━━━━━━━');
+    lines.push('');
+    for (var t = 0; t < teamArr.length; t++) {
+      var tMedal = t < 3 ? medals[t] : '🏅';
+      lines.push(tMedal + ' ' + teamArr[t].name + ' — ' + teamArr[t].units);
+    }
+  }
+
+  lines.push('');
+  lines.push('📊 Office Total: ' + officeTotal + ' units');
+
+  var message = lines.join('\n');
+
+  // --- Post to webhook ---
+  var url, payload;
+  if (platform === 'groupme') {
+    url = 'https://api.groupme.com/v3/bots/post';
+    payload = JSON.stringify({ bot_id: webhookUrl, text: message });
+  } else {
+    url = webhookUrl;
+    payload = JSON.stringify({ content: message });
+  }
+
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: payload,
+    muteHttpExceptions: true
+  };
+
+  var resp = UrlFetchApp.fetch(url, options);
+  Logger.log('[LeaderboardPost] ' + platform + ' response: ' + resp.getResponseCode());
+}

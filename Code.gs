@@ -2710,3 +2710,148 @@ function migrateLunaData() {
     totalRows: targetSheet.getLastRow() - 1
   };
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// LEADERBOARD CHAT POST — Emoji-text format for Discord/GroupMe
+// ═══════════════════════════════════════════════════════════════
+// Set up:
+//   1. Add Script Properties: CHAT_WEBHOOK_URL, CHAT_PLATFORM (discord|groupme)
+//   2. Create a time-based trigger for postLeaderboardToChat()
+//
+// CHAT_WEBHOOK_URL = full Discord webhook URL, or GroupMe bot_id
+// CHAT_PLATFORM    = 'discord' or 'groupme'
+
+function postLeaderboardToChat(optOfficeId) {
+  var props = PropertiesService.getScriptProperties();
+  var webhookUrl = (props.getProperty('CHAT_WEBHOOK_URL') || '').trim();
+  var platform   = (props.getProperty('CHAT_PLATFORM') || 'discord').trim().toLowerCase();
+  if (!webhookUrl || platform === 'none') {
+    Logger.log('[LeaderboardPost] No webhook configured — skipping');
+    return;
+  }
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var officeId = optOfficeId || DEFAULT_OFFICE_ID;
+  var officeName = props.getProperty('OFFICE_NAME') || 'OFFICE';
+
+  // --- Read leaderboard data (Code.gs returns { topIndividuals, topTeams, weekUnits }) ---
+  // We need ALL individuals, not just top 3, so call readLeaderboard with full data
+  var roster = readRoster(ss, officeId);
+  var teams = readTeams(ss, officeId);
+
+  var olSheet = ss.getSheetByName(officeTab(TAB.SALES, officeId));
+  if (!olSheet) { Logger.log('[LeaderboardPost] No Sales sheet'); return; }
+  var olData = olSheet.getDataRange().getValues();
+  var thisWeekStart = getWeekStart();
+
+  var personAgg = {};
+  Object.keys(roster).forEach(function(email) {
+    if (roster[email].deactivated) return;
+    personAgg[email] = { units: 0, yeses: 0 };
+  });
+
+  for (var i = 1; i < olData.length; i++) {
+    var row = olData[i];
+    var email = String(row[OL.EMAIL] || '').trim().toLowerCase();
+    if (!email || !personAgg[email]) continue;
+    var rawDate = row[OL.DATE_OF_SALE];
+    if (!rawDate) continue;
+    var saleDate = new Date(rawDate);
+    if (isNaN(saleDate.getTime())) continue;
+    saleDate.setHours(0, 0, 0, 0);
+    if (saleDate >= thisWeekStart) {
+      personAgg[email].units += Number(row[OL.UNITS]) || 0;
+      personAgg[email].yeses += Number(row[OL.YESES]) || 0;
+    }
+  }
+
+  var NON_SALES = { superadmin: true, admin: true };
+  var individuals = [];
+  Object.keys(personAgg).forEach(function(em) {
+    var info = roster[em];
+    var rank = (info.rank || 'rep').toLowerCase();
+    if (NON_SALES[rank]) return;
+    var agg = personAgg[em];
+    if (rank === 'owner' && agg.units === 0) return;
+    individuals.push({ name: info.name, team: info.team, units: agg.units });
+  });
+  individuals.sort(function(a, b) { return b.units - a.units; });
+
+  // --- Build individual rankings ---
+  var medals = ['🥇', '🥈', '🥉'];
+  var lines = [];
+  lines.push('🔥 ' + officeName.toUpperCase() + ' WEEKLY 🔥');
+  lines.push('━━━━━━━━━━━━━━━━━━━');
+  lines.push('');
+
+  var officeTotal = 0;
+  var shown = 0;
+  for (var p = 0; p < individuals.length; p++) {
+    var person = individuals[p];
+    officeTotal += person.units;
+    if (person.units <= 0) continue;
+    var medal = shown < 3 ? medals[shown] : '🏅';
+    lines.push(medal + ' ' + person.name + ' — ' + person.units);
+    shown++;
+  }
+
+  if (shown === 0) {
+    lines.push('No sales this week yet.');
+  }
+
+  // --- Build team rankings ---
+  var teamTotals = {};
+  for (var j = 0; j < individuals.length; j++) {
+    var ind = individuals[j];
+    var teamName = ind.team || 'Unassigned';
+    if (teamName === 'Unassigned' || !teamName) continue;
+    if (!teamTotals[teamName]) teamTotals[teamName] = 0;
+    teamTotals[teamName] += ind.units;
+  }
+
+  var teamArr = [];
+  for (var tName in teamTotals) {
+    if (teamTotals[tName] > 0) {
+      teamArr.push({ name: tName, units: teamTotals[tName] });
+    }
+  }
+  teamArr.sort(function(a, b) { return b.units - a.units; });
+
+  if (teamArr.length > 0) {
+    lines.push('');
+    lines.push('━━━━━━━━━━━━━━━━━━━');
+    lines.push('⚔️ TEAM RANKINGS ⚔️');
+    lines.push('━━━━━━━━━━━━━━━━━━━');
+    lines.push('');
+    for (var t = 0; t < teamArr.length; t++) {
+      var tMedal = t < 3 ? medals[t] : '🏅';
+      lines.push(tMedal + ' ' + teamArr[t].name + ' — ' + teamArr[t].units);
+    }
+  }
+
+  lines.push('');
+  lines.push('📊 Office Total: ' + officeTotal + ' units');
+
+  var message = lines.join('\n');
+
+  // --- Post to webhook ---
+  var url, payload;
+  if (platform === 'groupme') {
+    url = 'https://api.groupme.com/v3/bots/post';
+    payload = JSON.stringify({ bot_id: webhookUrl, text: message });
+  } else {
+    url = webhookUrl;
+    payload = JSON.stringify({ content: message });
+  }
+
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: payload,
+    muteHttpExceptions: true
+  };
+
+  var resp = UrlFetchApp.fetch(url, options);
+  Logger.log('[LeaderboardPost] ' + platform + ' response: ' + resp.getResponseCode());
+}

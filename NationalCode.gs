@@ -745,7 +745,10 @@ function _mergeAppliesIntoCampaigns(campaigns, appliesOwners) {
       var week = camp.weeks[w];
       var tabDate = _parseTabDate(week.tabName);
       if (!tabDate) continue;
-      var normalizedTabDate = _normalizeDate(tabDate);
+
+      // NLR dates are 1 week behind recruiting dates, so shift back 7 days to match
+      var shiftedDate = new Date(tabDate.getTime() - 7 * 86400000);
+      var normalizedShifted = _normalizeDate(shiftedDate);
 
       var ownerNames = Object.keys(week.data);
       for (var o = 0; o < ownerNames.length; o++) {
@@ -753,19 +756,19 @@ function _mergeAppliesIntoCampaigns(campaigns, appliesOwners) {
         var ownerApplies = appliesOwners[ownerName];
         if (!ownerApplies) continue;
 
-        // Try exact date match first
-        var match = ownerApplies[normalizedTabDate];
+        // Try exact match with shifted date (recruiting date - 7 days = NLR date)
+        var match = ownerApplies[normalizedShifted];
 
-        // If no exact match, try ±2 days (week boundaries may differ slightly)
+        // If no exact match, try ±2 days around the shifted date
         if (!match) {
-          var tabMs = tabDate.getTime();
+          var shiftedMs = shiftedDate.getTime();
           var bestKey = null;
           var bestDiff = Infinity;
           var aKeys = Object.keys(ownerApplies);
           for (var ai = 0; ai < aKeys.length; ai++) {
             var aDate = _parseTabDate(aKeys[ai]);
             if (!aDate) continue;
-            var diff = Math.abs(aDate.getTime() - tabMs);
+            var diff = Math.abs(aDate.getTime() - shiftedMs);
             if (diff < bestDiff && diff <= 2 * 86400000) { // ±2 days
               bestDiff = diff;
               bestKey = aKeys[ai];

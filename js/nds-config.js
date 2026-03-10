@@ -11,8 +11,8 @@ const OFFICE_CONFIG = {
   // ── Apps Script Middleware ──
   // All reads and writes go through Apps Script to keep the sheet private.
   // For shared campaign sheets, all AT&T B2B offices use the same Code.gs URL.
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwPx0jfdYdLKurHPlfQhOkYu70vVpirTISYrR3I2EIszVrVaRNwwjBvauSIO69thKFe/exec",
-  apiKey: "elevate-dash-2026-secret",
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbyyG05ebEPT-MyrFHLvGtQwokFh5_HOP5B1OZh1Mc6FK_1_Rt800DHMw1o0MrCoEJM2hg/exec",
+  apiKey: "nds-secret-key-2026",
 
   // ── Sheet reference ──
   // Passed to Code.gs so it opens the correct campaign sheet (shard support).

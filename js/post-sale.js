@@ -664,17 +664,21 @@ const PostSale = {
 
   _fireDiscordWebhook(payload) {
     try {
-      // Build message matching #production format
+      const platform = OFFICE_CONFIG.chatPlatform || 'discord';
+      const webhookId = OFFICE_CONFIG.discordWebhookUrl;
+      if (!webhookId || platform === 'none') {
+        console.warn('[PostSale] No chat webhook configured for this office (platform:', platform, ')');
+        return;
+      }
+
+      // Build message — use markdown bold for Discord, plain for GroupMe
+      const bold = platform === 'discord' ? '**' : '';
       let msg = '';
       let units = 0;
       if (this._campaign === 'attb2b') {
-        // Line 1: **Rep** made a sale with AT&T: B2B!
-        msg += '**' + payload.repName + '** made a sale with AT&T: B2B!\n';
-        // Line 2: Account type
+        msg += bold + payload.repName + bold + ' made a sale with AT&T: B2B!\n';
         msg += (payload.accountType || 'Business') + ' Account\n';
-        // Line 3: DSI
         msg += payload.dsi + '\n';
-        // Product bullet lines
         if (payload.air) { msg += '• Internet Air\n'; units++; }
         if (payload.newPhones || payload.byods) {
           msg += '• ' + (payload.newPhones || 0) + ' New Phone(s)|' + (payload.byods || 0) + ' BYOD(s)\n';
@@ -684,40 +688,37 @@ const PostSale = {
         if (payload.voipQty) { msg += '• ' + payload.voipQty + ' VoIP(s)\n'; units += payload.voipQty; }
         if (payload.dtv) msg += '• DIRECTV ' + (payload.dtvPackage || '') + '\n';
       } else {
-        // Ooma format
-        msg += '**' + payload.repName + '** made a sale with Ooma!\n';
+        msg += bold + payload.repName + bold + ' made a sale with Ooma!\n';
         msg += payload.clientName + '\n';
         msg += '• ' + (payload.oomaPackage || 'Ooma Pro') + '\n';
         units = 1;
       }
 
-      // Hashtags (optional, from form)
       const tags = this._formData.hashtags?.trim();
       if (tags) msg += tags + '\n';
 
-      // Team emoji × units
       const emoji = this._getTeamEmoji();
       if (emoji && units > 0) msg += emoji.repeat(Math.min(units, 20));
 
       const finalMsg = msg.trim();
 
-      // Per-office Discord webhook URL (from _Offices tab) — no fallback
-      const webhookUrl = OFFICE_CONFIG.discordWebhookUrl;
-      if (!webhookUrl) {
-        console.warn('[PostSale] No Discord webhook configured for this office');
-        return;
+      // Route to correct platform API
+      let url, opts;
+      if (platform === 'groupme') {
+        url = 'https://api.groupme.com/v3/bots/post';
+        opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bot_id: webhookId, text: finalMsg }) };
+      } else {
+        url = webhookId;
+        opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: finalMsg }) };
       }
 
-      const webhookBody = JSON.stringify({ content: finalMsg });
-
-      const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: webhookBody };
-      fetch(webhookUrl, opts)
-        .then(r => { if (!r.ok) console.warn('[PostSale] Discord webhook HTTP', r.status); })
+      console.log('[PostSale] Firing', platform, 'webhook');
+      fetch(url, opts)
+        .then(r => { if (!r.ok) console.warn('[PostSale]', platform, 'webhook HTTP', r.status); })
         .catch(err => {
-          console.warn('[PostSale] Discord webhook failed, retrying…', err.message);
-          // Retry once after 2s
+          console.warn('[PostSale]', platform, 'webhook failed, retrying…', err.message);
           setTimeout(() => {
-            fetch(webhookUrl, opts)
+            fetch(url, opts)
               .then(r => { if (!r.ok) console.warn('[PostSale] Retry HTTP', r.status); })
               .catch(e2 => console.warn('[PostSale] Retry failed:', e2.message));
           }, 2000);

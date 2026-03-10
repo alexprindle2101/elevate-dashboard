@@ -55,7 +55,7 @@ const AdminRender = {
           <div class="office-card-url" onclick="event.stopPropagation()">
             <span class="label">Rep Login URL</span>
             <div class="url-copy-row">
-              <input type="text" readonly class="url-input" value="${this._buildRepUrl(office.officeId)}" onclick="this.select()">
+              <input type="text" readonly class="url-input" value="${this._buildRepUrl(office.officeId, office.templateType)}" onclick="this.select()">
               <button class="btn btn-secondary btn-sm copy-url-btn" onclick="AdminRender._copyUrl(this)" title="Copy URL">📋</button>
             </div>
           </div>
@@ -629,10 +629,13 @@ const AdminRender = {
     return this._esc(str.slice(0, len)) + '&hellip;';
   },
 
-  _buildRepUrl(officeId) {
+  _buildRepUrl(officeId, templateType) {
     const base = 'https://aptel-ai.github.io/dashboard/';
-    if (!officeId || officeId === 'off_001') return base;
-    return base + '?office=' + encodeURIComponent(officeId);
+    const template = ADMIN_CONFIG.templates[templateType] || ADMIN_CONFIG.templates['att-b2b'];
+    const file = template.file || 'index.html';
+    const page = file === 'index.html' ? '' : file;
+    if (!officeId || officeId === 'off_001') return base + page;
+    return base + page + '?office=' + encodeURIComponent(officeId);
   },
 
   _copyUrl(btn) {

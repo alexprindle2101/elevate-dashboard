@@ -393,6 +393,15 @@ const NationalApp = {
       owner.headcount.leaders = nlr.current.leaders || 0;
       owner.headcount.training = nlr.current.training || 0;
 
+      // Tie leader headcount to recruiting tab leader count
+      if (owner.headcount.leaders && owner.recruiting) {
+        owner.recruiting.leaders = owner.headcount.leaders;
+        if (owner.recruiting.rows.length) {
+          const actuals = owner.recruiting.rows.map(r => r.values);
+          owner.recruiting.rows = this._buildRows(owner.headcount.leaders, actuals);
+        }
+      }
+
       // Set current production from latest row
       owner.production.totalActual = nlr.current.productionLW || 0;
       owner.production.totalGoal = nlr.current.productionGoals || 0;
@@ -1172,31 +1181,29 @@ const NationalApp = {
     const goals = owner.nextGoals;
     const ownerIdx = this.state.owners.indexOf(owner);
 
-    // ── Section 1: Headcount Check (pre-populated from NLR if available) ──
+    // ── Section 1: Headcount Check (inputs start blank for weekly entry) ──
     const headcountEl = document.getElementById('health-headcount');
-    const hcHasData = hc.active || hc.leaders || hc.training;
-    const distVal = hcHasData ? (hc.active - hc.leaders) : null;
     headcountEl.innerHTML = `
       <div class="coaching-label">Headcount</div>
       <div class="hc-grid">
         <div class="hc-field">
           <label class="hc-field-label">Active Reps</label>
-          <input type="number" class="hc-input" id="hc-active-${ownerIdx}" value="${hc.active || ''}" min="0" placeholder="—"
+          <input type="number" class="hc-input" id="hc-active-${ownerIdx}" value="" min="0" placeholder="—"
             onchange="NationalApp._updateHeadcount(${ownerIdx}, 'active', this.value)">
         </div>
         <div class="hc-field">
           <label class="hc-field-label">Leaders</label>
-          <input type="number" class="hc-input" id="hc-leaders-${ownerIdx}" value="${hc.leaders || ''}" min="0" placeholder="—"
+          <input type="number" class="hc-input" id="hc-leaders-${ownerIdx}" value="" min="0" placeholder="—"
             onchange="NationalApp._updateHeadcount(${ownerIdx}, 'leaders', this.value)">
         </div>
         <div class="hc-field hc-field-calc">
           <label class="hc-field-label">Distributors</label>
-          <div class="hc-value" id="hc-dist-${ownerIdx}">${distVal !== null ? distVal : '—'}</div>
+          <div class="hc-value" id="hc-dist-${ownerIdx}">—</div>
           <div class="hc-calc-note">Active − Leaders</div>
         </div>
         <div class="hc-field">
           <label class="hc-field-label">In Training</label>
-          <input type="number" class="hc-input" id="hc-training-${ownerIdx}" value="${hc.training || ''}" min="0" placeholder="—"
+          <input type="number" class="hc-input" id="hc-training-${ownerIdx}" value="" min="0" placeholder="—"
             onchange="NationalApp._updateHeadcount(${ownerIdx}, 'training', this.value)">
         </div>
       </div>
@@ -1211,11 +1218,12 @@ const NationalApp = {
 
     // ── Section 2: Production Review (two side-by-side cards) ──
     const prodEl = document.getElementById('health-production');
+    const isB2B = this.state.campaign === 'att-b2b';
     prodEl.innerHTML = `
       <div class="coaching-label">Production Review <span class="coaching-sublabel">Last Week</span></div>
       <div class="prod-cards">
         ${this._prodCard('Total Units', prod.totalActual, prod.totalGoal)}
-        ${this._prodCard('Wireless Lines', prod.wirelessActual, prod.wirelessGoal)}
+        ${isB2B ? '' : this._prodCard('Wireless Lines', prod.wirelessActual, prod.wirelessGoal)}
       </div>`;
 
     // ── Production Trend Table ──
@@ -1232,12 +1240,12 @@ const NationalApp = {
             placeholder="—"
             onchange="NationalApp._updateGoal(${ownerIdx}, 'totalUnits', this.value)">
         </div>
-        <div class="goal-field">
+        ${isB2B ? '' : `<div class="goal-field">
           <label class="goal-field-label">Wireless Units</label>
           <input type="number" class="goal-input" id="goal-wireless-${ownerIdx}" value="${goals.wirelessUnits || ''}" min="0"
             placeholder="—"
             onchange="NationalApp._updateGoal(${ownerIdx}, 'wirelessUnits', this.value)">
-        </div>
+        </div>`}
       </div>
       <div class="hc-submit-row">
         <button class="hc-submit-btn" onclick="NationalApp._submitGoals(${ownerIdx})">Submit Goals</button>
@@ -1377,6 +1385,7 @@ const NationalApp = {
       return;
     }
     trendEl.style.display = '';
+    const isB2B = this.state.campaign === 'att-b2b';
 
     trendEl.innerHTML = `
       <div class="coaching-label">Week-over-Week Production</div>
@@ -1386,7 +1395,7 @@ const NationalApp = {
             <tr>
               <th>Week</th>
               <th class="num">Total Units</th>
-              <th class="num">Wireless Lines</th>
+              ${isB2B ? '' : '<th class="num">Wireless Lines</th>'}
             </tr>
           </thead>
           <tbody>
@@ -1396,7 +1405,7 @@ const NationalApp = {
                 <tr>
                   <td class="bold">${this._esc(r.date)}</td>
                   <td class="num"><span class="prod-trend-actual">${r.tA}</span><span class="prod-trend-suffix"><span class="prod-trend-goal"> of ${r.tG}</span> ${this._trendArrow(r.tA, prev?.tA)}</span></td>
-                  <td class="num"><span class="prod-trend-actual">${r.wA}</span><span class="prod-trend-suffix"><span class="prod-trend-goal"> of ${r.wG}</span> ${this._trendArrow(r.wA, prev?.wA)}</span></td>
+                  ${isB2B ? '' : `<td class="num"><span class="prod-trend-actual">${r.wA}</span><span class="prod-trend-suffix"><span class="prod-trend-goal"> of ${r.wG}</span> ${this._trendArrow(r.wA, prev?.wA)}</span></td>`}
                 </tr>`;
             }).join('')}
           </tbody>
@@ -1422,7 +1431,8 @@ const NationalApp = {
     if (!owner) return;
 
     const total = parseInt(document.getElementById('goal-total-' + ownerIdx)?.value) || 0;
-    const wireless = parseInt(document.getElementById('goal-wireless-' + ownerIdx)?.value) || 0;
+    const wirelessEl = document.getElementById('goal-wireless-' + ownerIdx);
+    const wireless = wirelessEl ? (parseInt(wirelessEl.value) || 0) : 0;
 
     if (!total && !wireless) return;
 

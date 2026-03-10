@@ -168,10 +168,10 @@ const TeamsManager = {
         available.map(t => `<option value="${t.teamId}"${team && team.parentId === t.teamId ? ' selected' : ''}>${t.emoji || '⚡'} ${t.name}</option>`).join('');
     }
 
-    // Leader dropdown — JD/L1/Manager roles from roster
+    // Leader dropdown — JD+ roles only (no L1/rep)
     const leaderSel = document.getElementById('team-modal-leader');
     if (leaderSel) {
-      const leaderRoles = new Set(['jd', 'l1', 'manager', 'owner']);
+      const leaderRoles = new Set(['jd', 'manager', 'owner']);
       const leaders = Object.entries(App.state.roster)
         .filter(([, info]) => leaderRoles.has(info.rank || info.role) && !info.deactivated)
         .sort(([, a], [, b]) => (a.name || '').localeCompare(b.name || ''));

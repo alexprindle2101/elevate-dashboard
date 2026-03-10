@@ -1436,7 +1436,7 @@ function readLocalHeadcount() {
     if (!name) continue;
 
     var entry = {
-      date:            String(row[1] || ''),
+      date:            _normalizeDate(row[1]),
       active:          num(row[2]),
       leaders:         num(row[3]),
       dist:            num(row[4]),
@@ -1453,6 +1453,29 @@ function readLocalHeadcount() {
   }
 
   return { owners: owners };
+}
+
+// ── Normalize any date value to MM/DD/YYYY string (no timezone) ──
+function _normalizeDate(v) {
+  if (!v) return '';
+  // Already a Date object (Google Sheets auto-parsed)
+  if (v instanceof Date) {
+    var mm = ('0' + (v.getMonth() + 1)).slice(-2);
+    var dd = ('0' + v.getDate()).slice(-2);
+    return mm + '/' + dd + '/' + v.getFullYear();
+  }
+  // String — manually parse M-D-YYYY or M/D/YYYY to avoid timezone drift
+  var s = String(v).trim();
+  // Strip any trailing timezone text (e.g. " GMT-0500")
+  s = s.replace(/\s+(GMT|UTC|EST|CST|MST|PST|EDT|CDT|MDT|PDT).*$/i, '');
+  // Match M/D/YYYY or M-D-YYYY patterns
+  var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) {
+    var mm = ('0' + m[1]).slice(-2);
+    var dd = ('0' + m[2]).slice(-2);
+    return mm + '/' + dd + '/' + m[3];
+  }
+  return s; // fallback
 }
 
 // ── Find ALL exact occurrences of a header text ──
@@ -1624,7 +1647,14 @@ function formatDate(v) {
     var dd = ('0' + v.getDate()).slice(-2);
     return mm + '/' + dd + '/' + v.getFullYear();
   }
-  return String(v);
+  // String — strip timezone, normalize M-D-YYYY or M/D/YYYY → MM/DD/YYYY
+  var s = String(v).trim();
+  s = s.replace(/\s+(GMT|UTC|EST|CST|MST|PST|EDT|CDT|MDT|PDT).*$/i, '');
+  var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) {
+    return ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2) + '/' + m[3];
+  }
+  return s;
 }
 
 // ══════════════════════════════════════════════════

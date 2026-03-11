@@ -1146,28 +1146,21 @@ const NationalApp = {
           });
         }
 
-        // Re-enrich B2B owners with headcount/production from _B2B_Headcount tab
-        // (buildOwnersFromSheet resets headcount to zeros, so we must re-fetch)
+        // Re-enrich B2B owners in parallel (buildOwnersFromSheet resets to zeros)
         if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
-          try {
-            const hcData = await this._fetchB2BHeadcount();
-            if (hcData && hcData.owners && Object.keys(hcData.owners).length) {
-              this._enrichOwnersWithNLR(hcData.owners);
-            }
-          } catch (err) {
-            console.warn('[NationalApp] Post-import headcount re-fetch failed:', err.message);
+          const [hcRes, prodRes, costRes] = await Promise.allSettled([
+            this._fetchB2BHeadcount(),
+            this._fetchB2BProduction(),
+            this._fetchIndeedCosts()
+          ]);
+          if (hcRes.status === 'fulfilled' && hcRes.value?.owners && Object.keys(hcRes.value.owners).length) {
+            this._enrichOwnersWithNLR(hcRes.value.owners);
           }
-        }
-
-        // Re-enrich B2B owners with production/sales data
-        if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
-          try {
-            const prodData = await this._fetchB2BProduction();
-            if (prodData && prodData.owners && Object.keys(prodData.owners).length) {
-              this._enrichOwnersWithProduction(prodData.owners);
-            }
-          } catch (err) {
-            console.warn('[NationalApp] Post-import production re-fetch failed:', err.message);
+          if (prodRes.status === 'fulfilled' && prodRes.value?.owners && Object.keys(prodRes.value.owners).length) {
+            this._enrichOwnersWithProduction(prodRes.value.owners);
+          }
+          if (costRes.status === 'fulfilled' && costRes.value?.owners && Object.keys(costRes.value.owners).length) {
+            this._enrichOwnersWithIndeedCosts(costRes.value.owners);
           }
         }
 

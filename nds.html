@@ -511,6 +511,10 @@
         <input type="text" id="payroll-search" placeholder="Search by rep, SPM, or SPE..."
           oninput="App._filterPayrollOrders()"
           style="flex:1;min-width:200px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 14px;color:var(--white);font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:14px;outline:none">
+        <label style="display:flex;align-items:center;gap:6px;font-family:'Cerebri Sans','DM Sans','Inter',sans-serif;font-size:13px;color:var(--silver-dim);white-space:nowrap;cursor:pointer">
+          <input type="checkbox" id="payroll-hide-paid" onchange="App._filterPayrollOrders()" style="accent-color:var(--sc-cyan);cursor:pointer;width:14px;height:14px">
+          Hide fully paid
+        </label>
       </div>
 
       <div id="payroll-count" style="font-family:'Helvetica Neue','Inter',sans-serif;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;color:var(--silver-dim);margin-bottom:8px"></div>
@@ -852,7 +856,7 @@
 <script src="js/render.js?v=20260309e"></script>
 <script src="js/orders.js?v=20260305h"></script>
 <script src="js/nds-post-sale.js?v=20260309c"></script>
-<script src="js/app.js?v=20260309b"></script>
+<script src="js/app.js?v=20260311a"></script>
 
 </body>
 </html>

@@ -842,9 +842,28 @@ const App = {
     this._filterPayrollOrders();
   },
 
+  _isFullyPaidOut(o) {
+    const paid = o.paidOut || {};
+    // SPE-keyed: every SPE must be checked
+    if (o.speList && o.speList.length > 0) {
+      return o.speList.every(spe => paid[spe] === true);
+    }
+    // Legacy product-keyed: check if any product exists and all are paid
+    const prodKeys = (OFFICE_CONFIG.columns.products || []).map(p => p.key);
+    const relevant = prodKeys.filter(k => (o[k] || 0) > 0);
+    if (relevant.length === 0) return false;
+    return relevant.every(k => paid[k] === true);
+  },
+
   _filterPayrollOrders() {
     const search = (document.getElementById('payroll-search')?.value || '').toLowerCase().trim();
+    const hidePaid = document.getElementById('payroll-hide-paid')?.checked || false;
     let filtered = this._payrollOrders;
+
+    if (hidePaid) {
+      filtered = filtered.filter(o => !this._isFullyPaidOut(o));
+    }
+
     if (search) {
       filtered = filtered.filter(o => {
         const speStr = (o.speList || []).join(' ');

@@ -202,6 +202,7 @@ function doGet(e) {
               office: {
                 officeId: o.officeId,
                 name: o.name,
+                templateType: o.templateType || 'att-b2b',
                 sheetId: o.sheetId,
                 appsScriptUrl: o.appsScriptUrl,
                 apiKey: o.apiKey,
@@ -596,6 +597,7 @@ function readOfficesBasic() {
     offices.push({
       officeId: officeId,
       name: (data[i][1] || '').toString().trim(),
+      templateType: (data[i][2] || '').toString().trim(),
       sheetId: (data[i][3] || '').toString().trim(),
       appsScriptUrl: (data[i][4] || '').toString().trim(),
       apiKey: (data[i][5] || '').toString().trim(),

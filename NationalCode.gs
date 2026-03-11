@@ -75,9 +75,19 @@ function doGet(e) {
       return jsonResp(readLocalProduction());
     }
 
-    // ── Indeed ad cost data from per-owner spreadsheets in Drive folder ──
+    // ── List cost files in Drive folder (names + IDs only) ──
+    if (action === 'listCostFiles') {
+      return jsonResp(listCostFiles());
+    }
+
+    // ── Read cost data from a single spreadsheet by ID ──
+    if (action === 'readCostSheet') {
+      var sheetId = (e && e.parameter && e.parameter.sheetId) || '';
+      return jsonResp(readCostSheet(sheetId));
+    }
+
+    // ── [DEPRECATED] Bulk Indeed costs — use readCostSheet instead ──
     if (action === 'indeedCosts') {
-      // Accept comma-separated owner names to filter (only open matching files)
       var ownerFilter = (e && e.parameter && e.parameter.owners) || '';
       return jsonResp(readIndeedCosts(ownerFilter));
     }
@@ -120,6 +130,12 @@ function doPost(e) {
         break;
       case 'unclaimCompany':
         result = unclaimCompany(body.ownerName, body.companyName);
+        break;
+      case 'claimCostSheet':
+        result = claimCostSheet(body.ownerName, body.sheetId);
+        break;
+      case 'unclaimCostSheet':
+        result = unclaimCostSheet(body.ownerName);
         break;
       case 'importNLRHeadcount':
         result = importNLRHeadcount();
@@ -1032,31 +1048,44 @@ function _campaignSlug(label) {
 }
 
 // ══════════════════════════════════════════════════
-// OWNER → CAM COMPANY MAPPING
+// OWNER → EXTERNAL DATA MAPPING
 // Reads '_OwnerCamMapping' tab from Ken's national sheet.
-// Two columns: Owner Name | Cam Company Name
-// Returns { mapping: { "Owner Name": ["Company A", "Company B"], ... } }
+// Three columns: Owner Name | Cam Company Name | Cost Sheet ID
+// Returns { mapping: { "Owner Name": ["Company A", ...] }, costSheets: { "Owner Name": "sheetId" } }
 // ══════════════════════════════════════════════════
 
 function readOwnerCamMapping() {
   var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
   var sheet = ss.getSheetByName('_OwnerCamMapping');
-  if (!sheet) return { mapping: {} };
+  if (!sheet) return { mapping: {}, costSheets: {} };
 
   var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return { mapping: {} };
+  if (data.length < 2) return { mapping: {}, costSheets: {} };
 
-  // Expect headers: Owner Name | Cam Company Name
+  // Expect headers: Owner Name | Cam Company Name | Cost Sheet ID
   var mapping = {};
+  var costSheets = {};
   for (var i = 1; i < data.length; i++) {
     var ownerName = String(data[i][0] || '').trim();
     var camCompany = String(data[i][1] || '').trim();
-    if (!ownerName || !camCompany) continue;
-    if (!mapping[ownerName]) mapping[ownerName] = [];
-    mapping[ownerName].push(camCompany);
+    var costSheetId = String(data[i][2] || '').trim();
+    if (!ownerName) continue;
+
+    // Cam company mapping (col B)
+    if (camCompany) {
+      if (!mapping[ownerName]) mapping[ownerName] = [];
+      mapping[ownerName].push(camCompany);
+    }
+
+    // Cost sheet ID (col C) — take first non-empty value per owner
+    if (costSheetId && !costSheets[ownerName]) {
+      // Extract spreadsheet ID from URL if a full link was pasted
+      var idMatch = costSheetId.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+      costSheets[ownerName] = idMatch ? idMatch[1] : costSheetId;
+    }
   }
 
-  return { mapping: mapping };
+  return { mapping: mapping, costSheets: costSheets };
 }
 
 
@@ -1072,7 +1101,7 @@ function claimCompany(ownerName, companyName) {
   // Auto-create tab with headers if it doesn't exist
   if (!sheet) {
     sheet = ss.insertSheet('_OwnerCamMapping');
-    sheet.getRange(1, 1, 1, 2).setValues([['Owner Name', 'Cam Company Name']]);
+    sheet.getRange(1, 1, 1, 3).setValues([['Owner Name', 'Cam Company Name', 'Cost Sheet ID']]);
   }
 
   // Check for duplicate
@@ -1111,6 +1140,142 @@ function unclaimCompany(ownerName, companyName) {
   }
 
   return { ok: true, mapping: readOwnerCamMapping().mapping };
+}
+
+
+// ── List files in the Indeed/NLR costs Drive folder (names + IDs, no opens) ──
+function listCostFiles() {
+  var folder;
+  try {
+    folder = DriveApp.getFolderById(SHEETS.INDEED_COSTS_FOLDER);
+  } catch (err) {
+    Logger.log('listCostFiles: Cannot open folder: ' + err.message);
+    return { files: [] };
+  }
+
+  var result = [];
+  var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+  while (files.hasNext()) {
+    var file = files.next();
+    result.push({ name: file.getName().trim(), id: file.getId() });
+  }
+  // Sort alphabetically
+  result.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  return { files: result };
+}
+
+
+// ── Read cost data from a single spreadsheet by ID ──
+function readCostSheet(sheetId) {
+  if (!sheetId) return { error: 'sheetId is required' };
+
+  try {
+    var ss = SpreadsheetApp.openById(sheetId);
+    var sheets = ss.getSheets();
+
+    // Parse month tabs and sort newest-first
+    var monthTabs = [];
+    for (var i = 0; i < sheets.length; i++) {
+      var tabName = sheets[i].getName().trim();
+      var parsed = _parseMonthTab(tabName);
+      if (parsed) {
+        monthTabs.push({ sheet: sheets[i], name: tabName, date: parsed });
+      }
+    }
+    monthTabs.sort(function(a, b) { return b.date - a.date; });
+
+    if (!monthTabs.length) {
+      return { months: [], platformOrder: [] };
+    }
+
+    // Extract data from each month tab
+    var monthsData = [];
+    for (var m = 0; m < monthTabs.length; m++) {
+      var costData = _extractIndeedTable(monthTabs[m].sheet);
+      if (costData) {
+        costData.month = monthTabs[m].name;
+        monthsData.push(costData);
+      }
+    }
+
+    // Collect platform names
+    var platSet = {};
+    var platformOrder = [];
+    for (var mi = 0; mi < monthsData.length; mi++) {
+      var order = monthsData[mi].platformOrder || [];
+      for (var pi = 0; pi < order.length; pi++) {
+        if (!platSet[order[pi]]) {
+          platSet[order[pi]] = true;
+          platformOrder.push(order[pi]);
+        }
+      }
+    }
+
+    return { months: monthsData, platformOrder: platformOrder };
+  } catch (err) {
+    Logger.log('readCostSheet: Error reading ' + sheetId + ': ' + err.message);
+    return { error: 'Cannot read spreadsheet: ' + err.message };
+  }
+}
+
+
+// ── Claim a cost spreadsheet for an owner (write to col C of _OwnerCamMapping) ──
+function claimCostSheet(ownerName, sheetId) {
+  ownerName = String(ownerName || '').trim();
+  sheetId = String(sheetId || '').trim();
+  if (!ownerName || !sheetId) return { error: 'ownerName and sheetId are required' };
+
+  var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  var sheet = ss.getSheetByName('_OwnerCamMapping');
+
+  if (!sheet) {
+    sheet = ss.insertSheet('_OwnerCamMapping');
+    sheet.getRange(1, 1, 1, 3).setValues([['Owner Name', 'Cam Company Name', 'Cost Sheet ID']]);
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var foundRow = -1;
+
+  // Find first row for this owner
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === ownerName.toLowerCase()) {
+      foundRow = i + 1; // 1-indexed
+      break;
+    }
+  }
+
+  if (foundRow > 0) {
+    // Update col C on existing row
+    sheet.getRange(foundRow, 3).setValue(sheetId);
+  } else {
+    // Append new row with just owner name + cost sheet ID
+    sheet.appendRow([ownerName, '', sheetId]);
+  }
+
+  var result = readOwnerCamMapping();
+  return { ok: true, mapping: result.mapping, costSheets: result.costSheets };
+}
+
+
+// ── Unclaim a cost spreadsheet from an owner (clear col C in _OwnerCamMapping) ──
+function unclaimCostSheet(ownerName) {
+  ownerName = String(ownerName || '').trim();
+  if (!ownerName) return { error: 'ownerName is required' };
+
+  var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  var sheet = ss.getSheetByName('_OwnerCamMapping');
+  if (!sheet) return { ok: true, costSheets: {} };
+
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === ownerName.toLowerCase() &&
+        String(data[i][2] || '').trim()) {
+      sheet.getRange(i + 1, 3).setValue('');
+    }
+  }
+
+  var result = readOwnerCamMapping();
+  return { ok: true, mapping: result.mapping, costSheets: result.costSheets };
 }
 
 

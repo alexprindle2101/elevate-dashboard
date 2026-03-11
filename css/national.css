@@ -238,12 +238,6 @@ input, select, textarea { font-family: inherit; }
   opacity: 0.6;
   cursor: not-allowed;
 }
-.btn-import-costs {
-  background: var(--blue);
-}
-.btn-import-costs:hover {
-  background: #2563eb;
-}
 .import-status {
   font-size: 12px;
   font-weight: 600;
@@ -1363,6 +1357,17 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
   margin-left: 4px;
 }
 .rc-detail-label { margin-top: 16px; }
+.btn-unclaim-cost {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 16px;
+  cursor: pointer;
+  margin-left: 6px;
+  padding: 0 4px;
+  line-height: 1;
+}
+.btn-unclaim-cost:hover { color: var(--red); }
 
 /* ═══════════════════════════════════════════════════════
    RESPONSIVE

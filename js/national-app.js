@@ -39,6 +39,8 @@ const NationalApp = {
     campaignTotals: {},
     campaignRecruiting: null,
     camMapping: {},
+    costSheets: {},
+    costFilesList: null,
     allCompanyNames: []
   },
 
@@ -178,13 +180,14 @@ const NationalApp = {
 
     // ── Apply enrichments from parallel results ──
     if (results.camMapping) {
-      this.state.camMapping = results.camMapping;
+      this.state.camMapping = results.camMapping.mapping || results.camMapping;
+      this.state.costSheets = results.camMapping.costSheets || {};
     }
 
     if (results.audit && results.audit.businesses && results.audit.businesses.length) {
       this.state.allCompanyNames = results.audit.allCompanyNames || [];
       this._cachedAuditBusinesses = results.audit.businesses;
-      this._mapAuditToOwners(results.audit.businesses, results.camMapping || null);
+      this._mapAuditToOwners(results.audit.businesses, this.state.camMapping || null);
     }
 
     if (results.headcount && results.headcount.owners && Object.keys(results.headcount.owners).length) {
@@ -195,9 +198,7 @@ const NationalApp = {
       this._enrichOwnersWithProduction(results.production.owners);
     }
 
-    if (results.indeedCosts && results.indeedCosts.owners && Object.keys(results.indeedCosts.owners).length) {
-      this._enrichOwnersWithIndeedCosts(results.indeedCosts.owners);
-    }
+    // Recruiting costs are loaded per-owner when the Recruiting tab is opened (via _loadAndRenderCosts)
   },
 
   // ── Fetch ALL recruiting data from Ken's national sheet via NationalCode.gs ──
@@ -267,7 +268,7 @@ const NationalApp = {
     select.value = this.state.campaign;
   },
 
-  // ── Fetch owner → Cam company mapping from _OwnerCamMapping tab ──
+  // ── Fetch owner → Cam company mapping + cost sheet assignments from _OwnerCamMapping tab ──
   async _fetchOwnerCamMapping() {
     const url = NATIONAL_CONFIG.appsScriptUrl +
       '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
@@ -276,7 +277,7 @@ const NationalApp = {
     const resp = await fetch(url);
     const result = await resp.json();
     if (result.error) throw new Error(result.error);
-    return result.mapping || {};
+    return { mapping: result.mapping || {}, costSheets: result.costSheets || {} };
   },
 
   // ── Fetch online presence data from Cam's Performance Audit sheet ──
@@ -367,18 +368,7 @@ const NationalApp = {
 
   // ── Fetch Indeed ad cost data from per-owner Drive spreadsheets ──
   // Passes current campaign's owner names so server only opens matching files
-  async _fetchIndeedCosts() {
-    const ownerNames = this.state.owners.map(o => o.name).join(',');
-    const url = NATIONAL_CONFIG.appsScriptUrl +
-      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
-      '&action=indeedCosts' +
-      '&owners=' + encodeURIComponent(ownerNames) +
-      '&_t=' + Date.now();
-    const resp = await fetch(url);
-    const result = await resp.json();
-    if (result.error) throw new Error(result.error);
-    return result;
-  },
+  // (_fetchIndeedCosts removed — costs now fetched per-owner in _loadAndRenderCosts)
 
   // ── Enrich owners with Indeed ad cost data ──
   _enrichOwnersWithIndeedCosts(indeedOwners) {
@@ -1196,50 +1186,7 @@ const NationalApp = {
     }
   },
 
-  // ══════════════════════════════════════════════════
-  // IMPORT COSTS (CPA data from per-owner Drive spreadsheets)
-  // ══════════════════════════════════════════════════
-
-  async importCosts() {
-    const btn = document.getElementById('btn-import-costs');
-    const status = document.getElementById('import-status');
-
-    if (btn) { btn.disabled = true; btn.textContent = 'Loading Costs...'; }
-    if (status) { status.textContent = 'Scanning owner spreadsheets...'; status.className = 'import-status import-success'; }
-
-    try {
-      // 2 min timeout — server opens each owner's spreadsheet from Drive which is slow
-      const indeedData = await this._fetchWithTimeout(this._fetchIndeedCosts(), 120000);
-      if (indeedData && indeedData.owners && Object.keys(indeedData.owners).length) {
-        this._enrichOwnersWithIndeedCosts(indeedData.owners);
-
-        // Re-render current owner detail if open on recruiting tab
-        if (this.state.selectedOwner && this.state.currentTab === 'recruiting') {
-          this.renderRecruitingTab(this.state.selectedOwner);
-        }
-
-        const count = Object.keys(indeedData.owners).length;
-        if (status) {
-          status.textContent = 'Loaded costs for ' + count + ' owner' + (count !== 1 ? 's' : '');
-          status.className = 'import-status import-success';
-          setTimeout(() => { status.textContent = ''; status.className = 'import-status'; }, 6000);
-        }
-      } else {
-        if (status) {
-          status.textContent = 'No cost data found';
-          status.className = 'import-status import-error';
-        }
-      }
-    } catch (err) {
-      console.error('[NationalApp] Import costs failed:', err);
-      if (status) {
-        status.textContent = 'Cost import failed: ' + err.message;
-        status.className = 'import-status import-error';
-      }
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Import Costs'; }
-    }
-  },
+  // (Bulk importCosts removed — costs now lazy-load per-owner when Recruiting tab opens)
 
   // ══════════════════════════════════════════════════
   // RENDER: Campaign Overview (KPIs + Recruiting Table + Status Codes)
@@ -1663,16 +1610,218 @@ const NationalApp = {
         </div>`;
       const wowEl = document.getElementById('owner-recruiting-wow');
       if (wowEl) wowEl.innerHTML = '';
-      // Still render Indeed costs even if recruiting is empty
+    } else {
+      // Projected table (4 most recent weeks)
+      this._renderRecruitingTable(r, 'owner-recruiting-table');
+      // Week-over-week raw data (all weeks)
+      this._renderRecruitingWoW(owner);
+    }
+    // Recruiting costs — lazy load per-owner on first view
+    this._loadAndRenderCosts(owner);
+  },
+
+  // ── Lazy-load recruiting costs for a single owner via claimed costSheetId ──
+  async _loadAndRenderCosts(owner) {
+    const el = document.getElementById('owner-indeed-costs');
+    if (!el) return;
+
+    const costSheetId = this.state.costSheets[owner.name];
+
+    // No cost sheet claimed — show claim UI
+    if (!costSheetId) {
+      this._renderCostClaimSection(owner);
+      return;
+    }
+
+    // Already loaded — just render
+    if (owner.indeedCosts) {
       this._renderIndeedCosts(owner);
       return;
     }
-    // Projected table (4 most recent weeks)
-    this._renderRecruitingTable(r, 'owner-recruiting-table');
-    // Week-over-week raw data (all weeks)
-    this._renderRecruitingWoW(owner);
-    // Indeed ad spend (if available)
-    this._renderIndeedCosts(owner);
+
+    // Already fetching — don't double-fetch
+    if (owner._costsFetching) return;
+
+    // Show loading indicator
+    el.innerHTML = `<div class="coaching-label">Recruiting Costs</div>
+      <div class="empty-state"><div class="loading-spinner" style="width:24px;height:24px;border-width:3px;margin:0 auto"></div>
+      <div class="empty-state-text" style="margin-top:8px">Loading cost data...</div></div>`;
+
+    owner._costsFetching = true;
+    try {
+      const url = NATIONAL_CONFIG.appsScriptUrl +
+        '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+        '&action=readCostSheet' +
+        '&sheetId=' + encodeURIComponent(costSheetId) +
+        '&_t=' + Date.now();
+      const resp = await this._fetchWithTimeout(fetch(url), 30000);
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+
+      if (result.months && result.months.length) {
+        owner.indeedCosts = result;
+      }
+
+      // Render (will show empty state if no data)
+      if (this.state.selectedOwner === owner && this.state.currentTab === 'recruiting') {
+        this._renderIndeedCosts(owner);
+      }
+    } catch (err) {
+      console.warn('[NationalApp] Cost load for', owner.name, 'failed:', err.message);
+      if (this.state.selectedOwner === owner && this.state.currentTab === 'recruiting') {
+        el.innerHTML = `<div class="coaching-label">Recruiting Costs</div>
+          <div class="empty-state"><div class="empty-state-text">Failed to load cost data</div></div>`;
+      }
+    } finally {
+      owner._costsFetching = false;
+    }
+  },
+
+  // ── Render cost sheet claim section (no spreadsheet assigned yet) ──
+  async _renderCostClaimSection(owner) {
+    const el = document.getElementById('owner-indeed-costs');
+    if (!el) return;
+
+    // Fetch the list of available files if not cached
+    if (!this.state.costFilesList) {
+      el.innerHTML = `<div class="coaching-label">Recruiting Costs</div>
+        <div class="empty-state"><div class="loading-spinner" style="width:24px;height:24px;border-width:3px;margin:0 auto"></div>
+        <div class="empty-state-text" style="margin-top:8px">Loading available spreadsheets...</div></div>`;
+      try {
+        const url = NATIONAL_CONFIG.appsScriptUrl +
+          '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+          '&action=listCostFiles' +
+          '&_t=' + Date.now();
+        const resp = await this._fetchWithTimeout(fetch(url), 20000);
+        const result = await resp.json();
+        if (result.error) throw new Error(result.error);
+        this.state.costFilesList = result.files || [];
+      } catch (err) {
+        console.warn('[NationalApp] Failed to list cost files:', err.message);
+        el.innerHTML = '';
+        return;
+      }
+    }
+
+    // Build set of already-claimed sheet IDs
+    const claimedIds = new Set(Object.values(this.state.costSheets));
+    const available = this.state.costFilesList.filter(f => !claimedIds.has(f.id));
+
+    const optionsHTML = available.map(f =>
+      `<div class="claim-dropdown-item" onclick="NationalApp._claimCostSheet('${this._esc(f.id)}')">
+        ${this._esc(f.name)}
+      </div>`
+    ).join('');
+
+    el.innerHTML = `
+      <div class="claim-section">
+        <div class="claim-header">
+          <div class="section-label" style="margin:0">Recruiting Costs</div>
+          <span class="claim-count">${available.length} spreadsheet${available.length !== 1 ? 's' : ''} available</span>
+        </div>
+        <div class="claim-search-wrap">
+          <input type="text" class="claim-search-input" id="cost-claim-search"
+            placeholder="Search spreadsheets to claim..."
+            oninput="NationalApp._filterCostClaimDropdown(this.value)"
+            onfocus="NationalApp._showCostClaimDropdown()"
+            autocomplete="off">
+          <div class="claim-dropdown" id="cost-claim-dropdown" style="display:none">
+            ${optionsHTML || '<div class="claim-dropdown-empty">No unclaimed spreadsheets available</div>'}
+          </div>
+        </div>
+        <div class="claim-status" id="cost-claim-status"></div>
+      </div>`;
+  },
+
+  _showCostClaimDropdown() {
+    const dd = document.getElementById('cost-claim-dropdown');
+    if (dd) dd.style.display = 'block';
+    setTimeout(() => {
+      const handler = (e) => {
+        if (!e.target.closest('.claim-search-wrap')) {
+          dd.style.display = 'none';
+          document.removeEventListener('click', handler);
+        }
+      };
+      document.addEventListener('click', handler);
+    }, 10);
+  },
+
+  _filterCostClaimDropdown(query) {
+    const dd = document.getElementById('cost-claim-dropdown');
+    if (!dd) return;
+    dd.style.display = 'block';
+    const q = query.toLowerCase().trim();
+    const items = dd.querySelectorAll('.claim-dropdown-item');
+    let visible = 0;
+    items.forEach(item => {
+      const match = !q || item.textContent.toLowerCase().includes(q);
+      item.style.display = match ? 'block' : 'none';
+      if (match) visible++;
+    });
+    const empty = dd.querySelector('.claim-dropdown-empty');
+    if (empty) empty.style.display = visible === 0 ? 'block' : 'none';
+  },
+
+  async _claimCostSheet(sheetId) {
+    const owner = this.state.selectedOwner;
+    if (!owner) return;
+
+    const status = document.getElementById('cost-claim-status');
+    if (status) { status.textContent = 'Claiming...'; status.className = 'claim-status'; }
+
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'claimCostSheet',
+          ownerName: owner.name,
+          sheetId: sheetId
+        })
+      });
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+
+      // Update state with new mapping
+      if (result.costSheets) this.state.costSheets = result.costSheets;
+      if (result.mapping) this.state.camMapping = result.mapping;
+
+      // Now load the cost data
+      this._loadAndRenderCosts(owner);
+    } catch (err) {
+      console.error('[NationalApp] Claim cost sheet failed:', err);
+      if (status) { status.textContent = 'Claim failed: ' + err.message; status.className = 'claim-status claim-error'; }
+    }
+  },
+
+  async _unclaimCostSheet() {
+    const owner = this.state.selectedOwner;
+    if (!owner) return;
+
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'unclaimCostSheet',
+          ownerName: owner.name
+        })
+      });
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+
+      if (result.costSheets) this.state.costSheets = result.costSheets;
+      if (result.mapping) this.state.camMapping = result.mapping;
+
+      // Clear cached cost data and re-render
+      owner.indeedCosts = null;
+      this._renderCostClaimSection(owner);
+    } catch (err) {
+      console.error('[NationalApp] Unclaim cost sheet failed:', err);
+    }
   },
 
   // ── Week-over-week raw recruiting data (stacked cards under projected table) ──
@@ -1762,7 +1911,9 @@ const NationalApp = {
 
     // ── Part 1: Month-over-Month Trend Table (TOTAL values across months) ──
     if (months.length > 1) {
-      html += `<div class="coaching-label">Recruiting Costs — Month-over-Month</div>`;
+      html += `<div class="coaching-label">Recruiting Costs — Month-over-Month
+        <button class="btn-unclaim-cost" onclick="NationalApp._unclaimCostSheet()" title="Change spreadsheet">&times;</button>
+      </div>`;
       html += this._buildCostTrend(months);
     }
 
@@ -1770,6 +1921,7 @@ const NationalApp = {
     const hasMultiple = months.length > 1;
     html += `<div class="coaching-label rc-detail-label">
       ${months.length > 1 ? 'Platform Breakdown' : 'Recruiting Costs'}
+      ${!hasMultiple ? `<button class="btn-unclaim-cost" onclick="NationalApp._unclaimCostSheet()" title="Change spreadsheet">&times;</button>` : ''}
       ${hasMultiple
         ? `<select class="rc-month-select" onchange="NationalApp._switchCostMonth(this.value)">
             ${months.map((m, i) => `<option value="${i}">${this._esc(m.month)}</option>`).join('')}

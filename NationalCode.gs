@@ -77,7 +77,9 @@ function doGet(e) {
 
     // ── Indeed ad cost data from per-owner spreadsheets in Drive folder ──
     if (action === 'indeedCosts') {
-      return jsonResp(readIndeedCosts());
+      // Accept comma-separated owner names to filter (only open matching files)
+      var ownerFilter = (e && e.parameter && e.parameter.owners) || '';
+      return jsonResp(readIndeedCosts(ownerFilter));
     }
 
     if (owner) {
@@ -2331,7 +2333,7 @@ function ratingToGrade(rating) {
  * Each spreadsheet is named after the owner and has monthly tabs with a fixed table.
  * Returns { owners: { "OwnerName": { months: [{ month, local, nlr, total }] } } }
  */
-function readIndeedCosts() {
+function readIndeedCosts(ownerFilter) {
   var folder;
   try {
     folder = DriveApp.getFolderById(SHEETS.INDEED_COSTS_FOLDER);
@@ -2340,12 +2342,34 @@ function readIndeedCosts() {
     return { owners: {} };
   }
 
+  // Build filter set from comma-separated owner names (lowercase for fuzzy match)
+  var filterNames = [];
+  if (ownerFilter && ownerFilter.trim()) {
+    filterNames = ownerFilter.split(',').map(function(n) { return n.trim().toLowerCase(); });
+  }
+
   var owners = {};
   var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+  var skipped = 0;
 
   while (files.hasNext()) {
     var file = files.next();
     var ownerName = file.getName().trim();
+
+    // If filter provided, skip files that don't fuzzy-match any filter name
+    if (filterNames.length > 0) {
+      var fileLc = ownerName.toLowerCase();
+      var matched = false;
+      for (var fi = 0; fi < filterNames.length; fi++) {
+        if (fileLc === filterNames[fi] ||
+            fileLc.indexOf(filterNames[fi]) >= 0 ||
+            filterNames[fi].indexOf(fileLc) >= 0) {
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) { skipped++; continue; }
+    }
 
     try {
       var ss = SpreadsheetApp.openById(file.getId());
@@ -2402,7 +2426,7 @@ function readIndeedCosts() {
     }
   }
 
-  Logger.log('readIndeedCosts: Found data for ' + Object.keys(owners).length + ' owners, platforms: ' + allPlatforms.join(', '));
+  Logger.log('readIndeedCosts: Found data for ' + Object.keys(owners).length + ' owners (skipped ' + skipped + '), platforms: ' + allPlatforms.join(', '));
   return { owners: owners, allPlatforms: allPlatforms };
 }
 

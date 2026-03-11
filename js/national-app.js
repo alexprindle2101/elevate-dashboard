@@ -366,10 +366,13 @@ const NationalApp = {
   },
 
   // ── Fetch Indeed ad cost data from per-owner Drive spreadsheets ──
+  // Passes current campaign's owner names so server only opens matching files
   async _fetchIndeedCosts() {
+    const ownerNames = this.state.owners.map(o => o.name).join(',');
     const url = NATIONAL_CONFIG.appsScriptUrl +
       '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
       '&action=indeedCosts' +
+      '&owners=' + encodeURIComponent(ownerNames) +
       '&_t=' + Date.now();
     const resp = await fetch(url);
     const result = await resp.json();

@@ -317,7 +317,7 @@ function doGet(e) {
 
     // Payroll orders — filtered by payrollMode (commission-split or flat-rate)
     if (action === 'readPayrollOrders') {
-      var payrollMode = params.payrollMode || 'commission-split';
+      var payrollMode = (e.parameter && e.parameter.payrollMode) || 'commission-split';
       const orders = readPayrollOrders(ss, officeId, payrollMode);
       return jsonResponse({ orders: orders });
     }

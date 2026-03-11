@@ -1985,7 +1985,10 @@ const App = {
     };
 
     const encoded = btoa(JSON.stringify(config));
-    let url = 'index.html?office=' + encoded;
+    // Route to correct template based on office type (NDS → nds.html, B2B → index.html)
+    const templateMap = { 'att-nds': 'nds.html' };
+    const file = templateMap[office.templateType] || 'index.html';
+    let url = file + '?office=' + encoded;
 
     // If SSO session, regenerate adminAuth token with fresh timestamp
     const session = Auth.getSession();

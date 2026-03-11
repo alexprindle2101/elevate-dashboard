@@ -665,13 +665,16 @@ input, select, textarea { font-family: inherit; }
 .data-table tbody tr:hover { background: var(--gray-50); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 
-/* Week-over-week stacked cards */
+/* Week-over-week horizontal scroll */
 .wow-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: flex;
   gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 .wow-card {
+  min-width: 280px;
+  flex: 0 0 280px;
   background: var(--white);
   border-radius: var(--radius);
   border: 1px solid var(--gray-100);

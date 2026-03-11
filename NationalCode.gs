@@ -75,13 +75,9 @@ function doGet(e) {
     }
 
     if (owner) {
-      // Single owner detail request
-      const data = loadOwnerDetail(campaign, owner);
-      return jsonResp(data);
+      return jsonResp(loadOwnerDetail(campaign, owner));
     } else {
-      // Full campaign overview
-      const data = loadCampaignOverview(campaign);
-      return jsonResp(data);
+      return jsonResp(loadCampaignOverview(campaign));
     }
   } catch (err) {
     Logger.log('doGet error: ' + err.message + '\n' + err.stack);

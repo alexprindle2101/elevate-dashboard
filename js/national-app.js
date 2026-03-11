@@ -135,46 +135,35 @@ const NationalApp = {
       NATIONAL_CONFIG.campaigns[campaignKey] = { label: campaignKey, weeksToPull: 6 };
     }
 
-    // Step 1: Try to load owner list + recruiting actuals from national sheet
-    let sheetData = null;
-    if (NATIONAL_CONFIG.appsScriptUrl && NATIONAL_CONFIG.sheets.national && NATIONAL_CONFIG.sheets.national.id) {
-      try {
-        sheetData = await this._fetchRecruitingFromSheet(campaignKey);
-        console.log('[NationalApp] Loaded recruiting from national sheet:', sheetData);
-      } catch (err) {
-        console.warn('[NationalApp] National sheet fetch failed:', err.message);
-      }
-    }
+    const hasApi = !!NATIONAL_CONFIG.appsScriptUrl;
+    const hasNational = hasApi && NATIONAL_CONFIG.sheets.national && NATIONAL_CONFIG.sheets.national.id;
+    const isB2B = campaignKey === 'att-b2b';
 
-    // Step 1b: Fetch online presence data and owner→Cam company mapping in parallel
-    let auditData = null;
-    let camMapping = null;
-    if (NATIONAL_CONFIG.appsScriptUrl) {
-      const [auditResult, mappingResult] = await Promise.allSettled([
-        this._fetchOnlinePresence(),
-        this._fetchOwnerCamMapping()
-      ]);
-      if (auditResult.status === 'fulfilled') {
-        auditData = auditResult.value;
-        this.state.allCompanyNames = auditData.allCompanyNames || [];
-        console.log('[NationalApp] Loaded online presence:', auditData.businesses?.length, 'businesses,', this.state.allCompanyNames.length, 'company names');
-      } else {
-        console.warn('[NationalApp] Online presence fetch failed:', auditResult.reason?.message);
-      }
-      if (mappingResult.status === 'fulfilled') {
-        camMapping = mappingResult.value;
-        this.state.camMapping = camMapping;
-        console.log('[NationalApp] Loaded owner→Cam mapping:', camMapping);
-      } else {
-        console.warn('[NationalApp] Owner→Cam mapping fetch failed:', mappingResult.reason?.message);
-      }
-    }
+    // ── Fire ALL independent fetches in parallel ──
+    const fetchPromises = {};
+    if (hasNational) fetchPromises.recruiting = this._fetchRecruitingFromSheet(campaignKey);
+    if (hasApi)      fetchPromises.audit      = this._fetchOnlinePresence();
+    if (hasApi)      fetchPromises.camMapping  = this._fetchOwnerCamMapping();
+    if (isB2B && hasApi) fetchPromises.headcount  = this._fetchB2BHeadcount();
+    if (isB2B && hasApi) fetchPromises.production = this._fetchB2BProduction();
+    if (isB2B && hasApi) fetchPromises.indeedCosts = this._fetchIndeedCosts();
 
-    // Step 2: Build owners — from sheet if available, otherwise scaffold
+    const keys = Object.keys(fetchPromises);
+    const settled = await Promise.allSettled(keys.map(k => fetchPromises[k]));
+    const results = {};
+    keys.forEach((k, i) => {
+      if (settled[i].status === 'fulfilled') {
+        results[k] = settled[i].value;
+      } else {
+        console.warn(`[NationalApp] ${k} fetch failed:`, settled[i].reason?.message);
+      }
+    });
+
+    // ── Build owners from recruiting data (or scaffold) ──
+    const sheetData = results.recruiting || null;
     if (sheetData && sheetData.owners && sheetData.owners.length) {
       this._buildOwnersFromSheet(campaignKey, sheetData);
-    } else if (NATIONAL_CONFIG.appsScriptUrl) {
-      // Try original campaign overview API
+    } else if (hasApi) {
       try {
         const url = NATIONAL_CONFIG.appsScriptUrl +
           '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
@@ -190,50 +179,30 @@ const NationalApp = {
         this._loadScaffoldData(campaignKey);
       }
     } else {
-      console.log('[NationalApp] Using scaffold data for', campaignKey);
       this._loadScaffoldData(campaignKey);
     }
 
-    // Step 3: Map online presence data to owners using Cam mapping (if we have it)
-    if (auditData && auditData.businesses && auditData.businesses.length) {
-      this._cachedAuditBusinesses = auditData.businesses; // Cache for re-mapping after claim/unclaim
-      this._mapAuditToOwners(auditData.businesses, camMapping);
+    // ── Apply enrichments from parallel results ──
+    if (results.camMapping) {
+      this.state.camMapping = results.camMapping;
     }
 
-    // Step 4: Enrich B2B owners with headcount/production from local _B2B_Headcount tab
-    if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
-      try {
-        const hcData = await this._fetchB2BHeadcount();
-        if (hcData && hcData.owners && Object.keys(hcData.owners).length) {
-          this._enrichOwnersWithNLR(hcData.owners);
-        }
-      } catch (err) {
-        console.warn('[NationalApp] B2B headcount fetch failed:', err.message);
-      }
+    if (results.audit && results.audit.businesses && results.audit.businesses.length) {
+      this.state.allCompanyNames = results.audit.allCompanyNames || [];
+      this._cachedAuditBusinesses = results.audit.businesses;
+      this._mapAuditToOwners(results.audit.businesses, results.camMapping || null);
     }
 
-    // Step 5: Enrich B2B owners with production/sales data from local _B2B_Production tab
-    if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
-      try {
-        const prodData = await this._fetchB2BProduction();
-        if (prodData && prodData.owners && Object.keys(prodData.owners).length) {
-          this._enrichOwnersWithProduction(prodData.owners);
-        }
-      } catch (err) {
-        console.warn('[NationalApp] B2B production fetch failed:', err.message);
-      }
+    if (results.headcount && results.headcount.owners && Object.keys(results.headcount.owners).length) {
+      this._enrichOwnersWithNLR(results.headcount.owners);
     }
 
-    // Step 6: Enrich B2B owners with Indeed ad cost data from per-owner Drive spreadsheets
-    if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
-      try {
-        const indeedData = await this._fetchIndeedCosts();
-        if (indeedData && indeedData.owners && Object.keys(indeedData.owners).length) {
-          this._enrichOwnersWithIndeedCosts(indeedData.owners);
-        }
-      } catch (err) {
-        console.warn('[NationalApp] Indeed costs fetch failed:', err.message);
-      }
+    if (results.production && results.production.owners && Object.keys(results.production.owners).length) {
+      this._enrichOwnersWithProduction(results.production.owners);
+    }
+
+    if (results.indeedCosts && results.indeedCosts.owners && Object.keys(results.indeedCosts.owners).length) {
+      this._enrichOwnersWithIndeedCosts(results.indeedCosts.owners);
     }
   },
 

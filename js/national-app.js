@@ -1110,15 +1110,18 @@ const NationalApp = {
     if (status) { status.textContent = ''; status.className = 'import-status'; }
 
     try {
-      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          key: NATIONAL_CONFIG.apiKey,
-          action: 'importRecruiting',
-          weeks: weeks
-        })
-      });
+      const resp = await this._fetchWithTimeout(
+        fetch(NATIONAL_CONFIG.appsScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            key: NATIONAL_CONFIG.apiKey,
+            action: 'importRecruiting',
+            weeks: weeks
+          })
+        }),
+        60000 // 60s — import does heavy server-side work
+      );
 
       const result = await resp.json();
       if (result.error) throw new Error(result.error);
@@ -1143,9 +1146,9 @@ const NationalApp = {
         // Re-enrich B2B owners in parallel (buildOwnersFromSheet resets to zeros)
         if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
           const [hcRes, prodRes, costRes] = await Promise.allSettled([
-            this._fetchB2BHeadcount(),
-            this._fetchB2BProduction(),
-            this._fetchIndeedCosts()
+            this._fetchWithTimeout(this._fetchB2BHeadcount()),
+            this._fetchWithTimeout(this._fetchB2BProduction()),
+            this._fetchWithTimeout(this._fetchIndeedCosts())
           ]);
           if (hcRes.status === 'fulfilled' && hcRes.value?.owners && Object.keys(hcRes.value.owners).length) {
             this._enrichOwnersWithNLR(hcRes.value.owners);

@@ -2485,7 +2485,12 @@ const NationalApp = {
             <thead>
               <tr>
                 <th></th>
-                ${platforms.map(p => `<th class="bis-platform-header">${e(p.name)}</th>`).join('')}
+                ${platforms.map(p => {
+                  const link = p.data?.link;
+                  return link
+                    ? `<th class="bis-platform-header"><a href="${e(link)}" target="_blank" rel="noopener" class="bis-link">${e(p.name)} ↗</a></th>`
+                    : `<th class="bis-platform-header">${e(p.name)}</th>`;
+                }).join('')}
               </tr>
             </thead>
             <tbody>
@@ -2527,7 +2532,7 @@ const NationalApp = {
           <div class="bis-grade-letter">${websiteGrade}</div>
         </div>
         <div class="bis-section-content">
-          <div class="bis-section-banner">Website</div>
+          <div class="bis-section-banner">Website${ws?.url ? ` <a href="${e(ws.url)}" target="_blank" rel="noopener" class="bis-link">↗</a>` : ''}</div>
           <table class="bis-table bis-table-website">
             <thead>
               <tr>
@@ -2561,7 +2566,7 @@ const NationalApp = {
           <div class="bis-grade-letter">${socialGrade}</div>
         </div>
         <div class="bis-section-content">
-          <div class="bis-section-banner">Social Media</div>
+          <div class="bis-section-banner">Social Media${ig.link ? ` <a href="${e(ig.link)}" target="_blank" rel="noopener" class="bis-link">↗</a>` : ''}</div>
           <table class="bis-table">
             <thead>
               <tr>

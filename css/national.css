@@ -1126,6 +1126,19 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
   font-size: 12px !important;
   font-weight: 700 !important;
 }
+.bis-link {
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.85;
+}
+.bis-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+.bis-section-banner .bis-link {
+  color: #ffffff;
+  margin-left: 4px;
+}
 
 /* Sub-headers for website section */
 .bis-sub-header {

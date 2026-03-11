@@ -1907,21 +1907,13 @@ const NationalApp = {
     }
 
     const months = data.months;
+    const hasMultiple = months.length > 1;
     let html = '';
 
-    // ── Part 1: Month-over-Month Trend Table (TOTAL values across months) ──
-    if (months.length > 1) {
-      html += `<div class="coaching-label">Recruiting Costs — Month-over-Month
-        <button class="btn-unclaim-cost" onclick="NationalApp._unclaimCostSheet()" title="Change spreadsheet">&times;</button>
-      </div>`;
-      html += this._buildCostTrend(months);
-    }
-
-    // ── Part 2: Detailed Platform Breakdown for selected month ──
-    const hasMultiple = months.length > 1;
-    html += `<div class="coaching-label rc-detail-label">
-      ${months.length > 1 ? 'Platform Breakdown' : 'Recruiting Costs'}
-      ${!hasMultiple ? `<button class="btn-unclaim-cost" onclick="NationalApp._unclaimCostSheet()" title="Change spreadsheet">&times;</button>` : ''}
+    // ── Part 1: Platform Breakdown for selected month ──
+    html += `<div class="coaching-label">
+      ${hasMultiple ? 'Platform Breakdown' : 'Recruiting Costs'}
+      <button class="btn-unclaim-cost" onclick="NationalApp._unclaimCostSheet()" title="Change spreadsheet">&times;</button>
       ${hasMultiple
         ? `<select class="rc-month-select" onchange="NationalApp._switchCostMonth(this.value)">
             ${months.map((m, i) => `<option value="${i}">${this._esc(m.month)}</option>`).join('')}
@@ -1929,8 +1921,14 @@ const NationalApp = {
         : `<span class="coaching-sublabel">${this._esc(months[0].month)}</span>`
       }
     </div>`;
-
     html += this._buildCostTable(months[0]);
+
+    // ── Part 2: Month-over-Month Trend Table (TOTAL values across months) ──
+    if (hasMultiple) {
+      html += `<div class="coaching-label rc-detail-label">Month-over-Month</div>`;
+      html += this._buildCostTrend(months);
+    }
+
     el.innerHTML = html;
   },
 

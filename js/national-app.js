@@ -129,6 +129,14 @@ const NationalApp = {
   // DATA LOADING
   // ══════════════════════════════════════════════════
 
+  // ── Fetch with timeout (default 20s) ──
+  _fetchWithTimeout(promise, ms = 20000) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+    ]);
+  },
+
   async loadCampaignData(campaignKey) {
     // Config entry may be dynamically created by _populateCampaignSelector
     if (!NATIONAL_CONFIG.campaigns[campaignKey]) {
@@ -139,13 +147,13 @@ const NationalApp = {
     const hasNational = hasApi && NATIONAL_CONFIG.sheets.national && NATIONAL_CONFIG.sheets.national.id;
     const isB2B = campaignKey === 'att-b2b';
 
-    // ── Fire ALL independent fetches in parallel ──
+    // ── Fire ALL independent fetches in parallel (each with 20s timeout) ──
     const fetchPromises = {};
-    if (hasNational) fetchPromises.recruiting = this._fetchRecruitingFromSheet(campaignKey);
-    if (hasApi)      fetchPromises.audit      = this._fetchOnlinePresence();
-    if (hasApi)      fetchPromises.camMapping  = this._fetchOwnerCamMapping();
-    if (isB2B && hasApi) fetchPromises.headcount  = this._fetchB2BHeadcount();
-    if (isB2B && hasApi) fetchPromises.production = this._fetchB2BProduction();
+    if (hasNational) fetchPromises.recruiting = this._fetchWithTimeout(this._fetchRecruitingFromSheet(campaignKey));
+    if (hasApi)      fetchPromises.audit      = this._fetchWithTimeout(this._fetchOnlinePresence());
+    if (hasApi)      fetchPromises.camMapping  = this._fetchWithTimeout(this._fetchOwnerCamMapping());
+    if (isB2B && hasApi) fetchPromises.headcount  = this._fetchWithTimeout(this._fetchB2BHeadcount());
+    if (isB2B && hasApi) fetchPromises.production = this._fetchWithTimeout(this._fetchB2BProduction());
     // Indeed/recruiting costs excluded from initial load — fetched only via Import button
 
     const keys = Object.keys(fetchPromises);
@@ -163,22 +171,8 @@ const NationalApp = {
     const sheetData = results.recruiting || null;
     if (sheetData && sheetData.owners && sheetData.owners.length) {
       this._buildOwnersFromSheet(campaignKey, sheetData);
-    } else if (hasApi) {
-      try {
-        const url = NATIONAL_CONFIG.appsScriptUrl +
-          '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
-          '&campaign=' + encodeURIComponent(campaignKey);
-        const resp = await fetch(url);
-        const data = await resp.json();
-        if (data.error) throw new Error(data.error);
-        this.state.owners = data.owners || [];
-        this.state.campaignTotals = data.totals || {};
-        this.state.campaignRecruiting = data.campaignRecruiting || null;
-      } catch (err) {
-        console.warn('[NationalApp] API fetch failed, using scaffold data:', err.message);
-        this._loadScaffoldData(campaignKey);
-      }
     } else {
+      console.log('[NationalApp] No recruiting data, using scaffold');
       this._loadScaffoldData(campaignKey);
     }
 

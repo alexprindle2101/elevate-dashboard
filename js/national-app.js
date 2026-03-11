@@ -1143,21 +1143,18 @@ const NationalApp = {
           });
         }
 
-        // Re-enrich B2B owners in parallel (buildOwnersFromSheet resets to zeros)
+        // Re-enrich B2B owners with weekly data (headcount + production)
+        // CPA/Indeed costs are monthly and don't change on weekly import — skip
         if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
-          const [hcRes, prodRes, costRes] = await Promise.allSettled([
+          const [hcRes, prodRes] = await Promise.allSettled([
             this._fetchWithTimeout(this._fetchB2BHeadcount()),
-            this._fetchWithTimeout(this._fetchB2BProduction()),
-            this._fetchWithTimeout(this._fetchIndeedCosts())
+            this._fetchWithTimeout(this._fetchB2BProduction())
           ]);
           if (hcRes.status === 'fulfilled' && hcRes.value?.owners && Object.keys(hcRes.value.owners).length) {
             this._enrichOwnersWithNLR(hcRes.value.owners);
           }
           if (prodRes.status === 'fulfilled' && prodRes.value?.owners && Object.keys(prodRes.value.owners).length) {
             this._enrichOwnersWithProduction(prodRes.value.owners);
-          }
-          if (costRes.status === 'fulfilled' && costRes.value?.owners && Object.keys(costRes.value.owners).length) {
-            this._enrichOwnersWithIndeedCosts(costRes.value.owners);
           }
         }
 
@@ -1193,6 +1190,50 @@ const NationalApp = {
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = 'Import Recruiting'; }
       if (weeksSelect) weeksSelect.disabled = false;
+    }
+  },
+
+  // ══════════════════════════════════════════════════
+  // IMPORT COSTS (CPA data from per-owner Drive spreadsheets)
+  // ══════════════════════════════════════════════════
+
+  async importCosts() {
+    const btn = document.getElementById('btn-import-costs');
+    const status = document.getElementById('import-status');
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading Costs...'; }
+    if (status) { status.textContent = ''; status.className = 'import-status'; }
+
+    try {
+      const indeedData = await this._fetchWithTimeout(this._fetchIndeedCosts(), 60000);
+      if (indeedData && indeedData.owners && Object.keys(indeedData.owners).length) {
+        this._enrichOwnersWithIndeedCosts(indeedData.owners);
+
+        // Re-render current owner detail if open on recruiting tab
+        if (this.state.selectedOwner && this.state.currentTab === 'recruiting') {
+          this.renderRecruitingTab(this.state.selectedOwner);
+        }
+
+        const count = Object.keys(indeedData.owners).length;
+        if (status) {
+          status.textContent = 'Loaded costs for ' + count + ' owner' + (count !== 1 ? 's' : '');
+          status.className = 'import-status import-success';
+          setTimeout(() => { status.textContent = ''; status.className = 'import-status'; }, 6000);
+        }
+      } else {
+        if (status) {
+          status.textContent = 'No cost data found';
+          status.className = 'import-status import-error';
+        }
+      }
+    } catch (err) {
+      console.error('[NationalApp] Import costs failed:', err);
+      if (status) {
+        status.textContent = 'Cost import failed: ' + err.message;
+        status.className = 'import-status import-error';
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Import Costs'; }
     }
   },
 

@@ -238,6 +238,12 @@ input, select, textarea { font-family: inherit; }
   opacity: 0.6;
   cursor: not-allowed;
 }
+.btn-import-costs {
+  background: var(--blue);
+}
+.btn-import-costs:hover {
+  background: #2563eb;
+}
 .import-status {
   font-size: 12px;
   font-weight: 600;

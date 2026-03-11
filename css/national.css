@@ -1318,9 +1318,9 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
 }
 
 /* ═══════════════════════════════════════════════════════
-   INDEED AD SPEND TABLE
+   RECRUITING COSTS TABLE
    ═══════════════════════════════════════════════════════ */
-.indeed-month-select {
+.rc-month-select {
   padding: 4px 10px;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-sm);
@@ -1331,16 +1331,32 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
   cursor: pointer;
   margin-left: 8px;
 }
-.indeed-table-wrap { margin-top: 4px; }
-.indeed-table-wrap .data-table { max-width: 600px; }
-.indeed-table-wrap .data-table td.indeed-label {
+.rc-table-wrap { margin-top: 4px; }
+.rc-table-wrap .data-table td.rc-label {
   white-space: nowrap;
   font-weight: 700;
   background: var(--gray-50);
 }
-.indeed-table-wrap .data-table td.indeed-total {
+.rc-table-wrap .data-table td.rc-total-val {
   font-weight: 800;
 }
+.rc-table-wrap .data-table th.rc-total-col {
+  background: #fef08a;
+  color: var(--gray-800);
+}
+/* Platform breakdown table — allow horizontal scroll on narrow screens */
+.rc-platform-table {
+  min-width: 500px;
+}
+/* Month-over-month trend table */
+.rc-trend { margin-bottom: 16px; }
+.rc-trend .data-table td .trend-up,
+.rc-trend .data-table td .trend-down,
+.rc-trend .data-table td .trend-flat {
+  font-size: 10px;
+  margin-left: 4px;
+}
+.rc-detail-label { margin-top: 16px; }
 
 /* ═══════════════════════════════════════════════════════
    RESPONSIVE

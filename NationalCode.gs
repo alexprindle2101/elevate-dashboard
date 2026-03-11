@@ -2385,8 +2385,25 @@ function readIndeedCosts() {
     }
   }
 
-  Logger.log('readIndeedCosts: Found data for ' + Object.keys(owners).length + ' owners');
-  return { owners: owners };
+  // Collect union of all platform names across all owners/months (preserving order)
+  var allPlatformsSet = {};
+  var allPlatforms = [];
+  var ownerKeys = Object.keys(owners);
+  for (var oi = 0; oi < ownerKeys.length; oi++) {
+    var months = owners[ownerKeys[oi]].months || [];
+    for (var mi = 0; mi < months.length; mi++) {
+      var order = months[mi].platformOrder || [];
+      for (var pi = 0; pi < order.length; pi++) {
+        if (!allPlatformsSet[order[pi]]) {
+          allPlatformsSet[order[pi]] = true;
+          allPlatforms.push(order[pi]);
+        }
+      }
+    }
+  }
+
+  Logger.log('readIndeedCosts: Found data for ' + Object.keys(owners).length + ' owners, platforms: ' + allPlatforms.join(', '));
+  return { owners: owners, allPlatforms: allPlatforms };
 }
 
 /**
@@ -2432,40 +2449,70 @@ function _parseMonthTab(name) {
 }
 
 /**
- * Extract the Indeed cost table from a monthly sheet tab.
- * Scans for a header row containing "Local Indeed" / "NLR Indeed" / "TOTAL",
- * then reads 8 metric rows below.
+ * Extract the recruiting cost table from a monthly sheet tab.
+ * Dynamically detects all platform columns (Local Indeed, Careerbuilder,
+ * Handshake, JazzHR, etc.) by finding the TOTAL column and capturing
+ * everything between the label column and TOTAL.
+ * Returns { platforms: { "Local Indeed": {...}, ... }, total: {...}, platformOrder: [...] }
  */
 function _extractIndeedTable(sheet) {
   var data = sheet.getDataRange().getValues();
   if (data.length < 3) return null;
 
-  var labelCol = -1, localCol = -1, nlrCol = -1, totalCol = -1;
+  var labelCol = -1, totalCol = -1;
+  var platformCols = []; // { col: index, name: "Local Indeed" }
   var tableStartRow = -1;
 
-  // Find the header row with "Local Indeed", "NLR Indeed", "TOTAL"
+  // Find the header row by locating the "TOTAL" column
   for (var r = 0; r < data.length; r++) {
-    var foundLocal = false, foundNlr = false, foundTotal = false;
+    var rowTotalCol = -1;
     for (var c = 0; c < data[r].length; c++) {
       var h = String(data[r][c] || '').toLowerCase().trim();
-      if (h.indexOf('local') >= 0 && h.indexOf('indeed') >= 0) { localCol = c; foundLocal = true; }
-      else if (h.indexOf('nlr') >= 0 && h.indexOf('indeed') >= 0) { nlrCol = c; foundNlr = true; }
-      else if (h === 'total') { totalCol = c; foundTotal = true; }
+      if (h === 'total') { rowTotalCol = c; break; }
     }
-    if (foundLocal || foundNlr || foundTotal) {
+    if (rowTotalCol < 0) continue;
+
+    // Found TOTAL — now detect label col and all platform columns between them
+    // Walk left from TOTAL to find the first non-empty column header as label boundary
+    totalCol = rowTotalCol;
+    var firstPlatformCol = -1;
+    var tempPlatforms = [];
+
+    for (var c2 = rowTotalCol - 1; c2 >= 0; c2--) {
+      var val = String(data[r][c2] || '').trim();
+      if (!val) {
+        // Empty cell — this is the gap before the label column (or between label and platforms)
+        if (tempPlatforms.length > 0) {
+          labelCol = c2; // Label col is the last non-empty col before the gap, or col 0
+          // Check if there's a label column to the left
+          for (var c3 = c2; c3 >= 0; c3--) {
+            var lv = String(data[r][c3] || '').trim();
+            if (lv) { labelCol = c3; break; }
+            if (c3 === 0) labelCol = 0;
+          }
+          break;
+        }
+        continue;
+      }
+      // Non-empty cell before TOTAL — it's a platform header
+      tempPlatforms.unshift({ col: c2, name: val });
+      firstPlatformCol = c2;
+    }
+
+    // If no empty gap found, label is the column before the first platform
+    if (labelCol < 0 && tempPlatforms.length > 0) {
+      labelCol = firstPlatformCol > 0 ? firstPlatformCol - 1 : 0;
+    }
+
+    if (tempPlatforms.length > 0 || totalCol >= 0) {
+      platformCols = tempPlatforms;
       tableStartRow = r + 1;
-      // Label column is the leftmost before data columns
-      var minDataCol = Math.min(
-        localCol >= 0 ? localCol : 999,
-        nlrCol >= 0 ? nlrCol : 999,
-        totalCol >= 0 ? totalCol : 999
-      );
-      labelCol = minDataCol > 0 ? minDataCol - 1 : 0;
       break;
     }
   }
 
   if (tableStartRow < 0) return null;
+  if (labelCol < 0) labelCol = 0;
 
   // Row label patterns → keys
   var ROW_DEFS = [
@@ -2479,7 +2526,14 @@ function _extractIndeedTable(sheet) {
     { patterns: ['cost/new start', 'cost per new start'],                key: 'costPerNewStart' }
   ];
 
-  var localData = {}, nlrData = {}, totalData = {};
+  // Build per-platform data objects
+  var platforms = {};
+  var platformOrder = [];
+  for (var pi = 0; pi < platformCols.length; pi++) {
+    platforms[platformCols[pi].name] = {};
+    platformOrder.push(platformCols[pi].name);
+  }
+  var totalData = {};
 
   for (var r = tableStartRow; r < Math.min(tableStartRow + 15, data.length); r++) {
     var label = String(data[r][labelCol] || '').toLowerCase().trim();
@@ -2497,12 +2551,24 @@ function _extractIndeedTable(sheet) {
     }
     if (!matchedKey) continue;
 
-    if (localCol >= 0) localData[matchedKey] = _numVal(data[r][localCol]);
-    if (nlrCol >= 0)   nlrData[matchedKey]   = _numVal(data[r][nlrCol]);
-    if (totalCol >= 0) totalData[matchedKey]  = _numVal(data[r][totalCol]);
+    // Read each platform column
+    for (var pi = 0; pi < platformCols.length; pi++) {
+      platforms[platformCols[pi].name][matchedKey] = _numVal(data[r][platformCols[pi].col]);
+    }
+    if (totalCol >= 0) totalData[matchedKey] = _numVal(data[r][totalCol]);
   }
 
-  return { local: localData, nlr: nlrData, total: totalData };
+  // Backward compat: also set local/nlr/total if those platforms exist
+  var result = { platforms: platforms, total: totalData, platformOrder: platformOrder };
+  for (var pi = 0; pi < platformOrder.length; pi++) {
+    var lc = platformOrder[pi].toLowerCase();
+    if (lc.indexOf('local') >= 0 && lc.indexOf('indeed') >= 0) result.local = platforms[platformOrder[pi]];
+    if (lc.indexOf('nlr') >= 0 && lc.indexOf('indeed') >= 0) result.nlr = platforms[platformOrder[pi]];
+  }
+  if (!result.local) result.local = {};
+  if (!result.nlr) result.nlr = {};
+
+  return result;
 }
 
 /** Convert cell value to number, stripping $ and , */

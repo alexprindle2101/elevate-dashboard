@@ -1728,8 +1728,20 @@ const NationalApp = {
   },
 
   // ══════════════════════════════════════════════════
-  // RENDER: Indeed Ad Spend (inside Recruiting tab)
+  // RENDER: Recruiting Costs (inside Recruiting tab)
   // ══════════════════════════════════════════════════
+
+  // Row definitions for cost tables
+  _COST_ROWS: [
+    { label: '# of Ads',        key: 'numAds',         fmt: 'num' },
+    { label: 'Total Cost',      key: 'totalCost',      fmt: 'dollar' },
+    { label: '# of Applies',    key: 'numApplies',     fmt: 'num' },
+    { label: 'Cost/Apply',      key: 'costPerApply',   fmt: 'dollar' },
+    { label: '# of 2nds',       key: 'num2nds',        fmt: 'num' },
+    { label: 'Cost/2nd',        key: 'costPer2nd',     fmt: 'dollar' },
+    { label: '# of New Starts', key: 'numNewStarts',   fmt: 'num' },
+    { label: 'Cost/New Start',  key: 'costPerNewStart', fmt: 'dollar' }
+  ],
 
   _renderIndeedCosts(owner) {
     const el = document.getElementById('owner-indeed-costs');
@@ -1742,41 +1754,46 @@ const NationalApp = {
     }
 
     const months = data.months;
-    const hasMultiple = months.length > 1;
+    let html = '';
 
-    let html = `<div class="coaching-label">
-      Indeed Ad Spend
+    // ── Part 1: Month-over-Month Trend Table (TOTAL values across months) ──
+    if (months.length > 1) {
+      html += `<div class="coaching-label">Recruiting Costs — Month-over-Month</div>`;
+      html += this._buildCostTrend(months);
+    }
+
+    // ── Part 2: Detailed Platform Breakdown for selected month ──
+    const hasMultiple = months.length > 1;
+    html += `<div class="coaching-label rc-detail-label">
+      ${months.length > 1 ? 'Platform Breakdown' : 'Recruiting Costs'}
       ${hasMultiple
-        ? `<select class="indeed-month-select" onchange="NationalApp._switchIndeedMonth(this.value)">
+        ? `<select class="rc-month-select" onchange="NationalApp._switchCostMonth(this.value)">
             ${months.map((m, i) => `<option value="${i}">${this._esc(m.month)}</option>`).join('')}
           </select>`
         : `<span class="coaching-sublabel">${this._esc(months[0].month)}</span>`
       }
     </div>`;
 
-    html += this._buildIndeedTable(months[0]);
+    html += this._buildCostTable(months[0]);
     el.innerHTML = html;
   },
 
-  _switchIndeedMonth(idx) {
+  _switchCostMonth(idx) {
     const owner = this.state.selectedOwner;
     if (!owner || !owner.indeedCosts || !owner.indeedCosts.months) return;
     const month = owner.indeedCosts.months[parseInt(idx)];
     if (!month) return;
 
-    const wrap = document.querySelector('#owner-indeed-costs .indeed-table-wrap');
+    const wrap = document.querySelector('#owner-indeed-costs .rc-table-wrap');
     if (wrap) {
-      wrap.outerHTML = this._buildIndeedTable(month);
+      wrap.outerHTML = this._buildCostTable(month);
     }
   },
 
-  _buildIndeedTable(monthData) {
-    const local = monthData.local || {};
-    const nlr = monthData.nlr || {};
-    const total = monthData.total || {};
-
-    const rows = [
-      { label: '# of Ads',        key: 'numAds',         fmt: 'num' },
+  // ── Month-over-Month trend: columns = months, rows = key metrics (TOTAL only) ──
+  _buildCostTrend(months) {
+    // Key metrics for the trend view (subset of full rows)
+    const trendRows = [
       { label: 'Total Cost',      key: 'totalCost',      fmt: 'dollar' },
       { label: '# of Applies',    key: 'numApplies',     fmt: 'num' },
       { label: 'Cost/Apply',      key: 'costPerApply',   fmt: 'dollar' },
@@ -1786,25 +1803,87 @@ const NationalApp = {
       { label: 'Cost/New Start',  key: 'costPerNewStart', fmt: 'dollar' }
     ];
 
-    let h = `<div class="indeed-table-wrap"><div class="data-table-wrap"><table class="data-table">
+    let h = `<div class="rc-table-wrap rc-trend"><div class="data-table-wrap"><table class="data-table">
       <thead><tr>
         <th></th>
-        <th class="num">Local Indeed</th>
-        <th class="num">NLR Indeed</th>
-        <th class="num">Total</th>
+        ${months.map(m => `<th class="num">${this._esc(m.month)}</th>`).join('')}
       </tr></thead><tbody>`;
 
-    for (const r of rows) {
-      const lv = local[r.key] ?? 0;
-      const nv = nlr[r.key] ?? 0;
-      const tv = total[r.key] ?? 0;
+    for (const r of trendRows) {
       const fmt = r.fmt === 'dollar' ? this._fmtDollar : this._fmtNum;
-      h += `<tr>
-        <td class="indeed-label">${r.label}</td>
-        <td class="num">${fmt(lv)}</td>
-        <td class="num">${fmt(nv)}</td>
-        <td class="num indeed-total">${fmt(tv)}</td>
-      </tr>`;
+      h += `<tr><td class="rc-label">${r.label}</td>`;
+
+      for (let mi = 0; mi < months.length; mi++) {
+        const val = (months[mi].total || {})[r.key] ?? 0;
+        const prev = mi < months.length - 1 ? ((months[mi + 1].total || {})[r.key] ?? null) : null;
+        // For cost metrics, lower is better (invert arrow)
+        const isCost = r.key.startsWith('cost');
+        const arrow = prev !== null ? this._costTrendArrow(val, prev, isCost) : '';
+        h += `<td class="num">${fmt(val)} ${arrow}</td>`;
+      }
+
+      h += `</tr>`;
+    }
+
+    h += `</tbody></table></div></div>`;
+    return h;
+  },
+
+  // Trend arrow for cost metrics (lower = good for cost rows, higher = good for count rows)
+  _costTrendArrow(current, previous, lowerIsBetter) {
+    if (previous === null || previous === undefined) return '';
+    const diff = current - previous;
+    if (Math.abs(diff) < 0.01) return '<span class="trend-flat">—</span>';
+    if (lowerIsBetter) {
+      return diff < 0
+        ? '<span class="trend-up">&#9650;</span>'
+        : '<span class="trend-down">&#9660;</span>';
+    }
+    return diff > 0
+      ? '<span class="trend-up">&#9650;</span>'
+      : '<span class="trend-down">&#9660;</span>';
+  },
+
+  // ── Platform breakdown table for a single month ──
+  _buildCostTable(monthData) {
+    const platforms = monthData.platforms || {};
+    const total = monthData.total || {};
+    const platformOrder = monthData.platformOrder || Object.keys(platforms);
+
+    // Fallback for old data format (local/nlr/total only, no platforms key)
+    if (!platformOrder.length && (monthData.local || monthData.nlr)) {
+      const fallbackPlatforms = [];
+      if (monthData.local && Object.keys(monthData.local).length) fallbackPlatforms.push('Local Indeed');
+      if (monthData.nlr && Object.keys(monthData.nlr).length) fallbackPlatforms.push('NLR Indeed');
+      const fallbackData = {};
+      if (monthData.local) fallbackData['Local Indeed'] = monthData.local;
+      if (monthData.nlr) fallbackData['NLR Indeed'] = monthData.nlr;
+      return this._buildCostTableInner(fallbackPlatforms, fallbackData, total);
+    }
+
+    return this._buildCostTableInner(platformOrder, platforms, total);
+  },
+
+  _buildCostTableInner(platformOrder, platforms, total) {
+    let h = `<div class="rc-table-wrap"><div class="data-table-wrap"><table class="data-table rc-platform-table">
+      <thead><tr>
+        <th></th>
+        ${platformOrder.map(p => `<th class="num">${this._esc(p)}</th>`).join('')}
+        <th class="num rc-total-col">TOTAL</th>
+      </tr></thead><tbody>`;
+
+    for (const r of this._COST_ROWS) {
+      const fmt = r.fmt === 'dollar' ? this._fmtDollar : this._fmtNum;
+      h += `<tr><td class="rc-label">${r.label}</td>`;
+
+      for (const pName of platformOrder) {
+        const val = (platforms[pName] || {})[r.key] ?? 0;
+        h += `<td class="num">${fmt(val)}</td>`;
+      }
+
+      const tv = total[r.key] ?? 0;
+      h += `<td class="num rc-total-val">${fmt(tv)}</td>`;
+      h += `</tr>`;
     }
 
     h += `</tbody></table></div></div>`;

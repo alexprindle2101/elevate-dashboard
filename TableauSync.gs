@@ -499,6 +499,17 @@ function syncReport(reportKey) {
       _formatTimeColumns(filtered, report.timeColumns);
     }
 
+    // Verify Order Status values right before writing
+    var osVerifyIdx = filtered.headers.indexOf('Order Status');
+    if (osVerifyIdx >= 0) {
+      var osCounts = {};
+      for (var v = 0; v < filtered.rows.length; v++) {
+        var osVal = String(filtered.rows[v][osVerifyIdx] || '').trim();
+        osCounts[osVal] = (osCounts[osVal] || 0) + 1;
+      }
+      Logger.log('Order Status PRE-WRITE: ' + JSON.stringify(osCounts));
+    }
+
     // Write to sheet
     var result = _writeToSheet(config.sheetId, report.tabName, filtered.headers, filtered.rows);
     Logger.log('Wrote to sheet: ' + JSON.stringify(result));

@@ -820,6 +820,105 @@ function testSyncB2BOrderLog() {
 }
 
 /**
+ * Analyze raw CSV from custom view — checks Order Status values and row counts
+ * at each pipeline stage. Run from editor to find where "Approved" disappears.
+ */
+function analyzeCustomViewData() {
+  var config = _getConfig();
+  var report = REPORTS['b2b-order-log'];
+  var auth = _tableauSignIn(config);
+  try {
+    // Download raw CSV
+    var csv = _downloadCustomViewData(config, auth.token, auth.siteId, report.customViewId);
+    var data = _parseCsv(csv);
+    Logger.log('Raw CSV: ' + (data.length - 1) + ' rows, ' + data[0].length + ' columns');
+
+    // Find key column indices
+    var headers = data[0];
+    var orderStatusIdx = -1;
+    var dtrStatusIdx = -1;
+    var dsiIdx = -1;
+    var dateIdx = -1;
+    for (var i = 0; i < headers.length; i++) {
+      var h = headers[i];
+      if (h === 'Order Status') orderStatusIdx = i;
+      if (h === 'DTR Status (enriched)') dtrStatusIdx = i;
+      if (h === 'sp.SPM Number') dsiIdx = i;
+      if (h === 'sp.Order Date (copy)') dateIdx = i;
+    }
+
+    // Count Order Status values in RAW CSV (before any filtering)
+    Logger.log('=== RAW CSV — Order Status distribution ===');
+    var rawOrderStatus = {};
+    for (var r = 1; r < data.length; r++) {
+      var os = orderStatusIdx >= 0 ? String(data[r][orderStatusIdx] || '').trim() : '(no column)';
+      rawOrderStatus[os] = (rawOrderStatus[os] || 0) + 1;
+    }
+    Object.keys(rawOrderStatus).sort().forEach(function(s) {
+      Logger.log('  ' + (s || '(empty)') + ': ' + rawOrderStatus[s]);
+    });
+
+    // Count DTR Status in RAW CSV
+    Logger.log('=== RAW CSV — DTR Status distribution ===');
+    var rawDtrStatus = {};
+    for (var r2 = 1; r2 < data.length; r2++) {
+      var ds = dtrStatusIdx >= 0 ? String(data[r2][dtrStatusIdx] || '').trim() : '(no column)';
+      rawDtrStatus[ds] = (rawDtrStatus[ds] || 0) + 1;
+    }
+    Object.keys(rawDtrStatus).sort().forEach(function(s) {
+      Logger.log('  ' + (s || '(empty)') + ': ' + rawDtrStatus[s]);
+    });
+
+    // Count unique DSIs in raw CSV
+    var rawDsis = {};
+    for (var r3 = 1; r3 < data.length; r3++) {
+      var d = dsiIdx >= 0 ? String(data[r3][dsiIdx] || '').trim() : '';
+      if (d) rawDsis[d] = true;
+    }
+    Logger.log('Raw CSV: ' + Object.keys(rawDsis).length + ' unique DSIs');
+
+    // Now apply column filter
+    var filtered = _filterColumns(data, report.columns);
+    Logger.log('After column filter: ' + filtered.rows.length + ' rows, ' + filtered.headers.length + ' cols');
+
+    // Apply date filter
+    if (report.dateFilterColumn && report.dateRangeDays) {
+      var beforeDate = filtered.rows.length;
+      filtered = _filterByDateRange(filtered, report.dateFilterColumn, report.dateRangeDays);
+      Logger.log('After date filter (' + report.dateRangeDays + ' days): ' + beforeDate + ' → ' + filtered.rows.length + ' rows');
+    }
+
+    // Count Order Status after all filters
+    var osIdx = filtered.headers.indexOf('Order Status');
+    if (osIdx >= 0) {
+      Logger.log('=== AFTER FILTERS — Order Status distribution ===');
+      var filteredOS = {};
+      for (var r4 = 0; r4 < filtered.rows.length; r4++) {
+        var fos = String(filtered.rows[r4][osIdx] || '').trim();
+        filteredOS[fos] = (filteredOS[fos] || 0) + 1;
+      }
+      Object.keys(filteredOS).sort().forEach(function(s) {
+        Logger.log('  ' + (s || '(empty)') + ': ' + filteredOS[s]);
+      });
+    }
+
+    // Count unique DSIs after filters
+    var fDsiIdx = filtered.headers.indexOf('sp.SPM Number');
+    if (fDsiIdx >= 0) {
+      var filteredDsis = {};
+      for (var r5 = 0; r5 < filtered.rows.length; r5++) {
+        var fd = String(filtered.rows[r5][fDsiIdx] || '').trim();
+        if (fd) filteredDsis[fd] = true;
+      }
+      Logger.log('After filters: ' + Object.keys(filteredDsis).length + ' unique DSIs');
+    }
+
+  } finally {
+    _tableauSignOut(config, auth.token);
+  }
+}
+
+/**
  * List unique "Owner & Office" values from synced data (run from editor).
  * Useful for configuring ownerOfficeMatch in TARGETS.
  */

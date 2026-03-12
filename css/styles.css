@@ -267,19 +267,25 @@ thead th.sticky-name {
 thead th.sticky-rank { left: 0; }
 thead th.sticky-name { left: 36px; }
 td.rank {
-  position: sticky; left: 0; z-index: 2; background: var(--card-bg);
+  position: sticky; left: 0; z-index: 2;
+  background: var(--card-bg);
+  background-clip: padding-box;
+  box-shadow: 0 1px 0 var(--card-bg), 0 -1px 0 var(--card-bg);
 }
 td.name-cell {
-  position: sticky; left: 36px; z-index: 2; background: var(--card-bg);
+  position: sticky; left: 36px; z-index: 2;
+  background: var(--card-bg);
+  background-clip: padding-box;
+  box-shadow: 0 1px 0 var(--card-bg), 0 -1px 0 var(--card-bg);
 }
 tbody tr:hover td.rank,
-tbody tr:hover td.name-cell { background: #ededed; }
+tbody tr:hover td.name-cell { background: #ededed; box-shadow: 0 1px 0 #ededed, 0 -1px 0 #ededed; }
 tr.own-row td.rank,
-tr.own-row td.name-cell { background: #e2f0ef; }
+tr.own-row td.name-cell { background: #e2f0ef; box-shadow: 0 1px 0 #e2f0ef, 0 -1px 0 #e2f0ef; }
 tr.own-row:hover td.rank,
-tr.own-row:hover td.name-cell { background: #d5e8e6; }
+tr.own-row:hover td.name-cell { background: #d5e8e6; box-shadow: 0 1px 0 #d5e8e6, 0 -1px 0 #d5e8e6; }
 tr.leader-total-row td.rank,
-tr.leader-total-row td.name-cell { background: #ebebeb; }
+tr.leader-total-row td.name-cell { background: #ebebeb; box-shadow: 0 1px 0 #ebebeb, 0 -1px 0 #ebebeb; }
 /* Shadow hint on frozen edge */
 td.name-cell::after, thead th.sticky-name::after {
   content: ''; position: absolute; top: 0; right: -6px;

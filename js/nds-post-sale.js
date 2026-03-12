@@ -613,8 +613,6 @@ const PostSale = {
       discordWebhookUrl: OFFICE_CONFIG.discordWebhookUrl || '',
       chatPlatform: OFFICE_CONFIG.chatPlatform || 'discord'
     };
-    console.log('[PostSale] Webhook config in payload:', { discordWebhookUrl: payload.discordWebhookUrl ? payload.discordWebhookUrl.substring(0, 50) + '...' : '(empty)', chatPlatform: payload.chatPlatform });
-    return payload;
   },
 
   // ── UI Actions ──

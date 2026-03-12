@@ -1252,6 +1252,7 @@ function doPost(e) {
       case 'addTicket':            result = writeAddTicket(body, ss, officeId); break;
       case 'toggleTicket':         result = writeToggleTicket(body, ss, officeId); break;
       case 'addSale':              result = writeAddSale(body, ss, officeId); break;
+      case 'replayWebhook':        result = replayWebhook(body, ss, officeId); break;
       case 'bustTableauCache':     result = writeBustTableauCache(officeId); break;
       case 'createOfficeTabs':     result = createOfficeTabs(body, ss); break;
       default: result = { error: 'unknown action: ' + body.action };
@@ -1737,6 +1738,43 @@ function _fireWebhook(body, units, teamEmoji) {
   } catch (e) {
     return 'fetch_error: ' + e.message;
   }
+}
+
+
+// === REPLAY WEBHOOK (re-fire Discord/GroupMe for existing sales) ===
+
+function replayWebhook(body, ss, officeId) {
+  var dsi = String(body.dsi || '').trim();
+  if (!dsi) return { error: 'missing dsi' };
+
+  var sheet = ss.getSheetByName(officeTab(TAB.SALES, officeId));
+  if (!sheet) return { error: 'no sales sheet' };
+
+  var data = sheet.getDataRange().getValues();
+  var results = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][OL.DSI] || '').trim() === dsi) {
+      var row = data[i];
+      var saleBody = {
+        repName: row[OL.REP_NAME],
+        campaign: row[OL.CAMPAIGN] || 'attb2b',
+        accountType: row[OL.ACCOUNT_TYPE] || 'Consumer',
+        dsi: row[OL.DSI],
+        air: row[OL.AIR],
+        newPhones: row[OL.NEW_PHONES],
+        byods: row[OL.BYODS],
+        hashtags: '',
+        discordWebhookUrl: body.discordWebhookUrl || '',
+        chatPlatform: body.chatPlatform || 'discord'
+      };
+      var units = (Number(row[OL.AIR]) || 0) + (Number(row[OL.NEW_PHONES]) || 0) + (Number(row[OL.BYODS]) || 0);
+      var teamEmoji = String(row[OL.TEAM_EMOJI] || '').trim();
+      var wh = _fireWebhook(saleBody, units, teamEmoji);
+      results.push({ dsi: dsi, webhook: wh });
+    }
+  }
+  if (results.length === 0) return { error: 'DSI not found: ' + dsi };
+  return { ok: true, results: results };
 }
 
 

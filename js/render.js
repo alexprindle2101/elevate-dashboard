@@ -195,10 +195,15 @@ const Render = {
     const isDNQ = tierClean === 'DNQ';
     const cls = isDNQ ? 'tier-dnq' : tierClean.replace(/\s+/g, '-').toLowerCase();
     const label = isDNQ ? 'DNQ' : tierClean;
+    // Extract per-unit rate from bonusTier (e.g., "TIER 1 $30/UNIT" → 30)
+    const rateMatch = p.bonusTier.match(/\$(\d+(?:\.\d+)?)/);
+    const perUnit = rateMatch ? parseFloat(rateMatch[1]) : 0;
+    const units = this.twUnits(p);
+    const projected = perUnit * units;
     // Build popup data
     const raw = p.bonusTier.trim();
     const reason = (p.payoutReason || '').trim();
-    const popupData = encodeURIComponent(JSON.stringify({ tier: raw, reason }));
+    const popupData = encodeURIComponent(JSON.stringify({ tier: raw, reason, perUnit, units, projected }));
     return `<span class="tier-badge ${cls}" onclick="event.stopPropagation();Render.showTierPopup(this,\'${popupData}\')" title="Click for details">${label}</span>`;
   },
 
@@ -209,14 +214,14 @@ const Render = {
     const data = JSON.parse(decodeURIComponent(encodedData));
     const popup = document.createElement('div');
     popup.className = 'tier-popup';
-    // Detect if reason is a payout amount (number) or a DNQ reason (text)
-    const numVal = parseFloat(data.reason.replace(/[$,]/g, ''));
-    const isPayout = data.reason && !isNaN(numVal) && isFinite(numVal);
     let details = '';
-    if (isPayout) {
-      details = `<div class="tier-popup-row"><span class="tier-popup-label">Total Payout:</span> <span class="tier-popup-payout">$${numVal.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</span></div>`;
-    } else if (data.reason) {
-      details = `<div class="tier-popup-row"><span class="tier-popup-label">Reason:</span> ${data.reason}</div>`;
+    if (data.perUnit > 0) {
+      details += `<div class="tier-popup-row"><span class="tier-popup-label">Rate:</span> $${data.perUnit}/unit</div>`;
+      details += `<div class="tier-popup-row"><span class="tier-popup-label">Units:</span> ${data.units}</div>`;
+      details += `<div class="tier-popup-row tier-popup-projected"><span class="tier-popup-label">Projected Payout:</span> <span class="tier-popup-payout">$${data.projected.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</span></div>`;
+    }
+    if (data.reason) {
+      details += `<div class="tier-popup-row"><span class="tier-popup-label">Reason:</span> ${data.reason}</div>`;
     }
     popup.innerHTML = `<div class="tier-popup-title">${data.tier}</div>` + details;
     document.body.appendChild(popup);

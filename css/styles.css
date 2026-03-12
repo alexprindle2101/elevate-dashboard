@@ -778,6 +778,7 @@ body.has-role-switcher header { top: 44px; }
 .tier-popup-row { color: var(--silver-dim); line-height: 1.5; }
 .tier-popup-label { font-weight: 700; color: var(--white); }
 .tier-popup-payout { font-weight: 800; color: #22c55e; font-size: 14px; }
+.tier-popup-projected { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); }
 
 /* NAME LINKS */
 .name-link { cursor: pointer; transition: color 0.15s; }

@@ -192,7 +192,7 @@ const Render = {
   tierBadgeHTML(p) {
     if (!p.bonusTier) return '';
     // Strip parentheses and their contents, clean up
-    const tierClean = p.bonusTier.replace(/\s*\([^)]*\)/g, '').trim().toUpperCase();
+    const tierClean = p.bonusTier.replace(/\$.*/, '').replace(/\s*\([^)]*\)/g, '').trim().toUpperCase();
     if (tierClean === 'DNQ') {
       return ` <span class="tier-badge tier-dnq">DNQ</span>`;
     }

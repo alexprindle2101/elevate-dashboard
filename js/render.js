@@ -201,8 +201,8 @@ const Render = {
       return ` <span class="tier-card tier-dnq"><span class="tier-card-label">DNQ</span></span>`;
     }
     const cls = tierClean.replace(/\s+/g, '-').toLowerCase();
-    const payout = reason ? `<span class="tier-card-payout">${reason.toUpperCase()}</span>` : '';
-    return ` <span class="tier-card ${cls}"><span class="tier-card-label">${tierClean}</span>${payout}</span>`;
+    const payoutLine = reason ? `<br><span class="tier-card-payout">${reason.toUpperCase()}</span>` : '';
+    return ` <span class="tier-card ${cls}"><span class="tier-card-label">${tierClean}</span>${payoutLine}</span>`;
   },
 
   // ── Person Row ──

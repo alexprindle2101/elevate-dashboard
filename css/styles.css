@@ -749,12 +749,12 @@ body.has-role-switcher header { top: 44px; }
   vertical-align: middle; margin-left: 6px; text-transform: uppercase;
 }
 .tier-card {
-  display: inline-flex; flex-direction: column; align-items: center;
+  display: inline-block; text-align: center;
   border-radius: 5px; padding: 2px 8px; vertical-align: middle; margin-left: 8px;
-  text-transform: uppercase; white-space: nowrap; line-height: 1.2;
+  text-transform: uppercase; white-space: nowrap; line-height: 1.3;
 }
-.tier-card-label { font-size: 9px; font-weight: 800; letter-spacing: 0.5px; }
-.tier-card-payout { font-size: 7px; font-weight: 600; letter-spacing: 0.3px; opacity: 0.85; }
+.tier-card-label { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.5px; }
+.tier-card-payout { display: block; font-size: 7px; font-weight: 600; letter-spacing: 0.3px; opacity: 0.85; }
 .tier-card.tier-1 { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #22c55e; }
 .tier-card.tier-2 { background: rgba(0,200,255,0.12); border: 1px solid rgba(0,200,255,0.4); color: #00c8ff; }
 .tier-card.tier-3 { background: rgba(240,180,41,0.15); border: 1px solid rgba(240,180,41,0.4); color: #f0b429; }

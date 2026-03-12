@@ -300,12 +300,13 @@ td.name-cell::after, thead th.sticky-name::after {
 }
 
 tbody tr {
-  border-bottom: 1px solid rgba(0,0,0,0.10);
   transition: background 0.2s;
   background: var(--card-bg);
 }
-
-tbody tr:last-child { border-bottom: none; }
+tbody td {
+  border-bottom: 1px solid rgba(0,0,0,0.10);
+}
+tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: rgba(0,0,0,0.07); }
 
 /* Rank */

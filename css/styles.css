@@ -259,6 +259,27 @@ th {
 
 th.name-col { text-align: left; padding-left: 20px; }
 
+/* Frozen rank + name columns */
+thead th.sticky-rank,
+thead th.sticky-name {
+  position: sticky; z-index: 3; background: var(--card-bg);
+}
+thead th.sticky-rank { left: 0; }
+thead th.sticky-name { left: 36px; }
+td.rank {
+  position: sticky; left: 0; z-index: 2; background: inherit;
+}
+td.name-cell {
+  position: sticky; left: 36px; z-index: 2; background: inherit;
+}
+/* Shadow hint on frozen edge */
+td.name-cell::after, thead th.sticky-name::after {
+  content: ''; position: absolute; top: 0; right: -6px;
+  width: 6px; height: 100%;
+  background: linear-gradient(to right, rgba(0,0,0,0.06), transparent);
+  pointer-events: none;
+}
+
 .day-group {
   background: rgba(0,0,0,0.05);
   font-size: 10px;
@@ -270,6 +291,7 @@ th.name-col { text-align: left; padding-left: 20px; }
 tbody tr {
   border-bottom: 1px solid rgba(0,0,0,0.10);
   transition: background 0.2s;
+  background: var(--card-bg);
 }
 
 tbody tr:last-child { border-bottom: none; }

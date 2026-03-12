@@ -118,8 +118,8 @@ const Render = {
     gr.innerHTML = '';
     dr.innerHTML = '';
 
-    gr.insertAdjacentHTML('beforeend', '<th colspan="2"></th>');
-    dr.insertAdjacentHTML('beforeend', '<th style="width:36px">#</th><th class="name-col" style="min-width:120px">Name</th>');
+    gr.insertAdjacentHTML('beforeend', '<th colspan="2" style="position:sticky;left:0;z-index:3;background:var(--card-bg)"></th>');
+    dr.insertAdjacentHTML('beforeend', '<th class="sticky-rank" style="width:36px">#</th><th class="name-col sticky-name" style="min-width:120px">Name</th>');
 
     this.visiblePeriods().forEach(pi => {
       const isExp = !!this.expandedPeriods[pi];

@@ -191,18 +191,13 @@ const Render = {
   // ── Tier Badge ──
   tierBadgeHTML(p) {
     if (!p.bonusTier) return '';
-    const reason = (p.payoutReason || '').trim();
-    // Strip parentheses and their contents from tier name
+    // Strip parentheses and their contents, clean up
     const tierClean = p.bonusTier.replace(/\s*\([^)]*\)/g, '').trim().toUpperCase();
-    // Qualified if payout reason is empty or a dollar amount (possibly with /unit)
-    const isDqd = reason !== '' && !/^\$?[\d,.]+(\s*\/\s*\w+)?$/.test(reason);
-
-    if (isDqd || tierClean === 'DNQ') {
-      return ` <span class="tier-card tier-dnq"><span class="tier-card-label">DNQ</span></span>`;
+    if (tierClean === 'DNQ') {
+      return ` <span class="tier-card tier-dnq">DNQ</span>`;
     }
     const cls = tierClean.replace(/\s+/g, '-').toLowerCase();
-    const payoutLine = reason ? `<br><span class="tier-card-payout">${reason.toUpperCase()}</span>` : '';
-    return ` <span class="tier-card ${cls}"><span class="tier-card-label">${tierClean}</span>${payoutLine}</span>`;
+    return ` <span class="tier-card ${cls}">${tierClean}</span>`;
   },
 
   // ── Person Row ──

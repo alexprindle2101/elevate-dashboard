@@ -194,10 +194,10 @@ const Render = {
     // Strip parentheses and their contents, clean up
     const tierClean = p.bonusTier.replace(/\s*\([^)]*\)/g, '').trim().toUpperCase();
     if (tierClean === 'DNQ') {
-      return ` <span class="tier-card tier-dnq">DNQ</span>`;
+      return ` <span class="tier-badge tier-dnq">DNQ</span>`;
     }
     const cls = tierClean.replace(/\s+/g, '-').toLowerCase();
-    return ` <span class="tier-card ${cls}">${tierClean}</span>`;
+    return ` <span class="tier-badge ${cls}">${tierClean}</span>`;
   },
 
   // ── Person Row ──

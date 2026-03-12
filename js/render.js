@@ -188,13 +188,29 @@ const Render = {
     return html;
   },
 
+  // ── Tier Badge ──
+  tierBadgeHTML(p) {
+    if (!p.bonusTier) return '';
+    const reason = (p.payoutReason || '').trim();
+    // Qualified if payout reason is empty or a number (possibly with $ or commas)
+    const isDqd = reason !== '' && !/^\$?[\d,.]+$/.test(reason);
+    if (isDqd) {
+      return ` <span class="tier-badge tier-dnq">DNQ: ${reason}</span>`;
+    }
+    const tier = p.bonusTier.toUpperCase();
+    if (tier === 'DNQ') return ` <span class="tier-badge tier-dnq">DNQ</span>`;
+    const cls = tier.replace(/\s+/g, '-').toLowerCase();
+    return ` <span class="tier-badge ${cls}">${tier}</span>`;
+  },
+
   // ── Person Row ──
   personRowHTML(p, rankIdx) {
     const canView = Roster.canViewMetrics(p.name, App.state.currentRole, App.state.currentPersona, App.state.people);
     const isSelf = p.name === App.state.currentPersona;
+    const badge = this.tierBadgeHTML(p);
     const nameCell = canView
-      ? `<span class="name-text name-link" onclick="App.openPersonProfile('${p.name.replace(/'/g, "\\'")}')">${p.name}${isSelf ? ' <span style="font-size:9px;color:var(--sc-cyan);letter-spacing:1px">(YOU)</span>' : ''}</span><br><span style="font-size:10px;color:var(--silver-dim)">${p.role}</span>`
-      : `<span class="name-text" style="cursor:default">${p.name}<span class="locked-badge">🔒</span></span><br><span style="font-size:10px;color:var(--silver-dim)">${p.role}</span>`;
+      ? `<span class="name-text name-link" onclick="App.openPersonProfile('${p.name.replace(/'/g, "\\'")}')">${p.name}${badge}${isSelf ? ' <span style="font-size:9px;color:var(--sc-cyan);letter-spacing:1px">(YOU)</span>' : ''}</span><br><span style="font-size:10px;color:var(--silver-dim)">${p.role}</span>`
+      : `<span class="name-text" style="cursor:default">${p.name}${badge}<span class="locked-badge">🔒</span></span><br><span style="font-size:10px;color:var(--silver-dim)">${p.role}</span>`;
 
     let cells = `<td class="rank ${rankIdx < 3 ? 'rank-' + (rankIdx + 1) : ''}">${this.rankLabel(rankIdx)}</td><td class="name-cell">${nameCell}</td>`;
     this.visiblePeriods().forEach(pi => {

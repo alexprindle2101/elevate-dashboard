@@ -894,6 +894,9 @@ const DataPipeline = {
         : 0;
       m.productBreakdown = rep.productCounts || {};
       m.tableauName = rep.tableauName || '';
+      // Bonus tier data from Tableau
+      p.bonusTier = rep.bonusTier || '';
+      p.payoutReason = rep.payoutReason || '';
       // Wireless SPE counts in 30-day window
       m.monthTotalSPEs = rep.monthTotalSPEs || 0;
       m.monthApprovedSPEs = rep.monthApprovedSPEs || 0;

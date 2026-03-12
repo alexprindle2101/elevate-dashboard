@@ -1009,7 +1009,14 @@ function readTableauSummary(ss, officeId) {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   thirtyDaysAgo.setHours(0, 0, 0, 0);
 
+  // Current-week Monday (Mon=0 week) for tier bonus filtering
+  var now = new Date();
+  var dayOfWeek = (now.getDay() + 6) % 7; // Mon=0 … Sun=6
+  var thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+  thisMonday.setHours(0, 0, 0, 0);
+
   var dsiSummary = {};
+  var repTierData = {}; // keyed by tableau rep name, current-week only
 
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
@@ -1030,6 +1037,13 @@ function readTableauSummary(ss, officeId) {
 
     var orderStatus = String(tCol(row, col, 'ORDER_STATUS') || '').trim();
     var orderDate = tCol(row, col, 'ORDER_DATE');
+    var bonusTier = String(tCol(row, col, 'BONUS_TIERS') || '').trim();
+    var payoutReason = String(tCol(row, col, 'PAYOUT_REASON') || '').trim();
+
+    // Collect current-week tier bonus data per rep name
+    if (bonusTier && tableauRep && orderDate instanceof Date && orderDate >= thisMonday) {
+      repTierData[tableauRep] = { bonusTier: bonusTier, payoutReason: payoutReason };
+    }
 
     if (!dsiSummary[dsi]) {
       dsiSummary[dsi] = {
@@ -1095,6 +1109,7 @@ function readTableauSummary(ss, officeId) {
 
     var ds = dsiSummary[dsi];
     if (!repSummary[email]) {
+      var tierInfo = repTierData[ds.tableauRep] || {};
       repSummary[email] = {
         totalDevices: 0,
         totalActivations: 0,
@@ -1102,7 +1117,9 @@ function readTableauSummary(ss, officeId) {
         statusCounts: {},
         productCounts: {},
         tableauName: ds.tableauRep,
-        monthWirelessSPEs: {}
+        monthWirelessSPEs: {},
+        bonusTier: tierInfo.bonusTier || '',
+        payoutReason: tierInfo.payoutReason || ''
       };
     }
 
@@ -1164,10 +1181,13 @@ function readTableauSummary(ss, officeId) {
     if (!name) return;
 
     if (!repByName[name]) {
+      var tierInfoByName = repTierData[name] || {};
       repByName[name] = {
         totalDevices: 0, totalActivations: 0, totalVolume: 0,
         statusCounts: {}, productCounts: {}, tableauName: name,
-        monthWirelessSPEs: {}
+        monthWirelessSPEs: {},
+        bonusTier: tierInfoByName.bonusTier || '',
+        payoutReason: tierInfoByName.payoutReason || ''
       };
     }
 
@@ -1316,7 +1336,7 @@ function readTableauDetail(ss, dsi) {
 // Cached wrapper for readTableauSummary (6-hour TTL, per-office cache key)
 function getTableauSummaryWithCache(ss, officeId) {
   var cache = CacheService.getScriptCache();
-  var cacheKey = 'tableauSummary_v5_' + officeId;
+  var cacheKey = 'tableauSummary_v6_' + officeId;
   var cached = cache.get(cacheKey);
   if (cached) {
     try { return JSON.parse(cached); } catch (e) { /* fall through */ }
@@ -1336,7 +1356,7 @@ function getTableauSummaryWithCache(ss, officeId) {
 // Manual Tableau cache bust (owner/admin action)
 function writeBustTableauCache(officeId) {
   try {
-    CacheService.getScriptCache().remove('tableauSummary_v5_' + officeId);
+    CacheService.getScriptCache().remove('tableauSummary_v6_' + officeId);
   } catch (e) { /* non-critical */ }
   return { ok: true, message: 'Tableau cache cleared' };
 }
@@ -1392,6 +1412,7 @@ function doPost(e) {
       case 'toggleTicket':         result = writeToggleTicket(body, ss, officeId); break;
       // Sale submission
       case 'addSale':              result = writeAddSale(body, ss, officeId); break;
+      case 'replayWebhook':        result = replayWebhook(body, ss, officeId); break;
       case 'bustTableauCache':     result = writeBustTableauCache(officeId); break;
       // Office provisioning (called by admin portal)
       case 'createOfficeTabs':     result = createOfficeTabs(body, ss); break;
@@ -2129,7 +2150,7 @@ function writeAddSale(body, ss, officeId) {
 
   // Bust the Tableau cache so fresh data loads
   try {
-    CacheService.getScriptCache().remove('tableauSummary_v5_' + officeId);
+    CacheService.getScriptCache().remove('tableauSummary_v6_' + officeId);
   } catch (e) { /* non-critical */ }
 
   // Fire Discord/GroupMe webhook server-side (fire-and-forget)
@@ -2206,6 +2227,66 @@ function _fireWebhook(body, units, teamEmoji) {
   });
 
   return 'HTTP ' + resp.getResponseCode() + ' | msg=' + msg.substring(0, 50);
+}
+
+
+// === REPLAY WEBHOOK FOR MISSED NOTIFICATIONS ===
+
+function replayWebhook(body, ss, officeId) {
+  var dsi = String(body.dsi || '').trim();
+  if (!dsi) return { error: 'Missing dsi' };
+
+  var webhookUrl = String(body.discordWebhookUrl || '').trim();
+  var chatPlatform = String(body.chatPlatform || 'discord').toLowerCase();
+  if (!webhookUrl) return { error: 'Missing discordWebhookUrl' };
+
+  var sheet = ss.getSheetByName(officeTab(TAB.SALES, officeId));
+  if (!sheet) return { error: 'Sales tab not found' };
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var found = null;
+  // Col 5 (index 5) = DSI
+  for (var r = data.length - 1; r >= 1; r--) {
+    if (String(data[r][5]).trim().toUpperCase() === dsi.toUpperCase()) {
+      found = data[r];
+      break;
+    }
+  }
+  if (!found) return { error: 'DSI not found: ' + dsi };
+
+  // Rebuild body from row data
+  var replayBody = {
+    repName:          String(found[2] || ''),
+    campaign:         String(found[4] || ''),
+    dsi:              String(found[5] || ''),
+    accountType:      String(found[6] || ''),
+    clientName:       String(found[7] || ''),
+    air:              Number(found[10]) || 0,
+    newPhones:        Number(found[11]) || 0,
+    byods:            Number(found[12]) || 0,
+    fiber:            Number(found[14]) || 0,
+    fiberPackage:     String(found[15] || ''),
+    voipQty:          Number(found[17]) || 0,
+    dtv:              Number(found[18]) || 0,
+    dtvPackage:       String(found[19] || ''),
+    oomaPackage:      String(found[20] || ''),
+    hashtags:         '',
+    discordWebhookUrl: webhookUrl,
+    chatPlatform:     chatPlatform
+  };
+
+  var units = Number(found[25]) || 0;
+  var teamEmoji = String(found[23] || '');
+
+  var result = '';
+  try {
+    result = _fireWebhook(replayBody, units, teamEmoji);
+  } catch (e) {
+    result = 'ERROR: ' + e.message;
+  }
+
+  return { ok: true, dsi: dsi, webhook: result };
 }
 
 

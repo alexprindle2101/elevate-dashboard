@@ -909,22 +909,28 @@ function logColumnHeaders() {
  */
 function diagnosePipeline() {
   var config = _getConfig();
-  var ss = SpreadsheetApp.openById(config.sheetId);
+  var ss = SpreadsheetApp.openById(config.sheetId);  // Tableau Data sheet
 
-  // Step 1: Check intermediate "B2B Order Log" tab
+  // Step 1: Check intermediate "B2B Order Log" tab (in Tableau Data sheet)
   var srcSheet = ss.getSheetByName('B2B Order Log');
   if (!srcSheet || srcSheet.getLastRow() < 2) {
     Logger.log('❌ "B2B Order Log" tab has NO DATA — run testSyncB2BOrderLog() first');
     return;
   }
   var srcData = srcSheet.getDataRange().getValues();
-  Logger.log('✓ "B2B Order Log": ' + (srcData.length - 1) + ' rows, ' + srcData[0].length + ' columns');
+  Logger.log('✓ "B2B Order Log" (Tableau Data sheet): ' + (srcData.length - 1) + ' rows, ' + srcData[0].length + ' columns');
   Logger.log('  Headers: ' + srcData[0].join(', '));
 
-  // Step 2: Check _TableauOrderLog tab (this is what Code.gs reads)
-  var tolSheet = ss.getSheetByName('_TableauOrderLog');
+  // Step 2: Check _TableauOrderLog tab in the CAMPAIGN sheet (where Code.gs reads from)
+  // This is a DIFFERENT spreadsheet — TARGETS[0].sheetId, not config.sheetId
+  var campaignSheetId = TARGETS.length > 0 ? TARGETS[0].sheetId : config.sheetId;
+  Logger.log('Campaign sheet ID: ' + campaignSheetId);
+  Logger.log('Tableau Data sheet ID: ' + config.sheetId);
+  Logger.log('Same sheet? ' + (campaignSheetId === config.sheetId ? 'YES' : 'NO — distribution required'));
+  var campaignSS = SpreadsheetApp.openById(campaignSheetId);
+  var tolSheet = campaignSS.getSheetByName('_TableauOrderLog');
   if (!tolSheet || tolSheet.getLastRow() < 2) {
-    Logger.log('❌ "_TableauOrderLog" tab has NO DATA — run testDistribute() to copy data from "B2B Order Log"');
+    Logger.log('❌ "_TableauOrderLog" tab has NO DATA in campaign sheet — run testDistribute()');
     return;
   }
   var tolData = tolSheet.getDataRange().getValues();
@@ -976,8 +982,8 @@ function diagnosePipeline() {
   }
   Logger.log('Sample DSIs from _TableauOrderLog: ' + sampleDsis.join(', '));
 
-  // Step 6: Check _Sales_off_001 for DSI matching
-  var salesSheet = ss.getSheetByName('_Sales_off_001');
+  // Step 6: Check _Sales_off_001 for DSI matching (in campaign sheet)
+  var salesSheet = campaignSS.getSheetByName('_Sales_off_001');
   if (!salesSheet || salesSheet.getLastRow() < 2) {
     Logger.log('❌ "_Sales_off_001" tab has NO DATA — DSI→email mapping will fail');
     return;

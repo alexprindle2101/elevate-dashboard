@@ -2304,20 +2304,9 @@ const NationalApp = {
   // ══════════════════════════════════════════════════
 
   renderRecruitingTab(owner) {
-    // ── Platform banner header ──
+    // Clear NLR banner (will be re-rendered by cost section if data exists)
     const bannerEl = document.getElementById('recruiting-banner');
-    if (bannerEl) {
-      const now = new Date();
-      const monthYear = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-      bannerEl.innerHTML = `
-        <div class="recruit-banner">
-          <div class="recruit-banner-left">
-            <img src="references/logos/nlr-logo-symbol.jpg" alt="NLR" class="recruit-banner-logo">
-            <div class="recruit-banner-title">Recruiting Pipeline Breakdown</div>
-          </div>
-          <div class="recruit-banner-right">Powered by Next Level Recruiting · ${this._esc(monthYear)}</div>
-        </div>`;
-    }
+    if (bannerEl) bannerEl.innerHTML = '';
 
     const r = owner.recruiting;
     if (!r || !r.rows || !r.rows.length) {
@@ -2338,10 +2327,29 @@ const NationalApp = {
     this._loadAndRenderCosts(owner);
   },
 
+  // ── NLR banner (renders above the cost/platform breakdown section) ──
+  _renderNlrBanner() {
+    const bannerEl = document.getElementById('recruiting-banner');
+    if (!bannerEl) return;
+    const now = new Date();
+    const monthYear = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    bannerEl.innerHTML = `
+      <div class="recruit-banner">
+        <div class="recruit-banner-left">
+          <img src="references/logos/nlr-logo-symbol.jpg" alt="NLR" class="recruit-banner-logo">
+          <div class="recruit-banner-title">Recruiting Pipeline Breakdown</div>
+        </div>
+        <div class="recruit-banner-right">Powered by Next Level Recruiting · ${this._esc(monthYear)}</div>
+      </div>`;
+  },
+
   // ── Lazy-load recruiting costs for a single owner via claimed costSheetId ──
   async _loadAndRenderCosts(owner) {
     const el = document.getElementById('owner-indeed-costs');
     if (!el) return;
+
+    // Render NLR banner above cost section
+    this._renderNlrBanner();
 
     const costSheetId = this.state.costSheets[owner.name];
 

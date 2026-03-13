@@ -2181,11 +2181,13 @@ function _fireWebhook(body, units, teamEmoji) {
 
   var bold = (platform === 'discord') ? '**' : '';
   var repName = String(body.repName || '').trim();
+  var traineeName = (body.trainee === true || body.trainee === 'Yes') ? String(body.traineeName || '').trim() : '';
+  var who = traineeName ? (repName + ' and ' + traineeName) : repName;
   var campaign = String(body.campaign || '').trim();
   var msg = '';
 
   if (campaign === 'attb2b') {
-    msg += bold + repName + bold + ' made a sale with AT&T: B2B!\n';
+    msg += bold + who + bold + ' made a sale with AT&T: B2B!\n';
     msg += (body.accountType || 'Business') + ' Account\n';
     msg += String(body.dsi || '') + '\n';
     if (Number(body.air) > 0) msg += '• Internet Air\n';
@@ -2197,7 +2199,7 @@ function _fireWebhook(body, units, teamEmoji) {
     if (vq > 0) msg += '• ' + vq + ' VoIP(s)\n';
     if (Number(body.dtv) > 0) msg += '• DIRECTV ' + (body.dtvPackage || '') + '\n';
   } else if (campaign === 'ooma') {
-    msg += bold + repName + bold + ' made a sale with Ooma!\n';
+    msg += bold + who + bold + ' made a sale with Ooma!\n';
     msg += String(body.clientName || '') + '\n';
     msg += '• ' + (body.oomaPackage || 'Ooma Pro') + '\n';
   }
@@ -2298,6 +2300,8 @@ function replayWebhook(body, ss, officeId) {
     dsi:              String(found[5] || ''),
     accountType:      String(found[6] || ''),
     clientName:       String(found[7] || ''),
+    trainee:          String(found[8] || '').trim(),
+    traineeName:      String(found[9] || '').trim(),
     air:              Number(found[10]) || 0,
     newPhones:        Number(found[11]) || 0,
     byods:            Number(found[12]) || 0,

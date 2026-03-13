@@ -1692,12 +1692,14 @@ function _fireWebhook(body, units, teamEmoji) {
 
   var bold = (platform === 'discord') ? '**' : '';
   var repName = String(body.repName || '').trim();
+  var traineeName = (body.trainee === true || body.trainee === 'Yes') ? String(body.traineeName || '').trim() : '';
+  var who = traineeName ? (repName + ' and ' + traineeName) : repName;
   var campaign = String(body.campaign || '').trim();
   var msg = '';
 
   if (campaign === 'attb2b') {
-    msg += bold + repName + bold + ' made a sale with AT&T: B2B!\n';
-    msg += (body.accountType || 'Business') + ' Account\n';
+    msg += bold + who + bold + ' made a sale with AT&T: NDS!\n';
+    msg += (body.accountType || 'Consumer') + ' Account\n';
     msg += String(body.dsi || '') + '\n';
     if (Number(body.air) > 0) msg += '• Internet Air\n';
     var np = Number(body.newPhones) || 0;
@@ -1788,6 +1790,8 @@ function replayWebhook(body, ss, officeId) {
         campaign: row[OL.CAMPAIGN] || 'attb2b',
         accountType: row[OL.ACCOUNT_TYPE] || 'Consumer',
         dsi: row[OL.DSI],
+        trainee: String(row[OL.TRAINEE] || '').trim(),
+        traineeName: String(row[OL.TRAINEE_NAME] || '').trim(),
         air: row[OL.AIR],
         newPhones: row[OL.NEW_PHONES],
         byods: row[OL.BYODS],

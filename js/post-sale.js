@@ -677,10 +677,12 @@ const PostSale = {
 
       // Build message — use markdown bold for Discord, plain for GroupMe
       const bold = platform === 'discord' ? '**' : '';
+      const traineeName = payload.trainee ? (payload.traineeName || '').trim() : '';
+      const who = traineeName ? (payload.repName + ' and ' + traineeName) : payload.repName;
       let msg = '';
       let units = 0;
       if (this._campaign === 'attb2b') {
-        msg += bold + payload.repName + bold + ' made a sale with AT&T: B2B!\n';
+        msg += bold + who + bold + ' made a sale with AT&T: B2B!\n';
         msg += (payload.accountType || 'Business') + ' Account\n';
         msg += payload.dsi + '\n';
         if (payload.air) { msg += '• Internet Air\n'; units++; }
@@ -692,7 +694,7 @@ const PostSale = {
         if (payload.voipQty) { msg += '• ' + payload.voipQty + ' VoIP(s)\n'; units += payload.voipQty; }
         if (payload.dtv) msg += '• DIRECTV ' + (payload.dtvPackage || '') + '\n';
       } else {
-        msg += bold + payload.repName + bold + ' made a sale with Ooma!\n';
+        msg += bold + who + bold + ' made a sale with Ooma!\n';
         msg += payload.clientName + '\n';
         msg += '• ' + (payload.oomaPackage || 'Ooma Pro') + '\n';
         units = 1;

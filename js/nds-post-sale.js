@@ -519,15 +519,17 @@ const PostSale = {
       }
 
       // Build message text
+      const traineeName = payload.trainee ? (payload.traineeName || '').trim() : '';
+      const who = traineeName ? (payload.repName + ' and ' + traineeName) : payload.repName;
       let msg = '';
       let units = 0;
 
       if (platform === 'discord') {
         // Discord markdown: **bold**
-        msg += '**' + payload.repName + '** made a sale with AT&T: B2B!\n';
+        msg += '**' + who + '** made a sale with AT&T: NDS!\n';
       } else {
         // GroupMe: plain text, no markdown
-        msg += payload.repName + ' made a sale with AT&T: B2B!\n';
+        msg += who + ' made a sale with AT&T: NDS!\n';
       }
       msg += 'Consumer Account\n';
       msg += payload.dsi + '\n';

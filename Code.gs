@@ -2222,14 +2222,47 @@ function _fireWebhook(body, units, teamEmoji) {
     fetchPayload = JSON.stringify({ content: msg });
   }
 
-  var resp = UrlFetchApp.fetch(url, {
+  var fetchOpts = {
     method: 'post',
     contentType: 'application/json',
     payload: fetchPayload,
     muteHttpExceptions: true
-  });
+  };
 
-  return 'HTTP ' + resp.getResponseCode() + ' | msg=' + msg.substring(0, 50);
+  // Retry up to 2 times on failure (rate-limit 429, server errors 5xx, or fetch exceptions)
+  var maxAttempts = 3;
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      var resp = UrlFetchApp.fetch(url, fetchOpts);
+      var code = resp.getResponseCode();
+      if (code >= 200 && code < 300) {
+        return 'HTTP ' + code + (attempt > 1 ? ' (retry ' + (attempt - 1) + ')' : '') + ' | msg=' + msg.substring(0, 50);
+      }
+      // Rate limited — Discord sends Retry-After header (seconds)
+      if (code === 429 && attempt < maxAttempts) {
+        var retryAfter = 2;
+        try {
+          var ra = resp.getHeaders()['Retry-After'] || resp.getHeaders()['retry-after'];
+          if (ra) retryAfter = Math.min(Math.ceil(Number(ra)), 5);
+        } catch (e) { /* use default */ }
+        Utilities.sleep(retryAfter * 1000);
+        continue;
+      }
+      // Server error — wait and retry
+      if (code >= 500 && attempt < maxAttempts) {
+        Utilities.sleep(2000);
+        continue;
+      }
+      return 'HTTP ' + code + ' attempt ' + attempt + ' | ' + resp.getContentText().substring(0, 80);
+    } catch (e) {
+      if (attempt < maxAttempts) {
+        Utilities.sleep(2000);
+        continue;
+      }
+      return 'FETCH_ERROR attempt ' + attempt + ': ' + e.message;
+    }
+  }
+  return 'EXHAUSTED_RETRIES';
 }
 
 

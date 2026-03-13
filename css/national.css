@@ -1173,11 +1173,11 @@ td.rt-total {
 }
 
 /* Conditional cell colors (cyan → lime → yellow → orange → red) */
-td.cell-blue   { background: #22d3ee !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
-td.cell-green  { background: #84cc16 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
+td.cell-blue   { background: #22d3ee !important; color: #000 !important; font-weight: 700; border-radius: 4px; }
+td.cell-green  { background: #84cc16 !important; color: #000 !important; font-weight: 700; border-radius: 4px; }
 td.cell-yellow { background: #ffeb3b !important; color: #000 !important; font-weight: 700; border-radius: 4px; }
-td.cell-orange { background: #f9a825 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
-td.cell-red    { background: #e53935 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
+td.cell-orange { background: #f9a825 !important; color: #000 !important; font-weight: 700; border-radius: 4px; }
+td.cell-red    { background: #e53935 !important; color: #000 !important; font-weight: 700; border-radius: 4px; }
 
 /* Section divider rows in table */
 .rt-table tbody tr.rt-section-row td {

@@ -3706,11 +3706,11 @@ const NationalApp = {
   // ── 2nd Rounds Required gauge (scales with leader count) ──
   _build2ndRoundsGauge(leaders) {
     const tiers = [
-      { label: 'Bored Leaders',                mult: 2, color: '#fecaca' },
-      { label: 'Top Leaders Interviewing Only', mult: 3, color: '#fed7aa' },
-      { label: 'Maintaining, Not Growing',      mult: 4, color: '#fef08a' },
-      { label: 'Leaders Busy',                  mult: 5, color: '#bbf7d0' },
-      { label: 'Promotion Factory',             mult: 6, color: '#bfdbfe' }
+      { label: 'Bored Leaders',                mult: 2, color: '#e53935' },
+      { label: 'Top Leaders Interviewing Only', mult: 3, color: '#f9a825' },
+      { label: 'Maintaining, Not Growing',      mult: 4, color: '#ffeb3b' },
+      { label: 'Leaders Busy',                  mult: 5, color: '#84cc16' },
+      { label: 'Promotion Factory',             mult: 6, color: '#22d3ee' }
     ];
     let h = `<table class="rt-gauge-table">`;
     h += `<thead><tr><th colspan="2"># of Leaders: ${leaders}</th></tr></thead>`;

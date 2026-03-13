@@ -1171,8 +1171,8 @@ td.rt-total {
   background: #fffef0 !important;
 }
 
-/* Conditional cell colors (bold/saturated for impact) */
-td.cell-blue   { background: #3b82f6 !important; color: #fff !important; font-weight: 700; }
+/* Conditional cell colors (teal → green → yellow → orange → red) */
+td.cell-blue   { background: #0d9488 !important; color: #fff !important; font-weight: 700; }
 td.cell-green  { background: #22c55e !important; color: #fff !important; font-weight: 700; }
 td.cell-yellow { background: #eab308 !important; color: #fff !important; font-weight: 700; }
 td.cell-orange { background: #f97316 !important; color: #fff !important; font-weight: 700; }

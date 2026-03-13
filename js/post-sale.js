@@ -99,7 +99,7 @@ const PostSale = {
     const v = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
     this._formData.dateOfSale = v('ps-date') || this._formData.dateOfSale;
     if (this._campaign === 'attb2b') {
-      this._formData.dsi = v('ps-dsi').toUpperCase();
+      this._formData.dsi = v('ps-dsi').replace(/\s/g, '').toUpperCase();
       this._formData.accountNotes = v('ps-notes');
     } else {
       this._formData.clientName = v('ps-client-name');
@@ -898,6 +898,7 @@ const PostSale = {
 
   _updateDSIHint() {
     const input = document.getElementById('ps-dsi');
+    if (input) input.value = input.value.replace(/\s/g, '');
     const hint = document.getElementById('ps-dsi-hint');
     if (input && hint) {
       const len = input.value.length;

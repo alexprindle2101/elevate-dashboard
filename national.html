@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="css/national.css?v=41">
+  <link rel="stylesheet" href="css/national.css?v=42">
 </head>
 <body>
 
@@ -166,15 +166,19 @@
       <div id="health-headcount" class="coaching-section">
         <!-- Active Reps, Leaders, Dist (calc), In Training + Submit btn -->
       </div>
-      <div id="health-hc-trend" class="coaching-section">
-        <!-- Week-over-week headcount history table -->
-      </div>
-      <!-- Section 2: Production Review (Goal vs Actual) -->
-      <div id="health-production" class="coaching-section">
-        <!-- Total Units + Wireless Lines cards -->
-      </div>
-      <div id="health-prod-trend" class="coaching-section">
-        <!-- Week-over-week production history table -->
+      <!-- Side-by-side trend charts -->
+      <div class="health-trends-row">
+        <div id="health-hc-trend" class="coaching-section">
+          <!-- Week-over-week headcount bar chart -->
+        </div>
+        <div class="health-trends-right">
+          <div id="health-production" class="coaching-section">
+            <!-- Total Units + Wireless Lines cards -->
+          </div>
+          <div id="health-prod-trend" class="coaching-section">
+            <!-- Week-over-week production history table -->
+          </div>
+        </div>
       </div>
       <!-- Section 3: Set Goals (Next Week) -->
       <div id="health-goals" class="coaching-section">

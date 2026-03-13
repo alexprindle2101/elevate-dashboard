@@ -464,6 +464,28 @@ input, select, textarea { font-family: inherit; }
   margin-bottom: 16px;
   box-shadow: var(--shadow-sm);
 }
+
+/* Side-by-side trend row (headcount chart + production) */
+.health-trends-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.health-trends-row > .coaching-section,
+.health-trends-row > .health-trends-right > .coaching-section:last-child {
+  margin-bottom: 0;
+}
+.health-trends-right {
+  display: flex;
+  flex-direction: column;
+}
+.health-trends-right > .coaching-section {
+  flex: 1;
+}
+.health-trends-right > .coaching-section:first-child {
+  margin-bottom: 16px;
+}
 .coaching-label {
   font-size: 15px; font-weight: 800; color: var(--gray-800);
   margin-bottom: 16px;
@@ -1480,6 +1502,7 @@ td.cell-red    { background: #fecaca !important; color: #991b1b !important; }
   .top-bar-title { display: none; }
   .top-bar-divider { display: none; }
   .hc-grid { grid-template-columns: repeat(2, 1fr); }
+  .health-trends-row { grid-template-columns: 1fr; }
   .prod-cards { grid-template-columns: 1fr; }
   .coaching-section { padding: 16px; }
   .bis-report-header { flex-wrap: wrap; padding: 14px 16px; gap: 10px; }

@@ -621,25 +621,16 @@ input, select, textarea { font-family: inherit; }
 .hc-chart-wrap {
   position: relative;
   width: 100%;
-}
-.hc-chart-wrap svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-/* Scrollable mode: when bars overflow, enable horizontal scroll */
-.hc-chart-wrap.hc-chart-scrollable {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: rgba(0,0,0,0.15) transparent;
 }
-.hc-chart-wrap.hc-chart-scrollable::-webkit-scrollbar { height: 5px; }
-.hc-chart-wrap.hc-chart-scrollable::-webkit-scrollbar-track { background: transparent; }
-.hc-chart-wrap.hc-chart-scrollable::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
-.hc-chart-wrap.hc-chart-scrollable svg {
-  width: auto;        /* use explicit width attr, not 100% */
-  height: auto;
+.hc-chart-wrap::-webkit-scrollbar { height: 5px; }
+.hc-chart-wrap::-webkit-scrollbar-track { background: transparent; }
+.hc-chart-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+.hc-chart-wrap svg {
+  display: block;
 }
 
 /* Legend */

@@ -573,10 +573,13 @@ input, select, textarea { font-family: inherit; }
   border-radius: var(--radius-sm, 6px);
   color: var(--gray-500);
   font-size: 14px;
-  padding: 2px 8px;
+  padding: 4px 6px;
   cursor: pointer;
   line-height: 1;
   transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .flip-btn:hover {
   background: var(--gray-100);
@@ -689,6 +692,31 @@ input, select, textarea { font-family: inherit; }
   margin-right: 4px;
   vertical-align: middle;
 }
+
+/* ── Headcount Table Inline Edit ── */
+.hc-edit-input {
+  width: 48px;
+  padding: 3px 4px;
+  border: 1px solid var(--gray-200);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  background: rgba(255,255,255,0.7);
+  color: var(--gray-700);
+  font-family: Inter, sans-serif;
+}
+.hc-edit-input:focus {
+  outline: none;
+  border-color: var(--sc-cyan, #00c8ff);
+  box-shadow: 0 0 0 2px rgba(0,200,255,0.15);
+}
+.hc-edit-input::-webkit-inner-spin-button,
+.hc-edit-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.hc-edit-input { -moz-appearance: textfield; }
 
 /* ── Owner Notes ── */
 .owner-notes {

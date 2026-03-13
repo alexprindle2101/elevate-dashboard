@@ -1513,14 +1513,21 @@ const NationalApp = {
 
     // ── Build table (back side) ──
     const tableRows = hist.map((r, i) => {
+      const origIdx = n - 1 - i;
       const prev = i < n - 1 ? hist[i + 1] : null;
-      const dist = (r.active || 0) - (r.leaders || 0);
+      const dist = Math.max((r.active || 0) - (r.leaders || 0), 0);
+      const arrow = this._trendArrow(r.active, prev?.active);
       return `<tr>
         <td class="bold">${this._esc(r.date)}</td>
-        <td class="num">${r.active || 0} ${this._trendArrow(r.active, prev?.active)}</td>
-        <td class="num">${r.leaders || 0}</td>
-        <td class="num">${dist}</td>
-        <td class="num">${r.training || 0}</td>
+        <td class="num"><input type="number" class="hc-edit-input" value="${r.active || 0}" min="0"
+          onchange="NationalApp._onHcTableEdit(${ownerIdx},${origIdx},'active',this.value)"
+          oninput="NationalApp._updateHcDist(this)">${arrow}</td>
+        <td class="num"><input type="number" class="hc-edit-input" value="${r.leaders || 0}" min="0"
+          onchange="NationalApp._onHcTableEdit(${ownerIdx},${origIdx},'leaders',this.value)"
+          oninput="NationalApp._updateHcDist(this)"></td>
+        <td class="num hc-dist-cell">${dist}</td>
+        <td class="num"><input type="number" class="hc-edit-input" value="${r.training || 0}" min="0"
+          onchange="NationalApp._onHcTableEdit(${ownerIdx},${origIdx},'training',this.value)"></td>
       </tr>`;
     }).join('');
 
@@ -1539,7 +1546,7 @@ const NationalApp = {
       <div class="coaching-label">
         Week-over-Week Headcount
         <button class="flip-btn" onclick="NationalApp._flipHcCard()" title="Flip to ${this._hcFlipped ? 'chart' : 'table'} view">
-          ${this._hcFlipped ? '&#9776;' : '&#8801;'}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </button>
       </div>
       <div class="flip-card${this._hcFlipped ? ' flipped' : ''}" id="hc-flip-card">
@@ -1707,14 +1714,50 @@ const NationalApp = {
 
   _flipHcCard() {
     this._hcFlipped = !this._hcFlipped;
+
+    // If flipping back to chart and table data was edited, re-render everything
+    if (!this._hcFlipped && this._hcDirty) {
+      this._hcDirty = false;
+      const ownerIdx = this._hcData?.ownerIdx;
+      if (ownerIdx !== undefined) {
+        const owner = this.state.owners[ownerIdx];
+        if (owner) {
+          this._renderHeadcountTrend(owner, ownerIdx);
+          return;
+        }
+      }
+    }
+
     const card = document.getElementById('hc-flip-card');
     if (card) card.classList.toggle('flipped', this._hcFlipped);
-    // Update button icon
     const btn = card?.parentElement?.querySelector('.flip-btn');
-    if (btn) {
-      btn.innerHTML = this._hcFlipped ? '&#9776;' : '&#8801;';
-      btn.title = 'Flip to ' + (this._hcFlipped ? 'chart' : 'table') + ' view';
+    if (btn) btn.title = 'Flip to ' + (this._hcFlipped ? 'chart' : 'table') + ' view';
+  },
+
+  // ── Headcount table inline-edit helpers ──
+  _hcDirty: false,
+
+  _onHcTableEdit(ownerIdx, histIdx, field, value) {
+    const owner = this.state.owners[ownerIdx];
+    if (!owner) return;
+    const entry = owner.headcountHistory[histIdx];
+    if (!entry) return;
+    entry[field] = parseInt(value) || 0;
+    // If editing the most recent entry, keep current headcount in sync
+    if (histIdx === owner.headcountHistory.length - 1) {
+      if (field in owner.headcount) owner.headcount[field] = entry[field];
     }
+    this._hcDirty = true;
+  },
+
+  _updateHcDist(input) {
+    const row = input.closest('tr');
+    if (!row) return;
+    const inputs = row.querySelectorAll('.hc-edit-input');
+    const active = parseInt(inputs[0]?.value) || 0;
+    const leaders = parseInt(inputs[1]?.value) || 0;
+    const distCell = row.querySelector('.hc-dist-cell');
+    if (distCell) distCell.textContent = Math.max(active - leaders, 0);
   },
 
   // ── Headcount chart tooltip helpers ──

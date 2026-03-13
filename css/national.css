@@ -1172,12 +1172,12 @@ td.rt-total {
   background: #fffef0 !important;
 }
 
-/* Conditional cell colors (teal → green → yellow → orange → red) */
-td.cell-blue   { background: #0d9488 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
-td.cell-green  { background: #22c55e !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
-td.cell-yellow { background: #eab308 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
-td.cell-orange { background: #f97316 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
-td.cell-red    { background: #ef4444 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
+/* Conditional cell colors (cyan → lime → yellow → orange → red) */
+td.cell-blue   { background: #22d3ee !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
+td.cell-green  { background: #84cc16 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
+td.cell-yellow { background: #facc15 !important; color: #78650a !important; font-weight: 700; border-radius: 4px; }
+td.cell-orange { background: #f9a825 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
+td.cell-red    { background: #e53935 !important; color: #fff !important; font-weight: 700; border-radius: 4px; }
 
 /* Section divider rows in table */
 .rt-table tbody tr.rt-section-row td {

@@ -779,11 +779,12 @@ input, select, textarea { font-family: inherit; }
 
 /* ── Production Review Cards ── */
 .prod-cards {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  justify-content: center;
   gap: 14px;
 }
 .prod-card {
+  flex: 0 1 340px;
   border-radius: var(--radius);
   padding: 24px 20px;
   text-align: center;
@@ -813,12 +814,13 @@ input, select, textarea { font-family: inherit; }
 
 /* ── Goals Grid ── */
 .goals-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  justify-content: center;
   gap: 14px;
 }
 .goal-field {
   text-align: center;
+  flex: 0 1 340px;
 }
 .goal-field-label {
   display: block;
@@ -1752,7 +1754,7 @@ td.cell-red    { background: #e53935 !important; color: #000 !important; font-we
   .top-bar-divider { display: none; }
   .health-grid { grid-template-columns: 1fr; }
   .hc-grid { grid-template-columns: repeat(2, 1fr); }
-  .prod-cards { grid-template-columns: 1fr; }
+  .prod-cards { flex-direction: column; align-items: center; }
   .coaching-section { padding: 16px; }
   .bis-report-header { flex-wrap: wrap; padding: 14px 16px; gap: 10px; }
   .bis-report-title { font-size: 16px; }

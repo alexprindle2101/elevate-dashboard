@@ -554,6 +554,7 @@ input, select, textarea { font-family: inherit; }
 
 /* ── Headcount Trend Chart (scrollable, fixed y-axis) ── */
 .hc-chart-outer {
+  position: relative;
   display: flex;
   align-items: flex-start;
   width: 100%;
@@ -563,7 +564,6 @@ input, select, textarea { font-family: inherit; }
   display: block;
 }
 .hc-chart-scroll {
-  position: relative;
   flex: 1;
   overflow-x: auto;
   overflow-y: hidden;

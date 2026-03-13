@@ -1470,7 +1470,7 @@ const NationalApp = {
     const AXIS_W = 32;           // y-axis label column (separate from scroll area)
     const PAD_R = 8, PAD_T = 12, PAD_B = 24;
     const BAR_R = 3;
-    const GAP = 0.25;
+    const GAP = 0.15;
     const SLOT_W = 48;           // fixed slot width per bar
     const barAreaW = n * SLOT_W + PAD_R;
     const svgH = 180;
@@ -1562,7 +1562,7 @@ const NationalApp = {
       barSvg += `<text x="${x + barW / 2}" y="${svgH - 6}" text-anchor="middle" fill="#8a95a5" font-size="9" font-weight="600" font-family="Inter,sans-serif">${shortDate(r.date)}</text>`;
     });
 
-    // ── Assemble: Y-axis fixed on left, bar area scrollable ──
+    // ── Assemble: Y-axis fixed on left, bar area scrollable, tooltip on outer ──
     trendEl.innerHTML = `
       <div class="coaching-label">Week-over-Week Headcount</div>
       <div class="hc-chart-outer">
@@ -1573,8 +1573,8 @@ const NationalApp = {
           <svg viewBox="0 0 ${barAreaW} ${svgH}" width="${barAreaW}" height="${svgH}">
             ${barSvg}
           </svg>
-          <div class="hc-chart-tooltip" id="hc-chart-tt"></div>
         </div>
+        <div class="hc-chart-tooltip" id="hc-chart-tt"></div>
       </div>
       <div class="hc-chart-legend">
         <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch swatch-leaders"></span>Leaders</span>
@@ -1600,21 +1600,27 @@ const NationalApp = {
       <div style="border-top:1px solid rgba(255,255,255,0.2);margin:4px 0;padding-top:4px">Active: <strong>${r.active}</strong></div>
       ${r.training ? `<div><span class="tt-swatch" style="background:rgba(139,92,246,0.3);border:1px dashed #8b5cf6"></span>Training: <strong>${r.training}</strong></div>` : ''}`;
 
-    // Position above the hovered bar within the scroll container
-    const scrollWrap = tt.parentElement;
+    // Position above the hovered bar — tooltip is in .hc-chart-outer (relative)
+    const outer = tt.parentElement;
     const rect = event.target.getBoundingClientRect();
-    const wrapRect = scrollWrap.getBoundingClientRect();
+    const outerRect = outer.getBoundingClientRect();
 
-    let left = rect.left + rect.width / 2 - wrapRect.left + scrollWrap.scrollLeft;
+    let left = rect.left + rect.width / 2 - outerRect.left;
     tt.style.left = left + 'px';
-    tt.style.top = (rect.top - wrapRect.top - 8) + 'px';
+    tt.style.top = (rect.top - outerRect.top - 8) + 'px';
     tt.style.transform = 'translateX(-50%) translateY(-100%)';
     tt.classList.add('visible');
 
+    // Clamp so tooltip doesn't overflow the outer container
     requestAnimationFrame(() => {
       const ttRect = tt.getBoundingClientRect();
-      if (ttRect.left < wrapRect.left) tt.style.transform = 'translateY(-100%)';
-      if (ttRect.right > wrapRect.right) tt.style.transform = 'translateX(-100%) translateY(-100%)';
+      if (ttRect.left < outerRect.left + 4) {
+        tt.style.left = '4px';
+        tt.style.transform = 'translateY(-100%)';
+      }
+      if (ttRect.right > outerRect.right - 4) {
+        tt.style.transform = 'translateX(-100%) translateY(-100%)';
+      }
     });
   },
 

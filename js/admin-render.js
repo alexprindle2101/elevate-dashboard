@@ -32,7 +32,9 @@ const AdminRender = {
               <img class="office-card-logo" src="${this._esc(logoSrc)}" alt="">
               <div class="office-card-name">${this._esc(office.name || 'Unnamed Office')}</div>
             </div>
-            <span class="office-card-template">${this._esc(templateLabel)}</span>
+            ${templateCfg && templateCfg.logo
+              ? `<img class="office-card-template-logo" src="${this._esc(templateCfg.logo)}" alt="${this._esc(templateLabel)}" title="${this._esc(templateLabel)}">`
+              : `<span class="office-card-template">${this._esc(templateLabel)}</span>`}
           </div>
           <div class="office-card-details">
             <div class="office-card-detail">

@@ -45,11 +45,13 @@ const ADMIN_CONFIG = {
     'att-b2b': {
       label: 'AT&T B2B',
       file: 'index.html',
+      logo: 'references/logos/logo-att.png',
       description: 'AT&T Business-to-Business sales dashboard'
     },
     'att-nds': {
       label: 'AT&T NDS',
       file: 'nds.html',
+      logo: 'references/logos/logo-att.png',
       description: 'AT&T NDS sales dashboard (Air + Cell)'
     }
   },

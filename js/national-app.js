@@ -2663,15 +2663,15 @@ const NationalApp = {
     const curBooked = booked[0] || 0;
     const curPct = curBooked > 0 ? Math.round((curShowed / curBooked) * 100) : null;
 
-    // SVG dimensions — fixed slot width, scroll if needed
+    // SVG dimensions — viewBox scales to fill card, scroll if > VISIBLE weeks
     const svgH = 130;
     const PAD_T = 22, PAD_B = 18;
     const plotH = svgH - PAD_T - PAD_B;
     const baseY = PAD_T + plotH;
     const BAR_R = 3;
     const SLOT_W = 46;
-    const barAreaW = n * SLOT_W + 6;
-    const visibleW = Math.min(n, VISIBLE) * SLOT_W + 6;
+    const vbW = n * SLOT_W + 6;
+    const svgWidthPct = n <= VISIBLE ? '100%' : `${(n / VISIBLE) * 100}%`;
 
     // Y-axis max
     let maxVal = 1;
@@ -2699,7 +2699,7 @@ const NationalApp = {
     // Light gridlines
     for (let v = 0; v <= yMax; v += step) {
       const y = baseY - v * yScale;
-      svg += `<line x1="0" y1="${y}" x2="${barAreaW}" y2="${y}" stroke="#e8ecf1" stroke-width="0.5"/>`;
+      svg += `<line x1="0" y1="${y}" x2="${vbW}" y2="${y}" stroke="#e8ecf1" stroke-width="0.5"/>`;
     }
 
     // Bars per week
@@ -2749,8 +2749,6 @@ const NationalApp = {
       svg += `<text x="${cx}" y="${svgH - 3}" text-anchor="middle" fill="#8a95a5" font-size="7" font-weight="600" font-family="Inter,sans-serif">${weekLabels[i]}</text>`;
     }
 
-    const needsScroll = n > VISIBLE;
-
     // Legend
     const legend = `<div class="hc-chart-legend" style="margin-top:4px">
       <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:${color}"></span>Showed</span>
@@ -2769,8 +2767,8 @@ const NationalApp = {
             <div class="rc-card-hero-label">showed</div>
           </div>
         </div>
-        <div class="rc-bar-wrap"${needsScroll ? ` style="max-width:${visibleW}px"` : ''}>
-          <svg width="${barAreaW}" height="${svgH}" overflow="hidden">${svg}</svg>
+        <div class="rc-bar-wrap">
+          <svg viewBox="0 0 ${vbW} ${svgH}" width="${svgWidthPct}" preserveAspectRatio="xMinYMid meet" style="display:block">${svg}</svg>
         </div>
         ${legend}
       </div>`;

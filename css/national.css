@@ -586,11 +586,11 @@ input, select, textarea { font-family: inherit; }
   border-radius: 2px;
   flex-shrink: 0;
 }
-.hc-chart-legend-swatch.swatch-leaders { background: #3b82f6; }
+.hc-chart-legend-swatch.swatch-leaders { background: #5b9cf6; }
 .hc-chart-legend-swatch.swatch-dist    { background: #0ea5a0; }
 .hc-chart-legend-swatch.swatch-training {
-  background: rgba(139,92,246,0.12);
-  border: 1.5px dashed #8b5cf6;
+  background: rgba(139,92,246,0.06);
+  border: 1.5px dashed #a78bfa;
 }
 
 /* Tooltip */

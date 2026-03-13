@@ -1459,23 +1459,33 @@ const NationalApp = {
     }
     trendEl.style.display = '';
 
-    // ── Layout constants ──
-    const PAD_L = 40, PAD_R = 16, PAD_T = 16, PAD_B = 28;
-    const BAR_R = 4;
-    const GAP = 0.30;
-    const svgW = Math.max(300, Math.min(600, hist.length * 70 + PAD_L + PAD_R));
-    const svgH = 200;
+    const n = hist.length;
+
+    // ── Shorten date labels: "10/27/2025" → "10/27", keep "3/12" as-is ──
+    const shortDate = (d) => {
+      if (!d) return '';
+      const parts = String(d).split('/');
+      return parts.length >= 2 ? parts[0] + '/' + parts[1] : d;
+    };
+
+    // ── Layout — responsive to bar count ──
+    const PAD_L = 34, PAD_R = 12, PAD_T = 12, PAD_B = 24;
+    const BAR_R = 3;
+    const GAP = 0.25;
+    const barSlot = Math.max(32, Math.min(52, 400 / n)); // adaptive slot width
+    const svgW = PAD_L + PAD_R + n * barSlot;
+    const svgH = 180;
     const plotW = svgW - PAD_L - PAD_R;
     const plotH = svgH - PAD_T - PAD_B;
 
     // ── Y-axis scale ──
-    const maxVal = Math.max(...hist.map(r => r.active + r.training), 1);
+    const maxVal = Math.max(...hist.map(r => (r.active || 0) + (r.training || 0)), 1);
     const yMax = Math.ceil(maxVal / 5) * 5 || 5;
     const yScale = plotH / yMax;
     const baseY = PAD_T + plotH;
 
-    // ── Bar widths ──
-    const slotW = plotW / hist.length;
+    // ── Bar geometry ──
+    const slotW = plotW / n;
     const barW = slotW * (1 - GAP);
     const barOff = (slotW - barW) / 2;
 
@@ -1483,74 +1493,79 @@ const NationalApp = {
     const roundTop = (x, y, w, h, r) => {
       if (h <= 0) return '';
       const cr = Math.min(r, h / 2, w / 2);
-      return `M${x},${y + h} L${x},${y + cr} Q${x},${y} ${x + cr},${y} ` +
-             `L${x + w - cr},${y} Q${x + w},${y} ${x + w},${y + cr} L${x + w},${y + h} Z`;
+      return `M${x},${y + h}L${x},${y + cr}Q${x},${y} ${x + cr},${y}` +
+             `L${x + w - cr},${y}Q${x + w},${y} ${x + w},${y + cr}L${x + w},${y + h}Z`;
     };
 
-    // ── Build SVG content ──
     let svg = '';
 
-    // Gridlines + Y-axis labels
-    const ticks = 5;
+    // ── Gridlines (subtle) + Y-axis labels ──
+    const ticks = 4;
     for (let t = 0; t <= ticks; t++) {
       const val = Math.round(yMax * t / ticks);
       const y = baseY - val * yScale;
-      svg += `<line x1="${PAD_L}" y1="${y}" x2="${svgW - PAD_R}" y2="${y}" stroke="#dce1e8" stroke-width="0.5"/>`;
-      svg += `<text x="${PAD_L - 6}" y="${y + 3.5}" text-anchor="end" fill="#98a3b3" font-size="10" font-family="Inter,sans-serif">${val}</text>`;
+      svg += `<line x1="${PAD_L}" y1="${y}" x2="${svgW - PAD_R}" y2="${y}" stroke="#e8ecf1" stroke-width="0.5"/>`;
+      if (t > 0) svg += `<text x="${PAD_L - 5}" y="${y + 3}" text-anchor="end" fill="#b0b8c4" font-size="9" font-family="Inter,sans-serif">${val}</text>`;
     }
+    // Baseline label
+    svg += `<text x="${PAD_L - 5}" y="${baseY + 3}" text-anchor="end" fill="#b0b8c4" font-size="9" font-family="Inter,sans-serif">0</text>`;
 
-    // Bars
+    // ── Bars ──
     hist.forEach((r, i) => {
-      const dist = r.active - r.leaders;
-      const leaderH = r.leaders * yScale;
-      const distH = dist * yScale;
-      const solidH = r.active * yScale;
-      const trainH = r.training * yScale;
+      const active = r.active || 0;
+      const leaders = r.leaders || 0;
+      const training = r.training || 0;
+      const dist = active - leaders;
+      const leaderH = leaders * yScale;
+      const distH = Math.max(dist, 0) * yScale;
+      const solidH = active * yScale;
+      const trainH = training * yScale;
       const x = PAD_L + i * slotW + barOff;
       const solidTop = baseY - solidH;
       const trainTop = solidTop - trainH;
 
-      // Determine topmost segment for rounded corners
       const topmost = trainH > 0 ? 'training' : (distH > 0 ? 'dist' : 'leader');
 
-      // Leaders (bottom segment — blue)
+      // Leaders (bottom — blue)
       if (leaderH > 0) {
         if (topmost === 'leader') {
-          svg += `<path d="${roundTop(x, baseY - leaderH, barW, leaderH, BAR_R)}" fill="#3b82f6"/>`;
+          svg += `<path d="${roundTop(x, baseY - leaderH, barW, leaderH, BAR_R)}" fill="#5b9cf6" opacity="0.9"/>`;
         } else {
-          svg += `<rect x="${x}" y="${baseY - leaderH}" width="${barW}" height="${leaderH}" fill="#3b82f6"/>`;
+          svg += `<rect x="${x}" y="${baseY - leaderH}" width="${barW}" height="${leaderH}" fill="#5b9cf6" opacity="0.9"/>`;
         }
       }
 
-      // Distributors (middle segment — teal)
+      // Distributors (middle — teal)
       if (distH > 0) {
         if (topmost === 'dist') {
-          svg += `<path d="${roundTop(x, solidTop, barW, distH, BAR_R)}" fill="#0ea5a0"/>`;
+          svg += `<path d="${roundTop(x, solidTop, barW, distH, BAR_R)}" fill="#0ea5a0" opacity="0.85"/>`;
         } else {
-          svg += `<rect x="${x}" y="${solidTop}" width="${barW}" height="${distH}" fill="#0ea5a0"/>`;
+          svg += `<rect x="${x}" y="${solidTop}" width="${barW}" height="${distH}" fill="#0ea5a0" opacity="0.85"/>`;
         }
       }
 
-      // Training extension (top segment — dashed purple outline)
+      // Training extension (dashed — light purple, thinner stroke)
       if (trainH > 0) {
-        svg += `<path d="${roundTop(x, trainTop, barW, trainH, BAR_R)}" fill="rgba(139,92,246,0.1)" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+        svg += `<path d="${roundTop(x + 0.5, trainTop + 0.5, barW - 1, trainH - 1, BAR_R)}" fill="rgba(139,92,246,0.06)" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3 2"/>`;
       }
 
-      // Invisible hover target
+      // Hover target
       const totalH = solidH + trainH;
       const topY = trainH > 0 ? trainTop : solidTop;
-      svg += `<rect x="${x}" y="${Math.min(topY, baseY - 1)}" width="${barW}" height="${Math.max(totalH, 2)}" fill="transparent" style="cursor:pointer" onmouseenter="NationalApp._showHcTooltip(event,${i},${ownerIdx})" onmouseleave="NationalApp._hideHcTooltip()"/>`;
+      svg += `<rect x="${x}" y="${Math.min(topY, baseY - 1)}" width="${barW}" height="${Math.max(totalH, 4)}" fill="transparent" style="cursor:pointer" onmouseenter="NationalApp._showHcTooltip(event,${i},${ownerIdx})" onmouseleave="NationalApp._hideHcTooltip()"/>`;
 
-      // X-axis date label
-      svg += `<text x="${x + barW / 2}" y="${svgH - 8}" text-anchor="middle" fill="#6b7a8d" font-size="10" font-weight="600" font-family="Inter,sans-serif">${this._esc(r.date)}</text>`;
+      // X-axis date label — show every label if ≤8 bars, otherwise alternate
+      const showLabel = n <= 8 || i % 2 === 0 || i === n - 1;
+      if (showLabel) {
+        svg += `<text x="${x + barW / 2}" y="${svgH - 6}" text-anchor="middle" fill="#8a95a5" font-size="${n > 10 ? 8 : 9}" font-weight="600" font-family="Inter,sans-serif">${shortDate(r.date)}</text>`;
+      }
     });
 
-    // ── Assemble HTML ──
+    // ── Assemble ──
     trendEl.innerHTML = `
       <div class="coaching-label">Week-over-Week Headcount</div>
       <div class="hc-chart-wrap">
-        <svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet"
-             style="width:100%;height:auto;display:block;">
+        <svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet">
           ${svg}
         </svg>
         <div class="hc-chart-tooltip" id="hc-chart-tt"></div>

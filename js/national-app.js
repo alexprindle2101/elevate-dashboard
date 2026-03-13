@@ -2362,28 +2362,37 @@ const NationalApp = {
       el.innerHTML = `<div class="coaching-label">Weekly Ad Spend</div>
         <div class="empty-state"><div class="loading-spinner" style="width:24px;height:24px;border-width:3px;margin:0 auto"></div>
         <div class="empty-state-text" style="margin-top:8px">Loading weekly ad data...</div></div>`;
-      try {
-        const url = NATIONAL_CONFIG.appsScriptUrl +
-          '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
-          '&action=indeedTracking' +
-          '&owner=' + encodeURIComponent(owner.name) +
-          '&_t=' + Date.now();
-        const resp = await this._fetchWithTimeout(fetch(url), 30000);
-        const result = await resp.json();
-        if (!result.error && result.weeks && result.weeks.length) {
-          owner.indeedTracking = result;
-          owner._trackingFetched = true;
-          owner._trackingFetching = false;
-          if (this.state.selectedOwner === owner && this.state.currentTab === 'recruiting') {
-            this._renderIndeedTracking(owner);
-          }
-          return;
+      const url = NATIONAL_CONFIG.appsScriptUrl +
+        '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+        '&action=indeedTracking' +
+        '&owner=' + encodeURIComponent(owner.name) +
+        '&_t=' + Date.now();
+      // Retry up to 2 times (Apps Script cold starts can timeout)
+      let result = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          console.log('[NationalApp] Indeed Tracking fetch attempt', attempt, 'for', owner.name);
+          const resp = await this._fetchWithTimeout(fetch(url), 45000);
+          result = await resp.json();
+          console.log('[NationalApp] Indeed Tracking response:', result.error || (result.weeks ? result.weeks.length + ' weeks' : 'no weeks'));
+          if (!result.error && result.weeks && result.weeks.length) break;
+          result = null; // didn't get valid data, retry
+        } catch (err) {
+          console.warn('[NationalApp] Indeed Tracking attempt', attempt, 'for', owner.name, ':', err.message);
+          result = null;
         }
-      } catch (err) {
-        console.warn('[NationalApp] Indeed Tracking load for', owner.name, ':', err.message);
       }
-      owner._trackingFetched = true;
       owner._trackingFetching = false;
+      if (result && result.weeks && result.weeks.length) {
+        owner.indeedTracking = result;
+        owner._trackingFetched = true;
+        if (this.state.selectedOwner === owner && this.state.currentTab === 'recruiting') {
+          this._renderIndeedTracking(owner);
+        }
+        return;
+      }
+      // Don't cache failure — allow retry on next tab visit
+      console.warn('[NationalApp] Indeed Tracking failed for', owner.name, '— falling back to cost sheet');
     }
 
     // ── Fall back to old cost sheet claim system ──

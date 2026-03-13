@@ -739,7 +739,8 @@ const NationalApp = {
         audit: {
           grades: { reviews: '—', website: '—', social: '—', seo: '—' },
           details: {}
-        }
+        },
+        notes: ''
       };
     });
 
@@ -1381,6 +1382,19 @@ const NationalApp = {
         <button class="hc-submit-btn" onclick="NationalApp._submitGoals(${ownerIdx})">Submit Goals</button>
         <span class="hc-submit-note" id="goal-submit-note-${ownerIdx}"></span>
       </div>`;
+
+    // ── Section 4: Notes ──
+    const notesEl = document.getElementById('health-notes');
+    if (notesEl) {
+      notesEl.innerHTML = `
+        <div class="coaching-label">Notes</div>
+        <textarea class="owner-notes" id="owner-notes-${ownerIdx}"
+          placeholder="Add notes for this owner..."
+          oninput="NationalApp._onNotesInput(${ownerIdx})">${this._esc(owner.notes || '')}</textarea>
+        <div class="notes-footer">
+          <span class="hc-submit-note" id="notes-save-status-${ownerIdx}"></span>
+        </div>`;
+    }
   },
 
   // ── Headcount input handler ──
@@ -1715,6 +1729,53 @@ const NationalApp = {
       note.textContent = 'Goals saved ✓';
       note.classList.add('show');
       setTimeout(() => note.classList.remove('show'), 3000);
+    }
+  },
+
+  // ── Notes: debounced auto-save ──
+  _notesTimer: null,
+
+  _onNotesInput(ownerIdx) {
+    const owner = this.state.owners[ownerIdx];
+    if (!owner) return;
+    const ta = document.getElementById('owner-notes-' + ownerIdx);
+    if (!ta) return;
+    owner.notes = ta.value;
+
+    // Debounce: save 1.5s after last keystroke
+    if (this._notesTimer) clearTimeout(this._notesTimer);
+    this._notesTimer = setTimeout(() => this._saveNotes(ownerIdx), 1500);
+  },
+
+  async _saveNotes(ownerIdx) {
+    const owner = this.state.owners[ownerIdx];
+    if (!owner) return;
+    const status = document.getElementById('notes-save-status-' + ownerIdx);
+
+    if (!NATIONAL_CONFIG.appsScriptUrl) {
+      // No backend — just save locally
+      if (status) { status.textContent = 'Saved locally'; status.classList.add('show'); setTimeout(() => status.classList.remove('show'), 2000); }
+      return;
+    }
+
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'saveOwnerNotes',
+          ownerName: owner.name,
+          campaign: this.state.campaign,
+          notes: owner.notes
+        })
+      });
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+      if (status) { status.textContent = 'Saved'; status.classList.add('show'); setTimeout(() => status.classList.remove('show'), 2000); }
+    } catch (err) {
+      console.warn('[NationalApp] Notes save failed:', err);
+      if (status) { status.textContent = 'Save failed'; status.classList.add('show'); setTimeout(() => status.classList.remove('show'), 3000); }
     }
   },
 

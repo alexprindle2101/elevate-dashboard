@@ -647,6 +647,37 @@ input, select, textarea { font-family: inherit; }
   vertical-align: middle;
 }
 
+/* ── Owner Notes ── */
+.owner-notes {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm, 6px);
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--gray-800);
+  background: var(--bg, #f8fafc);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.owner-notes:focus {
+  border-color: var(--blue-core, #0099cc);
+  box-shadow: 0 0 0 2px rgba(0,153,204,0.12);
+}
+.owner-notes::placeholder {
+  color: var(--gray-400);
+  font-style: italic;
+}
+.notes-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+  min-height: 18px;
+}
+
 /* ── Production Review Cards ── */
 .prod-cards {
   display: grid;

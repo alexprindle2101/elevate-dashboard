@@ -140,6 +140,10 @@ function doPost(e) {
       case 'importNLRHeadcount':
         result = importNLRHeadcount();
         break;
+      case 'updateHeadcount':
+        result = updateHeadcountRow(body.ownerName, body.date,
+                   body.active, body.leaders, body.dist, body.training);
+        break;
       default:
         result = { error: 'unknown action: ' + body.action };
     }
@@ -2209,6 +2213,49 @@ function readLocalHeadcount() {
   }
 
   return { owners: owners };
+}
+
+// ══════════════════════════════════════════════════
+// UPDATE HEADCOUNT ROW in _B2B_Headcount tab
+// Finds row by Owner (col A) + Date (col B), updates cols C-F
+// ══════════════════════════════════════════════════
+
+function updateHeadcountRow(ownerName, date, active, leaders, dist, training) {
+  if (!ownerName || !date) return { error: 'ownerName and date are required' };
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    return { error: 'Cannot open national sheet: ' + err.message };
+  }
+
+  var sheet = ss.getSheetByName('_B2B_Headcount');
+  if (!sheet) return { error: '_B2B_Headcount tab not found' };
+
+  var data = sheet.getDataRange().getValues();
+  var normDate = _normalizeDate(date);
+  var targetRow = -1;
+
+  for (var i = 1; i < data.length; i++) {
+    var rowOwner = String(data[i][0] || '').trim();
+    var rowDate  = _normalizeDate(data[i][1]);
+    if (rowOwner === ownerName && rowDate === normDate) {
+      targetRow = i + 1; // 1-based sheet row
+      break;
+    }
+  }
+
+  if (targetRow === -1) {
+    return { error: 'Row not found for owner "' + ownerName + '" date "' + normDate + '"' };
+  }
+
+  // Update columns C-F (Active, Leaders, Dist, Training) — 1-based cols 3-6
+  sheet.getRange(targetRow, 3, 1, 4).setValues([
+    [parseInt(active) || 0, parseInt(leaders) || 0, parseInt(dist) || 0, parseInt(training) || 0]
+  ]);
+
+  return { ok: true, row: targetRow, owner: ownerName, date: normDate };
 }
 
 // ── Normalize any date value to MM/DD/YYYY string (no timezone) ──

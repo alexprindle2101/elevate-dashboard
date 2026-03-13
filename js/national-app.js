@@ -474,6 +474,9 @@ const NationalApp = {
 
       if (!nlrKey) continue;
 
+      // Store the matched sheet name for write-back
+      owner._sheetName = nlrKey;
+
       const nlr = nlrOwners[nlrKey];
 
       // Set current headcount from latest row
@@ -1748,6 +1751,43 @@ const NationalApp = {
       if (field in owner.headcount) owner.headcount[field] = entry[field];
     }
     this._hcDirty = true;
+
+    // Debounced save to spreadsheet
+    const saveKey = `${ownerIdx}_${histIdx}`;
+    if (this._hcSaveTimers?.[saveKey]) clearTimeout(this._hcSaveTimers[saveKey]);
+    if (!this._hcSaveTimers) this._hcSaveTimers = {};
+    this._hcSaveTimers[saveKey] = setTimeout(() => {
+      this._saveHcRow(owner, entry);
+      delete this._hcSaveTimers[saveKey];
+    }, 1200);
+  },
+
+  _hcSaveTimers: null,
+
+  async _saveHcRow(owner, entry) {
+    const sheetName = owner._sheetName || owner.tab || owner.name;
+    const dist = Math.max((entry.active || 0) - (entry.leaders || 0), 0);
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'updateHeadcount',
+          ownerName: sheetName,
+          date: entry.date,
+          active: entry.active || 0,
+          leaders: entry.leaders || 0,
+          dist: dist,
+          training: entry.training || 0
+        })
+      });
+      const result = await resp.json();
+      if (result.error) console.warn('[HC Save] Error:', result.error);
+      else console.log('[HC Save] Saved', sheetName, entry.date);
+    } catch (err) {
+      console.warn('[HC Save] Network error:', err.message);
+    }
   },
 
   _updateHcDist(input) {

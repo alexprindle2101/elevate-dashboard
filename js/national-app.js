@@ -1461,7 +1461,7 @@ const NationalApp = {
     }
   },
 
-  // ── Render headcount week-over-week bar chart (newest-first, responsive) ──
+  // ── Render headcount week-over-week bar chart (newest-first, dynamic Y-axis) ──
   _renderHeadcountTrend(owner, ownerIdx) {
     const trendEl = document.getElementById('health-hc-trend');
     if (!trendEl) return;
@@ -1480,119 +1480,40 @@ const NationalApp = {
       return parts.length >= 2 ? parts[0] + '/' + parts[1] : d;
     };
 
-    // ── Layout — ~4-5 visible bars, scroll for the rest ──
-    const VISIBLE = 5;           // bars visible without scrolling
-    const PAD_L = 36, PAD_R = 10, PAD_T = 14, PAD_B = 28;
+    // ── Layout constants ──
+    const VISIBLE = 5;
+    const YAXIS_W = 36;
+    const PAD_R = 10, PAD_T = 14, PAD_B = 28;
     const BAR_R = 5;
     const GAP = 0.14;
-    const MIN_LABEL_H = 14;     // min segment height to show a label inside
-
-    // viewBox reference = exactly VISIBLE bars wide
-    const REF_W = 500;
-    const plotSpace = REF_W - PAD_L - PAD_R;
-    const slotW = plotSpace / VISIBLE;
-    const svgW = PAD_L + n * slotW + PAD_R;
+    const MIN_LABEL_H = 14;
     const svgH = 220;
     const plotH = svgH - PAD_T - PAD_B;
+    const REF_W = 500;
+    const barAreaVisibleW = REF_W - YAXIS_W;
+    const slotW = barAreaVisibleW / VISIBLE;
+    const barAreaW = n * slotW + PAD_R;
     const needsScroll = n > VISIBLE;
-
-    // ── Y-axis scale ──
-    const maxVal = Math.max(...hist.map(r => (r.active || 0) + (r.training || 0)), 1);
-    const yMax = Math.ceil(maxVal / 5) * 5 || 5;
-    const yScale = plotH / yMax;
-    const baseY = PAD_T + plotH;
-
-    // ── Bar geometry ──
     const barW = slotW * (1 - GAP);
     const barOff = (slotW - barW) / 2;
+    const baseY = PAD_T + plotH;
 
-    const roundTop = (x, y, w, h, r) => {
-      if (h <= 0) return '';
-      const cr = Math.min(r, h / 2, w / 2);
-      return `M${x},${y + h}L${x},${y + cr}Q${x},${y} ${x + cr},${y}` +
-             `L${x + w - cr},${y}Q${x + w},${y} ${x + w},${y + cr}L${x + w},${y + h}Z`;
-    };
+    // Store chart state for scroll-driven re-renders
+    this._hcData = { hist, ownerIdx, n, slotW, barW, barOff, barAreaW, barAreaVisibleW, plotH, PAD_T, PAD_R, BAR_R, GAP, MIN_LABEL_H, svgH, baseY, YAXIS_W, VISIBLE, shortDate };
 
-    // Helper: centered text label inside a bar segment
-    const segLabel = (cx, segTop, segH, val, color) => {
-      if (segH < MIN_LABEL_H || !val) return '';
-      const ty = segTop + segH / 2 + 4;
-      return `<text x="${cx}" y="${ty}" text-anchor="middle" fill="${color}" font-size="11" font-weight="700" font-family="Inter,sans-serif">${val}</text>`;
-    };
+    // Compute initial yMax from visible bars (multiples of 10)
+    const visibleMax = this._getHcVisibleMax(0);
+    const yMax = Math.ceil(visibleMax / 10) * 10 || 10;
+    this._hcCurrentYMax = yMax;
 
-    let svg = '';
+    const yAxisSvg = this._buildHcYAxisSvg(yMax);
+    const barsSvg = this._buildHcBarsSvg(yMax);
 
-    // ── Gridlines + Y-axis labels ──
-    const ticks = 4;
-    for (let t = 0; t <= ticks; t++) {
-      const val = Math.round(yMax * t / ticks);
-      const y = baseY - val * yScale;
-      svg += `<line x1="${PAD_L}" y1="${y}" x2="${svgW - PAD_R}" y2="${y}" stroke="#e8ecf1" stroke-width="0.7"/>`;
-      svg += `<text x="${PAD_L - 6}" y="${y + 3.5}" text-anchor="end" fill="#b0b8c4" font-size="10" font-family="Inter,sans-serif">${val}</text>`;
-    }
-    svg += `<text x="${PAD_L - 6}" y="${baseY + 3.5}" text-anchor="end" fill="#b0b8c4" font-size="10" font-family="Inter,sans-serif">0</text>`;
-
-    // ── Bars ──
-    hist.forEach((r, i) => {
-      const origIdx = rawHist.length - 1 - i;
-      const active = r.active || 0;
-      const leaders = r.leaders || 0;
-      const training = r.training || 0;
-      const dist = Math.max(active - leaders, 0);
-      const leaderH = leaders * yScale;
-      const distH = dist * yScale;
-      const solidH = active * yScale;
-      const trainH = training * yScale;
-      const x = PAD_L + i * slotW + barOff;
-      const cx = x + barW / 2;
-      const solidTop = baseY - solidH;
-      const trainTop = solidTop - trainH;
-
-      const topmost = trainH > 0 ? 'training' : (distH > 0 ? 'dist' : 'leader');
-
-      // Leaders (bottom — blue)
-      if (leaderH > 0) {
-        if (topmost === 'leader') {
-          svg += `<path d="${roundTop(x, baseY - leaderH, barW, leaderH, BAR_R)}" fill="#5b9cf6" opacity="0.9"/>`;
-        } else {
-          svg += `<rect x="${x}" y="${baseY - leaderH}" width="${barW}" height="${leaderH}" fill="#5b9cf6" opacity="0.9"/>`;
-        }
-        svg += segLabel(cx, baseY - leaderH, leaderH, leaders, '#fff');
-      }
-
-      // Distributors (middle — teal)
-      if (distH > 0) {
-        if (topmost === 'dist') {
-          svg += `<path d="${roundTop(x, solidTop, barW, distH, BAR_R)}" fill="#0ea5a0" opacity="0.85"/>`;
-        } else {
-          svg += `<rect x="${x}" y="${solidTop}" width="${barW}" height="${distH}" fill="#0ea5a0" opacity="0.85"/>`;
-        }
-        svg += segLabel(cx, solidTop, distH, dist, '#fff');
-      }
-
-      // Training extension (dashed purple)
-      if (trainH > 0) {
-        svg += `<path d="${roundTop(x + 0.5, trainTop + 0.5, barW - 1, trainH - 1, BAR_R)}" fill="rgba(139,92,246,0.08)" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3 2"/>`;
-        svg += segLabel(cx, trainTop, trainH, training, '#7c3aed');
-      }
-
-      // Hover target
-      const totalH = solidH + trainH;
-      const topY = trainH > 0 ? trainTop : solidTop;
-      svg += `<rect x="${x}" y="${Math.min(topY, baseY - 1)}" width="${barW}" height="${Math.max(totalH, 4)}" fill="transparent" style="cursor:pointer" onmouseenter="NationalApp._showHcTooltip(event,${origIdx},${ownerIdx})" onmouseleave="NationalApp._hideHcTooltip()"/>`;
-
-      // X-axis date label
-      svg += `<text x="${cx}" y="${svgH - 8}" text-anchor="middle" fill="#8a95a5" font-size="10" font-weight="600" font-family="Inter,sans-serif">${shortDate(r.date)}</text>`;
-    });
-
-    // ── Assemble ──
-    // Always use the full viewBox; scrollable wrapper clips to VISIBLE bars
-    const displayW = needsScroll ? REF_W : svgW;
+    const displayW = needsScroll ? REF_W : (YAXIS_W + barAreaW);
 
     // ── Build table (back side) ──
-    // Show newest first (same order as chart)
     const tableRows = hist.map((r, i) => {
-      const prev = i < n - 1 ? hist[i + 1] : null; // prev = older = next in reversed array
+      const prev = i < n - 1 ? hist[i + 1] : null;
       const dist = (r.active || 0) - (r.leaders || 0);
       return `<tr>
         <td class="bold">${this._esc(r.date)}</td>
@@ -1613,7 +1534,7 @@ const NationalApp = {
         </table>
       </div>`;
 
-    // ── Assemble flip card ──
+    // ── Assemble flip card (split Y-axis + scrollable bars) ──
     trendEl.innerHTML = `
       <div class="coaching-label">
         Week-over-Week Headcount
@@ -1624,8 +1545,13 @@ const NationalApp = {
       <div class="flip-card${this._hcFlipped ? ' flipped' : ''}" id="hc-flip-card">
         <div class="flip-card-inner">
           <div class="flip-card-front">
-            <div class="hc-chart-wrap hc-chart-scrollable" style="max-width:${displayW}px">
-              <svg viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}">${svg}</svg>
+            <div class="hc-chart-outer" style="position:relative; max-width:${displayW}px">
+              <div style="display:flex">
+                <svg id="hc-yaxis-svg" width="${YAXIS_W}" height="${svgH}" style="flex-shrink:0; background:var(--card-bg,#ddeaf5)">${yAxisSvg}</svg>
+                <div class="hc-chart-wrap" id="hc-chart-scroll" style="flex:1; min-width:0">
+                  <svg id="hc-bars-svg" width="${barAreaW}" height="${svgH}" overflow="hidden">${barsSvg}</svg>
+                </div>
+              </div>
               <div class="hc-chart-tooltip" id="hc-chart-tt"></div>
             </div>
             <div class="hc-chart-legend">
@@ -1639,6 +1565,142 @@ const NationalApp = {
           </div>
         </div>
       </div>`;
+
+    // Attach scroll listener for dynamic Y-axis rescaling
+    const scrollEl = document.getElementById('hc-chart-scroll');
+    if (scrollEl && needsScroll) {
+      this._hcScrollRaf = null;
+      scrollEl.addEventListener('scroll', () => {
+        if (this._hcScrollRaf) return;
+        this._hcScrollRaf = requestAnimationFrame(() => {
+          this._hcScrollRaf = null;
+          this._onHcScroll();
+        });
+      });
+    }
+  },
+
+  // ── Dynamic Y-axis helpers ──
+  _hcCurrentYMax: 10,
+  _hcScrollRaf: null,
+  _hcData: null,
+
+  _getHcVisibleMax(scrollLeft) {
+    const d = this._hcData;
+    if (!d) return 10;
+    const firstVisible = Math.max(0, Math.floor(scrollLeft / d.slotW) - 1);
+    const lastVisible = Math.min(d.n - 1, Math.ceil((scrollLeft + d.barAreaVisibleW) / d.slotW));
+    let maxVal = 1;
+    for (let i = firstVisible; i <= lastVisible; i++) {
+      const r = d.hist[i];
+      const total = (r.active || 0) + (r.training || 0);
+      if (total > maxVal) maxVal = total;
+    }
+    return maxVal;
+  },
+
+  _onHcScroll() {
+    const scrollEl = document.getElementById('hc-chart-scroll');
+    if (!scrollEl || !this._hcData) return;
+    const visibleMax = this._getHcVisibleMax(scrollEl.scrollLeft);
+    const yMax = Math.ceil(visibleMax / 10) * 10 || 10;
+    if (yMax === this._hcCurrentYMax) return;
+    this._hcCurrentYMax = yMax;
+    const yAxisEl = document.getElementById('hc-yaxis-svg');
+    if (yAxisEl) yAxisEl.innerHTML = this._buildHcYAxisSvg(yMax);
+    const barsEl = document.getElementById('hc-bars-svg');
+    if (barsEl) barsEl.innerHTML = this._buildHcBarsSvg(yMax);
+  },
+
+  _buildHcYAxisSvg(yMax) {
+    const d = this._hcData;
+    if (!d) return '';
+    const yScale = d.plotH / yMax;
+    let svg = '';
+    for (let val = 0; val <= yMax; val += 10) {
+      const y = d.baseY - val * yScale;
+      svg += `<text x="${d.YAXIS_W - 6}" y="${y + 3.5}" text-anchor="end" fill="#b0b8c4" font-size="10" font-family="Inter,sans-serif">${val}</text>`;
+    }
+    return svg;
+  },
+
+  _buildHcBarsSvg(yMax) {
+    const d = this._hcData;
+    if (!d) return '';
+    const yScale = d.plotH / yMax;
+    let svg = '';
+
+    // Gridlines at multiples of 10
+    for (let val = 0; val <= yMax; val += 10) {
+      const y = d.baseY - val * yScale;
+      svg += `<line x1="0" y1="${y}" x2="${d.barAreaW}" y2="${y}" stroke="#e8ecf1" stroke-width="0.7"/>`;
+    }
+
+    const roundTop = (x, y, w, h, r) => {
+      if (h <= 0) return '';
+      const cr = Math.min(r, h / 2, w / 2);
+      return `M${x},${y + h}L${x},${y + cr}Q${x},${y} ${x + cr},${y}L${x + w - cr},${y}Q${x + w},${y} ${x + w},${y + cr}L${x + w},${y + h}Z`;
+    };
+
+    const segLabel = (cx, segTop, segH, val, color) => {
+      if (segH < d.MIN_LABEL_H || !val) return '';
+      const ty = segTop + segH / 2 + 4;
+      return `<text x="${cx}" y="${ty}" text-anchor="middle" fill="${color}" font-size="11" font-weight="700" font-family="Inter,sans-serif">${val}</text>`;
+    };
+
+    d.hist.forEach((r, i) => {
+      const origIdx = d.n - 1 - i;
+      const active = r.active || 0;
+      const leaders = r.leaders || 0;
+      const training = r.training || 0;
+      const dist = Math.max(active - leaders, 0);
+      const leaderH = leaders * yScale;
+      const distH = dist * yScale;
+      const solidH = active * yScale;
+      const trainH = training * yScale;
+      const x = i * d.slotW + d.barOff;
+      const cx = x + d.barW / 2;
+      const solidTop = d.baseY - solidH;
+      const trainTop = solidTop - trainH;
+
+      const topmost = trainH > 0 ? 'training' : (distH > 0 ? 'dist' : 'leader');
+
+      // Leaders (bottom — blue)
+      if (leaderH > 0) {
+        if (topmost === 'leader') {
+          svg += `<path d="${roundTop(x, d.baseY - leaderH, d.barW, leaderH, d.BAR_R)}" fill="#5b9cf6" opacity="0.9"/>`;
+        } else {
+          svg += `<rect x="${x}" y="${d.baseY - leaderH}" width="${d.barW}" height="${leaderH}" fill="#5b9cf6" opacity="0.9"/>`;
+        }
+        svg += segLabel(cx, d.baseY - leaderH, leaderH, leaders, '#fff');
+      }
+
+      // Distributors (middle — teal)
+      if (distH > 0) {
+        if (topmost === 'dist') {
+          svg += `<path d="${roundTop(x, solidTop, d.barW, distH, d.BAR_R)}" fill="#0ea5a0" opacity="0.85"/>`;
+        } else {
+          svg += `<rect x="${x}" y="${solidTop}" width="${d.barW}" height="${distH}" fill="#0ea5a0" opacity="0.85"/>`;
+        }
+        svg += segLabel(cx, solidTop, distH, dist, '#fff');
+      }
+
+      // Training extension (dashed purple)
+      if (trainH > 0) {
+        svg += `<path d="${roundTop(x + 0.5, trainTop + 0.5, d.barW - 1, trainH - 1, d.BAR_R)}" fill="rgba(139,92,246,0.08)" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3 2"/>`;
+        svg += segLabel(cx, trainTop, trainH, training, '#7c3aed');
+      }
+
+      // Hover target
+      const totalH = solidH + trainH;
+      const topY = trainH > 0 ? trainTop : solidTop;
+      svg += `<rect x="${x}" y="${Math.min(topY, d.baseY - 1)}" width="${d.barW}" height="${Math.max(totalH, 4)}" fill="transparent" style="cursor:pointer" onmouseenter="NationalApp._showHcTooltip(event,${origIdx},${d.ownerIdx})" onmouseleave="NationalApp._hideHcTooltip()"/>`;
+
+      // X-axis date label
+      svg += `<text x="${cx}" y="${d.svgH - 8}" text-anchor="middle" fill="#8a95a5" font-size="10" font-weight="600" font-family="Inter,sans-serif">${d.shortDate(r.date)}</text>`;
+    });
+
+    return svg;
   },
 
   _hcFlipped: false,

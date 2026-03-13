@@ -2365,8 +2365,7 @@ const NationalApp = {
       </div>`;
   },
 
-  // ── Lazy-load recruiting costs for a single owner ──
-  // Tries new weekly Indeed Tracking endpoint first, falls back to old cost sheet
+  // ── Load and render Indeed Tracking for a single owner ──
   async _loadAndRenderCosts(owner) {
     const el = document.getElementById('owner-indeed-costs');
     if (!el) return;
@@ -2374,22 +2373,41 @@ const NationalApp = {
     // Render NLR banner above cost section
     this._renderNlrBanner();
 
-    // ── Try new weekly Indeed Tracking endpoint first ──
+    // Already have data — render immediately
     if (owner.indeedTracking) {
       this._renderIndeedTracking(owner);
       return;
     }
-    if (!owner._trackingFetched && !owner._trackingFetching) {
+
+    // Show loading spinner while fetching (whether we or pre-fetch is doing it)
+    el.innerHTML = `<div class="coaching-label">Weekly Ad Spend</div>
+      <div class="empty-state"><div class="loading-spinner" style="width:24px;height:24px;border-width:3px;margin:0 auto"></div>
+      <div class="empty-state-text" style="margin-top:8px">Loading weekly ad data...</div></div>`;
+
+    // If pre-fetch is already running, wait for it instead of double-fetching
+    if (owner._trackingFetching) {
+      console.log('[NationalApp] Waiting for pre-fetch to complete for', owner.name);
+      // Poll until pre-fetch finishes (checks every 500ms, up to 60s)
+      for (let i = 0; i < 120; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (!owner._trackingFetching) break;
+      }
+      if (owner.indeedTracking) {
+        if (this.state.selectedOwner === owner && this.state.currentTab === 'recruiting') {
+          this._renderIndeedTracking(owner);
+        }
+        return;
+      }
+      // Pre-fetch failed, fall through to try ourselves
+    }
+
+    if (!owner._trackingFetched) {
       owner._trackingFetching = true;
-      el.innerHTML = `<div class="coaching-label">Weekly Ad Spend</div>
-        <div class="empty-state"><div class="loading-spinner" style="width:24px;height:24px;border-width:3px;margin:0 auto"></div>
-        <div class="empty-state-text" style="margin-top:8px">Loading weekly ad data...</div></div>`;
       const url = NATIONAL_CONFIG.appsScriptUrl +
         '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
         '&action=indeedTracking' +
         '&owner=' + encodeURIComponent(owner.name) +
         '&_t=' + Date.now();
-      // Retry up to 2 times (Apps Script cold starts can timeout)
       let result = null;
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
@@ -2398,7 +2416,7 @@ const NationalApp = {
           result = await resp.json();
           console.log('[NationalApp] Indeed Tracking response:', result.error || (result.weeks ? result.weeks.length + ' weeks' : 'no weeks'));
           if (!result.error && result.weeks && result.weeks.length) break;
-          result = null; // didn't get valid data, retry
+          result = null;
         } catch (err) {
           console.warn('[NationalApp] Indeed Tracking attempt', attempt, 'for', owner.name, ':', err.message);
           result = null;
@@ -2413,8 +2431,12 @@ const NationalApp = {
         }
         return;
       }
-      // Don't cache failure — allow retry on next tab visit
       console.warn('[NationalApp] Indeed Tracking failed for', owner.name);
+      // Show empty state on failure
+      if (this.state.selectedOwner === owner && this.state.currentTab === 'recruiting') {
+        el.innerHTML = `<div class="coaching-label">Weekly Ad Spend</div>
+          <div class="empty-state"><div class="empty-state-text">Failed to load ad spend data. Try refreshing.</div></div>`;
+      }
     }
   },
 

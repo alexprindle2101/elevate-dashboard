@@ -2304,6 +2304,21 @@ const NationalApp = {
   // ══════════════════════════════════════════════════
 
   renderRecruitingTab(owner) {
+    // ── Platform banner header ──
+    const bannerEl = document.getElementById('recruiting-banner');
+    if (bannerEl) {
+      const now = new Date();
+      const monthYear = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      bannerEl.innerHTML = `
+        <div class="recruit-banner">
+          <div class="recruit-banner-left">
+            <img src="references/logos/nlr-logo-symbol.jpg" alt="NLR" class="recruit-banner-logo">
+            <div class="recruit-banner-title">Recruiting Pipeline Breakdown</div>
+          </div>
+          <div class="recruit-banner-right">Powered by Next Level Recruiting · ${this._esc(monthYear)}</div>
+        </div>`;
+    }
+
     const r = owner.recruiting;
     if (!r || !r.rows || !r.rows.length) {
       const el = document.getElementById('owner-recruiting-table');

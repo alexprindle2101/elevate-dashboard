@@ -209,7 +209,7 @@ function doGet(e) {
                 logoUrl: o.logoUrl || '',
                 logoIconUrl: o.logoIconUrl || '',
                 discordWebhookUrl: o.discordWebhookUrl || '',
-                chatPlatform: o.chatPlatform || 'none',
+                chatPlatform: o.chatPlatform || 'discord',
                 headerLogoStyle: o.headerLogoStyle || 'icon',
                 payrollManagerEmail: o.payrollManagerEmail || '',
                 payrollMode: o.payrollMode || 'commission-split',
@@ -355,7 +355,7 @@ function doPost(e) {
           body.headerLogoStyle || 'icon',
           body.payrollManagerEmail || '',
           body.payrollMode || 'commission-split',
-          body.chatPlatform || 'none',
+          body.chatPlatform || 'discord',
           body.leaderboardEnabled || 'false',
           body.leaderboardHour || '22'
         ]);
@@ -577,7 +577,7 @@ function readOffices() {
       headerLogoStyle: (data[i][15] || '').toString().trim() || 'icon',
       payrollManagerEmail: (data[i][16] || '').toString().trim().toLowerCase(),
       payrollMode: (data[i][17] || 'commission-split').toString().trim(),
-      chatPlatform: (data[i][18] || 'none').toString().trim(),
+      chatPlatform: (data[i][18] || 'discord').toString().trim(),
       leaderboardEnabled: (data[i][19] || 'false').toString().trim(),
       leaderboardHour: (data[i][20] || '22').toString().trim()
     });
@@ -604,7 +604,7 @@ function readOfficesBasic() {
       logoUrl: (data[i][10] || '').toString().trim(),
       logoIconUrl: (data[i][11] || '').toString().trim(),
       discordWebhookUrl: (data[i][14] || '').toString().trim(),
-      chatPlatform: (data[i][18] || 'none').toString().trim(),
+      chatPlatform: (data[i][18] || 'discord').toString().trim(),
       leaderboardEnabled: (data[i][19] || 'false').toString().trim(),
       leaderboardHour: (data[i][20] || '22').toString().trim()
     });
@@ -998,7 +998,7 @@ function checkLeaderboardPosts() {
     if (String(office.leaderboardHour) !== String(currentHour)) continue;
 
     // Must have a webhook configured
-    var platform = (office.chatPlatform || 'none').toLowerCase();
+    var platform = (office.chatPlatform || 'discord').toLowerCase();
     var webhookUrl = (office.discordWebhookUrl || '').trim();
     if (!webhookUrl || platform === 'none') continue;
 

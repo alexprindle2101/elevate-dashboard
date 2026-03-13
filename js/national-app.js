@@ -2656,19 +2656,22 @@ const NationalApp = {
   // ── Build a single retention bar card (showed vs booked bars + hero number) ──
   _buildRetentionCard(title, color, weekLabels, booked, showed, subtitle) {
     const n = weekLabels.length;
+    const VISIBLE = 4;
 
     // Current week hero values
     const curShowed = showed[0] || 0;
     const curBooked = booked[0] || 0;
     const curPct = curBooked > 0 ? Math.round((curShowed / curBooked) * 100) : null;
 
-    // SVG dimensions (viewBox-based for responsive scaling)
-    const VW = 320, VH = 150;
-    const PAD_T = 26, PAD_B = 22, PAD_L = 8, PAD_R = 8;
-    const plotH = VH - PAD_T - PAD_B;
-    const plotW = VW - PAD_L - PAD_R;
+    // SVG dimensions — fixed slot width, scroll if needed
+    const svgH = 130;
+    const PAD_T = 22, PAD_B = 18;
+    const plotH = svgH - PAD_T - PAD_B;
     const baseY = PAD_T + plotH;
-    const BAR_R = 4;
+    const BAR_R = 3;
+    const SLOT_W = 46;
+    const barAreaW = n * SLOT_W + 6;
+    const visibleW = Math.min(n, VISIBLE) * SLOT_W + 6;
 
     // Y-axis max
     let maxVal = 1;
@@ -2680,11 +2683,10 @@ const NationalApp = {
     const yMax = Math.ceil(maxVal / step) * step || step;
     const yScale = plotH / yMax;
 
-    // Slot sizing
-    const slotW = plotW / Math.max(n, 1);
-    const GAP_FRAC = 0.28;
-    const barW = slotW * (1 - GAP_FRAC);
-    const barOff = (slotW - barW) / 2;
+    // Bar sizing
+    const GAP_FRAC = 0.22;
+    const barW = SLOT_W * (1 - GAP_FRAC);
+    const barOff = (SLOT_W - barW) / 2;
 
     const roundTop = (x, y, w, h, r) => {
       if (h <= 0) return '';
@@ -2697,7 +2699,7 @@ const NationalApp = {
     // Light gridlines
     for (let v = 0; v <= yMax; v += step) {
       const y = baseY - v * yScale;
-      svg += `<line x1="${PAD_L}" y1="${y}" x2="${VW - PAD_R}" y2="${y}" stroke="#e8ecf1" stroke-width="0.5"/>`;
+      svg += `<line x1="0" y1="${y}" x2="${barAreaW}" y2="${y}" stroke="#e8ecf1" stroke-width="0.5"/>`;
     }
 
     // Bars per week
@@ -2706,14 +2708,14 @@ const NationalApp = {
       const sh = showed[i] || 0;
       const pct = bk > 0 ? Math.round((sh / bk) * 100) : null;
 
-      const gx = PAD_L + i * slotW + barOff;
-      const cx = PAD_L + i * slotW + slotW / 2;
+      const gx = i * SLOT_W + barOff;
+      const cx = i * SLOT_W + SLOT_W / 2;
 
       // Booked bar (ghost — the potential)
       const bkH = bk * yScale;
       if (bkH > 0) {
         svg += `<path d="${roundTop(gx, baseY - bkH, barW, bkH, BAR_R)}" fill="${color}" opacity="0.13"/>`;
-        svg += `<path d="${roundTop(gx, baseY - bkH, barW, bkH, BAR_R)}" fill="none" stroke="${color}" stroke-width="1.2" opacity="0.35" stroke-dasharray="4,2"/>`;
+        svg += `<path d="${roundTop(gx, baseY - bkH, barW, bkH, BAR_R)}" fill="none" stroke="${color}" stroke-width="1" opacity="0.35" stroke-dasharray="3,2"/>`;
       }
 
       // Showed bar (solid — actual output)
@@ -2722,28 +2724,38 @@ const NationalApp = {
         svg += `<path d="${roundTop(gx, baseY - shH, barW, shH, BAR_R)}" fill="${color}" opacity="0.88"/>`;
       }
 
+      // Booked count in ghost gap area (between showed top and booked top)
+      const gapH = bkH - shH;
+      if (bk > 0 && gapH > 12) {
+        const gapMidY = baseY - shH - gapH / 2 + 3;
+        svg += `<text x="${cx}" y="${gapMidY}" text-anchor="middle" fill="${color}" font-size="8" font-weight="700" font-family="Inter,sans-serif" opacity="0.55">${bk}</text>`;
+      } else if (bk > 0 && bk === sh && shH > 28) {
+        // Booked == showed: show booked near top of solid bar
+        svg += `<text x="${cx}" y="${baseY - shH + 10}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="7" font-weight="600" font-family="Inter,sans-serif">${bk}</text>`;
+      }
+
       // Showed count inside solid bar (if tall enough)
-      if (sh > 0 && shH > 16) {
-        svg += `<text x="${cx}" y="${baseY - shH / 2 + 4}" text-anchor="middle" fill="#fff" font-size="10" font-weight="700" font-family="Inter,sans-serif">${sh}</text>`;
+      if (sh > 0 && shH > 14) {
+        svg += `<text x="${cx}" y="${baseY - shH / 2 + 4}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Inter,sans-serif">${sh}</text>`;
       }
 
       // Retention % above bar
       if (pct !== null) {
         const topY = Math.min(baseY - bkH, baseY - shH);
-        svg += `<text x="${cx}" y="${topY - 6}" text-anchor="middle" fill="${color}" font-size="9" font-weight="800" font-family="Inter,sans-serif">${pct}%</text>`;
+        svg += `<text x="${cx}" y="${topY - 5}" text-anchor="middle" fill="${color}" font-size="8" font-weight="800" font-family="Inter,sans-serif">${pct}%</text>`;
       }
 
       // Week label below
-      svg += `<text x="${cx}" y="${VH - 5}" text-anchor="middle" fill="#8a95a5" font-size="8" font-weight="600" font-family="Inter,sans-serif">${weekLabels[i]}</text>`;
+      svg += `<text x="${cx}" y="${svgH - 3}" text-anchor="middle" fill="#8a95a5" font-size="7" font-weight="600" font-family="Inter,sans-serif">${weekLabels[i]}</text>`;
     }
 
+    const needsScroll = n > VISIBLE;
+
     // Legend
-    const legend = `<div class="hc-chart-legend" style="margin-top:6px">
+    const legend = `<div class="hc-chart-legend" style="margin-top:4px">
       <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:${color}"></span>Showed</span>
       <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:${color};opacity:0.18;border:1.5px dashed ${color}"></span>Booked</span>
     </div>`;
-
-    const heroDisplay = curPct !== null ? curPct + '%' : '—';
 
     return `
       <div class="recruit-chart-card">
@@ -2754,13 +2766,16 @@ const NationalApp = {
           </div>
           <div class="rc-card-hero">
             <div class="rc-card-hero-num" style="color:${color}">${curShowed}</div>
-            <div class="rc-card-hero-label">showed this week</div>
+            <div class="rc-card-hero-label">showed</div>
           </div>
         </div>
-        <svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" class="rc-bar-svg">${svg}</svg>
+        <div class="rc-bar-wrap"${needsScroll ? ` style="max-width:${visibleW}px"` : ''}>
+          <svg width="${barAreaW}" height="${svgH}" overflow="hidden">${svg}</svg>
+        </div>
         ${legend}
       </div>`;
   },
+
 
 
   // ══════════════════════════════════════════════════

@@ -552,6 +552,75 @@ input, select, textarea { font-family: inherit; }
 }
 .hc-submit-note.show { opacity: 1; }
 
+/* ── Headcount Trend Chart ── */
+.hc-chart-wrap {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+.hc-chart-wrap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Legend */
+.hc-chart-legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.hc-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+.hc-chart-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.hc-chart-legend-swatch.swatch-leaders { background: #3b82f6; }
+.hc-chart-legend-swatch.swatch-dist    { background: #0ea5a0; }
+.hc-chart-legend-swatch.swatch-training {
+  background: rgba(139,92,246,0.12);
+  border: 1.5px dashed #8b5cf6;
+}
+
+/* Tooltip */
+.hc-chart-tooltip {
+  position: absolute;
+  background: var(--gray-800);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+  white-space: nowrap;
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.15));
+}
+.hc-chart-tooltip.visible { opacity: 1; }
+.hc-chart-tooltip strong { font-weight: 700; }
+.hc-chart-tooltip .tt-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 /* ── Production Review Cards ── */
 .prod-cards {
   display: grid;

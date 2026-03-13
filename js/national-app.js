@@ -1447,7 +1447,7 @@ const NationalApp = {
     }
   },
 
-  // ── Render headcount week-over-week trend table ──
+  // ── Render headcount week-over-week bar chart ──
   _renderHeadcountTrend(owner, ownerIdx) {
     const trendEl = document.getElementById('health-hc-trend');
     if (!trendEl) return;
@@ -1459,40 +1459,148 @@ const NationalApp = {
     }
     trendEl.style.display = '';
 
+    // ── Layout constants ──
+    const PAD_L = 40, PAD_R = 16, PAD_T = 16, PAD_B = 28;
+    const BAR_R = 4;
+    const GAP = 0.30;
+    const svgW = Math.max(300, Math.min(600, hist.length * 70 + PAD_L + PAD_R));
+    const svgH = 200;
+    const plotW = svgW - PAD_L - PAD_R;
+    const plotH = svgH - PAD_T - PAD_B;
+
+    // ── Y-axis scale ──
+    const maxVal = Math.max(...hist.map(r => r.active + r.training), 1);
+    const yMax = Math.ceil(maxVal / 5) * 5 || 5;
+    const yScale = plotH / yMax;
+    const baseY = PAD_T + plotH;
+
+    // ── Bar widths ──
+    const slotW = plotW / hist.length;
+    const barW = slotW * (1 - GAP);
+    const barOff = (slotW - barW) / 2;
+
+    // Helper: SVG path with only top corners rounded
+    const roundTop = (x, y, w, h, r) => {
+      if (h <= 0) return '';
+      const cr = Math.min(r, h / 2, w / 2);
+      return `M${x},${y + h} L${x},${y + cr} Q${x},${y} ${x + cr},${y} ` +
+             `L${x + w - cr},${y} Q${x + w},${y} ${x + w},${y + cr} L${x + w},${y + h} Z`;
+    };
+
+    // ── Build SVG content ──
+    let svg = '';
+
+    // Gridlines + Y-axis labels
+    const ticks = 5;
+    for (let t = 0; t <= ticks; t++) {
+      const val = Math.round(yMax * t / ticks);
+      const y = baseY - val * yScale;
+      svg += `<line x1="${PAD_L}" y1="${y}" x2="${svgW - PAD_R}" y2="${y}" stroke="#dce1e8" stroke-width="0.5"/>`;
+      svg += `<text x="${PAD_L - 6}" y="${y + 3.5}" text-anchor="end" fill="#98a3b3" font-size="10" font-family="Inter,sans-serif">${val}</text>`;
+    }
+
+    // Bars
+    hist.forEach((r, i) => {
+      const dist = r.active - r.leaders;
+      const leaderH = r.leaders * yScale;
+      const distH = dist * yScale;
+      const solidH = r.active * yScale;
+      const trainH = r.training * yScale;
+      const x = PAD_L + i * slotW + barOff;
+      const solidTop = baseY - solidH;
+      const trainTop = solidTop - trainH;
+
+      // Determine topmost segment for rounded corners
+      const topmost = trainH > 0 ? 'training' : (distH > 0 ? 'dist' : 'leader');
+
+      // Leaders (bottom segment — blue)
+      if (leaderH > 0) {
+        if (topmost === 'leader') {
+          svg += `<path d="${roundTop(x, baseY - leaderH, barW, leaderH, BAR_R)}" fill="#3b82f6"/>`;
+        } else {
+          svg += `<rect x="${x}" y="${baseY - leaderH}" width="${barW}" height="${leaderH}" fill="#3b82f6"/>`;
+        }
+      }
+
+      // Distributors (middle segment — teal)
+      if (distH > 0) {
+        if (topmost === 'dist') {
+          svg += `<path d="${roundTop(x, solidTop, barW, distH, BAR_R)}" fill="#0ea5a0"/>`;
+        } else {
+          svg += `<rect x="${x}" y="${solidTop}" width="${barW}" height="${distH}" fill="#0ea5a0"/>`;
+        }
+      }
+
+      // Training extension (top segment — dashed purple outline)
+      if (trainH > 0) {
+        svg += `<path d="${roundTop(x, trainTop, barW, trainH, BAR_R)}" fill="rgba(139,92,246,0.1)" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+      }
+
+      // Invisible hover target
+      const totalH = solidH + trainH;
+      const topY = trainH > 0 ? trainTop : solidTop;
+      svg += `<rect x="${x}" y="${Math.min(topY, baseY - 1)}" width="${barW}" height="${Math.max(totalH, 2)}" fill="transparent" style="cursor:pointer" onmouseenter="NationalApp._showHcTooltip(event,${i},${ownerIdx})" onmouseleave="NationalApp._hideHcTooltip()"/>`;
+
+      // X-axis date label
+      svg += `<text x="${x + barW / 2}" y="${svgH - 8}" text-anchor="middle" fill="#6b7a8d" font-size="10" font-weight="600" font-family="Inter,sans-serif">${this._esc(r.date)}</text>`;
+    });
+
+    // ── Assemble HTML ──
     trendEl.innerHTML = `
       <div class="coaching-label">Week-over-Week Headcount</div>
-      <div class="data-table-wrap trend-scroll" id="hc-trend-scroll">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th class="num">Active</th>
-              <th class="num">Leaders</th>
-              <th class="num">Dist</th>
-              <th class="num">Training</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${hist.map((r, i) => {
-              const dist = r.active - r.leaders;
-              const prev = i > 0 ? hist[i - 1] : null;
-              return `
-                <tr>
-                  <td class="bold">${this._esc(r.date)}</td>
-                  <td class="num">${r.active} ${this._trendArrow(r.active, prev?.active)}</td>
-                  <td class="num">${r.leaders} ${this._trendArrow(r.leaders, prev?.leaders)}</td>
-                  <td class="num">${dist} ${this._trendArrow(dist, prev ? prev.active - prev.leaders : null)}</td>
-                  <td class="num">${r.training} ${this._trendArrow(r.training, prev?.training)}</td>
-                </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
+      <div class="hc-chart-wrap">
+        <svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet"
+             style="width:100%;height:auto;display:block;">
+          ${svg}
+        </svg>
+        <div class="hc-chart-tooltip" id="hc-chart-tt"></div>
+      </div>
+      <div class="hc-chart-legend">
+        <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch swatch-leaders"></span>Leaders</span>
+        <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch swatch-dist"></span>Distributors</span>
+        <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch swatch-training"></span>Training</span>
       </div>`;
-    // Auto-scroll to bottom so most recent 5 weeks are visible
+  },
+
+  // ── Headcount chart tooltip helpers ──
+  _showHcTooltip(event, barIdx, ownerIdx) {
+    const owner = this.state.owners[ownerIdx];
+    if (!owner) return;
+    const r = owner.headcountHistory[barIdx];
+    if (!r) return;
+    const dist = r.active - r.leaders;
+    const tt = document.getElementById('hc-chart-tt');
+    if (!tt) return;
+
+    tt.innerHTML = `
+      <div style="font-weight:700;margin-bottom:4px">${this._esc(r.date)}</div>
+      <div><span class="tt-swatch" style="background:#0ea5a0"></span>Distributors: <strong>${dist}</strong></div>
+      <div><span class="tt-swatch" style="background:#3b82f6"></span>Leaders: <strong>${r.leaders}</strong></div>
+      <div style="border-top:1px solid rgba(255,255,255,0.2);margin:4px 0;padding-top:4px">Active: <strong>${r.active}</strong></div>
+      ${r.training ? `<div><span class="tt-swatch" style="background:rgba(139,92,246,0.3);border:1px dashed #8b5cf6"></span>Training: <strong>${r.training}</strong></div>` : ''}`;
+
+    // Position above the hovered bar
+    const wrap = tt.parentElement;
+    const rect = event.target.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+
+    let left = rect.left + rect.width / 2 - wrapRect.left;
+    tt.style.left = left + 'px';
+    tt.style.top = (rect.top - wrapRect.top - 8) + 'px';
+    tt.style.transform = 'translateX(-50%) translateY(-100%)';
+    tt.classList.add('visible');
+
+    // Clamp so tooltip doesn't overflow container
     requestAnimationFrame(() => {
-      const el = document.getElementById('hc-trend-scroll');
-      if (el) el.scrollTop = el.scrollHeight;
+      const ttRect = tt.getBoundingClientRect();
+      if (ttRect.left < wrapRect.left) tt.style.transform = 'translateY(-100%)';
+      if (ttRect.right > wrapRect.right) tt.style.transform = 'translateX(-100%) translateY(-100%)';
     });
+  },
+
+  _hideHcTooltip() {
+    const tt = document.getElementById('hc-chart-tt');
+    if (tt) tt.classList.remove('visible');
   },
 
   // ── Trend arrow helper ──

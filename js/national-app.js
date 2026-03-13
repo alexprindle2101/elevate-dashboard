@@ -39,8 +39,6 @@ const NationalApp = {
     campaignTotals: {},
     campaignRecruiting: null,
     camMapping: {},
-    costSheets: {},
-    costFilesList: null,
     allCompanyNames: []
   },
 
@@ -181,7 +179,6 @@ const NationalApp = {
     // ── Apply enrichments from parallel results ──
     if (results.camMapping) {
       this.state.camMapping = results.camMapping.mapping || results.camMapping;
-      this.state.costSheets = results.camMapping.costSheets || {};
     }
 
     if (results.audit && results.audit.businesses && results.audit.businesses.length) {
@@ -277,7 +274,7 @@ const NationalApp = {
     const resp = await fetch(url);
     const result = await resp.json();
     if (result.error) throw new Error(result.error);
-    return { mapping: result.mapping || {}, costSheets: result.costSheets || {} };
+    return { mapping: result.mapping || {} };
   },
 
   // ── Fetch online presence data from Cam's Performance Audit sheet ──
@@ -398,7 +395,6 @@ const NationalApp = {
       }
 
       if (!matchKey) continue;
-      owner.indeedCosts = indeedOwners[matchKey];
       matched++;
     }
     console.log('[NationalApp] Indeed costs enrichment: matched', matched, 'of', this.state.owners.length, 'owners');
@@ -2392,206 +2388,7 @@ const NationalApp = {
         return;
       }
       // Don't cache failure — allow retry on next tab visit
-      console.warn('[NationalApp] Indeed Tracking failed for', owner.name, '— falling back to cost sheet');
-    }
-
-    // ── Fall back to old cost sheet claim system ──
-    const costSheetId = this.state.costSheets[owner.name];
-
-    // No cost sheet claimed — show claim UI
-    if (!costSheetId) {
-      this._renderCostClaimSection(owner);
-      return;
-    }
-
-    // Already loaded — just render
-    if (owner.indeedCosts) {
-      this._renderIndeedCosts(owner);
-      return;
-    }
-
-    // Already fetching — don't double-fetch
-    if (owner._costsFetching) return;
-
-    // Show loading indicator
-    el.innerHTML = `<div class="coaching-label">Recruiting Costs</div>
-      <div class="empty-state"><div class="loading-spinner" style="width:24px;height:24px;border-width:3px;margin:0 auto"></div>
-      <div class="empty-state-text" style="margin-top:8px">Loading cost data...</div></div>`;
-
-    owner._costsFetching = true;
-    try {
-      const url = NATIONAL_CONFIG.appsScriptUrl +
-        '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
-        '&action=readCostSheet' +
-        '&sheetId=' + encodeURIComponent(costSheetId) +
-        '&_t=' + Date.now();
-      const resp = await this._fetchWithTimeout(fetch(url), 30000);
-      const result = await resp.json();
-      if (result.error) throw new Error(result.error);
-
-      if (result.months && result.months.length) {
-        owner.indeedCosts = result;
-      }
-
-      // Render (will show empty state if no data)
-      if (this.state.selectedOwner === owner && this.state.currentTab === 'recruiting') {
-        this._renderIndeedCosts(owner);
-      }
-    } catch (err) {
-      console.warn('[NationalApp] Cost load for', owner.name, 'failed:', err.message);
-      if (this.state.selectedOwner === owner && this.state.currentTab === 'recruiting') {
-        el.innerHTML = `<div class="coaching-label">Recruiting Costs</div>
-          <div class="empty-state"><div class="empty-state-text">Failed to load cost data</div></div>`;
-      }
-    } finally {
-      owner._costsFetching = false;
-    }
-  },
-
-  // ── Render cost sheet claim section (no spreadsheet assigned yet) ──
-  async _renderCostClaimSection(owner) {
-    const el = document.getElementById('owner-indeed-costs');
-    if (!el) return;
-
-    // Fetch the list of available files if not cached
-    if (!this.state.costFilesList) {
-      el.innerHTML = `<div class="coaching-label">Recruiting Costs</div>
-        <div class="empty-state"><div class="loading-spinner" style="width:24px;height:24px;border-width:3px;margin:0 auto"></div>
-        <div class="empty-state-text" style="margin-top:8px">Loading available spreadsheets...</div></div>`;
-      try {
-        const url = NATIONAL_CONFIG.appsScriptUrl +
-          '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
-          '&action=listCostFiles' +
-          '&_t=' + Date.now();
-        const resp = await this._fetchWithTimeout(fetch(url), 20000);
-        const result = await resp.json();
-        if (result.error) throw new Error(result.error);
-        this.state.costFilesList = result.files || [];
-      } catch (err) {
-        console.warn('[NationalApp] Failed to list cost files:', err.message);
-        el.innerHTML = '';
-        return;
-      }
-    }
-
-    // Build set of already-claimed sheet IDs
-    const claimedIds = new Set(Object.values(this.state.costSheets));
-    const available = this.state.costFilesList.filter(f => !claimedIds.has(f.id));
-
-    const optionsHTML = available.map(f =>
-      `<div class="claim-dropdown-item" onclick="NationalApp._claimCostSheet('${this._esc(f.id)}')">
-        ${this._esc(f.name)}
-      </div>`
-    ).join('');
-
-    el.innerHTML = `
-      <div class="claim-section">
-        <div class="claim-header">
-          <div class="section-label" style="margin:0">Recruiting Costs</div>
-          <span class="claim-count">${available.length} spreadsheet${available.length !== 1 ? 's' : ''} available</span>
-        </div>
-        <div class="claim-search-wrap">
-          <input type="text" class="claim-search-input" id="cost-claim-search"
-            placeholder="Search spreadsheets to claim..."
-            oninput="NationalApp._filterCostClaimDropdown(this.value)"
-            onfocus="NationalApp._showCostClaimDropdown()"
-            autocomplete="off">
-          <div class="claim-dropdown" id="cost-claim-dropdown" style="display:none">
-            ${optionsHTML || '<div class="claim-dropdown-empty">No unclaimed spreadsheets available</div>'}
-          </div>
-        </div>
-        <div class="claim-status" id="cost-claim-status"></div>
-      </div>`;
-  },
-
-  _showCostClaimDropdown() {
-    const dd = document.getElementById('cost-claim-dropdown');
-    if (dd) dd.style.display = 'block';
-    setTimeout(() => {
-      const handler = (e) => {
-        if (!e.target.closest('.claim-search-wrap')) {
-          dd.style.display = 'none';
-          document.removeEventListener('click', handler);
-        }
-      };
-      document.addEventListener('click', handler);
-    }, 10);
-  },
-
-  _filterCostClaimDropdown(query) {
-    const dd = document.getElementById('cost-claim-dropdown');
-    if (!dd) return;
-    dd.style.display = 'block';
-    const q = query.toLowerCase().trim();
-    const items = dd.querySelectorAll('.claim-dropdown-item');
-    let visible = 0;
-    items.forEach(item => {
-      const match = !q || item.textContent.toLowerCase().includes(q);
-      item.style.display = match ? 'block' : 'none';
-      if (match) visible++;
-    });
-    const empty = dd.querySelector('.claim-dropdown-empty');
-    if (empty) empty.style.display = visible === 0 ? 'block' : 'none';
-  },
-
-  async _claimCostSheet(sheetId) {
-    const owner = this.state.selectedOwner;
-    if (!owner) return;
-
-    const status = document.getElementById('cost-claim-status');
-    if (status) { status.textContent = 'Claiming...'; status.className = 'claim-status'; }
-
-    try {
-      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          key: NATIONAL_CONFIG.apiKey,
-          action: 'claimCostSheet',
-          ownerName: owner.name,
-          sheetId: sheetId
-        })
-      });
-      const result = await resp.json();
-      if (result.error) throw new Error(result.error);
-
-      // Update state with new mapping
-      if (result.costSheets) this.state.costSheets = result.costSheets;
-      if (result.mapping) this.state.camMapping = result.mapping;
-
-      // Now load the cost data
-      this._loadAndRenderCosts(owner);
-    } catch (err) {
-      console.error('[NationalApp] Claim cost sheet failed:', err);
-      if (status) { status.textContent = 'Claim failed: ' + err.message; status.className = 'claim-status claim-error'; }
-    }
-  },
-
-  async _unclaimCostSheet() {
-    const owner = this.state.selectedOwner;
-    if (!owner) return;
-
-    try {
-      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          key: NATIONAL_CONFIG.apiKey,
-          action: 'unclaimCostSheet',
-          ownerName: owner.name
-        })
-      });
-      const result = await resp.json();
-      if (result.error) throw new Error(result.error);
-
-      if (result.costSheets) this.state.costSheets = result.costSheets;
-      if (result.mapping) this.state.camMapping = result.mapping;
-
-      // Clear cached cost data and re-render
-      owner.indeedCosts = null;
-      this._renderCostClaimSection(owner);
-    } catch (err) {
-      console.error('[NationalApp] Unclaim cost sheet failed:', err);
+      console.warn('[NationalApp] Indeed Tracking failed for', owner.name);
     }
   },
 
@@ -2821,110 +2618,19 @@ const NationalApp = {
 
 
 
-  // ══════════════════════════════════════════════════
-  // RENDER: Recruiting Costs (inside Recruiting tab)
-  // ══════════════════════════════════════════════════
-
-  // Row definitions for cost tables
-  _COST_ROWS: [
-    { label: '# of Ads',        key: 'numAds',         fmt: 'num' },
-    { label: 'Total Cost',      key: 'totalCost',      fmt: 'dollar' },
-    { label: '# of Applies',    key: 'numApplies',     fmt: 'num' },
-    { label: 'Cost/Apply',      key: 'costPerApply',   fmt: 'dollar' },
-    { label: '# of 2nds',       key: 'num2nds',        fmt: 'num' },
-    { label: 'Cost/2nd',        key: 'costPer2nd',     fmt: 'dollar' },
-    { label: '# of New Starts', key: 'numNewStarts',   fmt: 'num' },
-    { label: 'Cost/New Start',  key: 'costPerNewStart', fmt: 'dollar' }
-  ],
-
-  _renderIndeedCosts(owner) {
-    const el = document.getElementById('owner-indeed-costs');
-    if (!el) return;
-
-    const data = owner.indeedCosts;
-    if (!data || !data.months || !data.months.length) {
-      el.innerHTML = '';
-      return;
-    }
-
-    const months = data.months;
-    const hasMultiple = months.length > 1;
-    let html = '';
-
-    // ── Part 1: Platform Breakdown for selected month ──
-    html += `<div class="coaching-label">
-      ${hasMultiple ? 'Platform Breakdown' : 'Recruiting Costs'}
-      <button class="btn-unclaim-cost" onclick="NationalApp._unclaimCostSheet()" title="Change spreadsheet">&times;</button>
-      ${hasMultiple
-        ? `<select class="rc-month-select" onchange="NationalApp._switchCostMonth(this.value)">
-            ${months.map((m, i) => `<option value="${i}">${this._esc(m.month)}</option>`).join('')}
-          </select>`
-        : `<span class="coaching-sublabel">${this._esc(months[0].month)}</span>`
-      }
-    </div>`;
-    html += this._buildCostTable(months[0]);
-
-    // ── Part 2: Month-over-Month Trend Table (TOTAL values across months) ──
-    if (hasMultiple) {
-      html += `<div class="coaching-label rc-detail-label">Month-over-Month</div>`;
-      html += this._buildCostTrend(months);
-    }
-
-    el.innerHTML = html;
+  _fmtDollar(v) {
+    if (!v && v !== 0) return '—';
+    if (Number(v) === 0) return '—';
+    return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   },
 
-  _switchCostMonth(idx) {
-    const owner = this.state.selectedOwner;
-    if (!owner || !owner.indeedCosts || !owner.indeedCosts.months) return;
-    const month = owner.indeedCosts.months[parseInt(idx)];
-    if (!month) return;
-
-    const wrap = document.querySelector('#owner-indeed-costs .rc-table-wrap');
-    if (wrap) {
-      wrap.outerHTML = this._buildCostTable(month);
-    }
+  _fmtNum(v) {
+    if (!v && v !== 0) return '—';
+    if (Number(v) === 0) return '—';
+    return Number(v).toLocaleString('en-US');
   },
 
-  // ── Month-over-Month trend: columns = months, rows = key metrics (TOTAL only) ──
-  _buildCostTrend(months) {
-    // Key metrics for the trend view (subset of full rows)
-    const trendRows = [
-      { label: 'Total Cost',      key: 'totalCost',      fmt: 'dollar' },
-      { label: '# of Applies',    key: 'numApplies',     fmt: 'num' },
-      { label: 'Cost/Apply',      key: 'costPerApply',   fmt: 'dollar' },
-      { label: '# of 2nds',       key: 'num2nds',        fmt: 'num' },
-      { label: 'Cost/2nd',        key: 'costPer2nd',     fmt: 'dollar' },
-      { label: '# of New Starts', key: 'numNewStarts',   fmt: 'num' },
-      { label: 'Cost/New Start',  key: 'costPerNewStart', fmt: 'dollar' }
-    ];
-
-    let h = `<div class="rc-table-wrap rc-trend"><div class="data-table-wrap"><table class="data-table">
-      <thead><tr>
-        <th></th>
-        ${months.map(m => `<th class="num">${this._esc(m.month)}</th>`).join('')}
-      </tr></thead><tbody>`;
-
-    for (const r of trendRows) {
-      const fmt = r.fmt === 'dollar' ? this._fmtDollar : this._fmtNum;
-      h += `<tr><td class="rc-label">${r.label}</td>`;
-
-      for (let mi = 0; mi < months.length; mi++) {
-        const val = (months[mi].total || {})[r.key] ?? 0;
-        const prev = mi < months.length - 1 ? ((months[mi + 1].total || {})[r.key] ?? null) : null;
-        // For cost metrics, lower is better (invert arrow)
-        const isCost = r.key.startsWith('cost');
-        const arrow = prev !== null ? this._costTrendArrow(val, prev, isCost) : '';
-        h += `<td class="num">${fmt(val)} ${arrow}</td>`;
-      }
-
-      h += `</tr>`;
-    }
-
-    h += `</tbody></table></div></div>`;
-    return h;
-  },
-
-  // Trend arrow for cost metrics (lower = good for cost rows, higher = good for count rows)
+  // Trend arrow helper (lower = good for cost rows, higher = good for count rows)
   _costTrendArrow(current, previous, lowerIsBetter) {
     if (previous === null || previous === undefined) return '';
     const diff = current - previous;
@@ -2939,66 +2645,8 @@ const NationalApp = {
       : '<span class="trend-down">&#9660;</span>';
   },
 
-  // ── Platform breakdown table for a single month ──
-  _buildCostTable(monthData) {
-    const platforms = monthData.platforms || {};
-    const total = monthData.total || {};
-    const platformOrder = monthData.platformOrder || Object.keys(platforms);
-
-    // Fallback for old data format (local/nlr/total only, no platforms key)
-    if (!platformOrder.length && (monthData.local || monthData.nlr)) {
-      const fallbackPlatforms = [];
-      if (monthData.local && Object.keys(monthData.local).length) fallbackPlatforms.push('Local Indeed');
-      if (monthData.nlr && Object.keys(monthData.nlr).length) fallbackPlatforms.push('NLR Indeed');
-      const fallbackData = {};
-      if (monthData.local) fallbackData['Local Indeed'] = monthData.local;
-      if (monthData.nlr) fallbackData['NLR Indeed'] = monthData.nlr;
-      return this._buildCostTableInner(fallbackPlatforms, fallbackData, total);
-    }
-
-    return this._buildCostTableInner(platformOrder, platforms, total);
-  },
-
-  _buildCostTableInner(platformOrder, platforms, total) {
-    let h = `<div class="rc-table-wrap"><div class="data-table-wrap"><table class="data-table rc-platform-table">
-      <thead><tr>
-        <th></th>
-        ${platformOrder.map(p => `<th class="num">${this._esc(p)}</th>`).join('')}
-        <th class="num rc-total-col">TOTAL</th>
-      </tr></thead><tbody>`;
-
-    for (const r of this._COST_ROWS) {
-      const fmt = r.fmt === 'dollar' ? this._fmtDollar : this._fmtNum;
-      h += `<tr><td class="rc-label">${r.label}</td>`;
-
-      for (const pName of platformOrder) {
-        const val = (platforms[pName] || {})[r.key] ?? 0;
-        h += `<td class="num">${fmt(val)}</td>`;
-      }
-
-      const tv = total[r.key] ?? 0;
-      h += `<td class="num rc-total-val">${fmt(tv)}</td>`;
-      h += `</tr>`;
-    }
-
-    h += `</tbody></table></div></div>`;
-    return h;
-  },
-
-  _fmtDollar(v) {
-    if (!v && v !== 0) return '—';
-    if (Number(v) === 0) return '—';
-    return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  },
-
-  _fmtNum(v) {
-    if (!v && v !== 0) return '—';
-    if (Number(v) === 0) return '—';
-    return Number(v).toLocaleString('en-US');
-  },
-
   // ══════════════════════════════════════════════════
-  // RENDER: Weekly Indeed Tracking (new ad spend view)
+  // RENDER: Weekly Indeed Tracking (ad spend view)
   // ══════════════════════════════════════════════════
 
   _renderIndeedTracking(owner) {
@@ -3539,9 +3187,8 @@ const NationalApp = {
       const result = await resp.json();
       if (result.error) throw new Error(result.error);
 
-      // Update mapping + costSheets in state
+      // Update mapping in state
       this.state.camMapping = result.mapping || {};
-      if (result.costSheets) this.state.costSheets = result.costSheets;
 
       // Re-map audit data to owners with new mapping and re-render
       this._remapAndRenderAudit();
@@ -3581,9 +3228,8 @@ const NationalApp = {
       const result = await resp.json();
       if (result.error) throw new Error(result.error);
 
-      // Update mapping + costSheets in state
+      // Update mapping in state
       this.state.camMapping = result.mapping || {};
-      if (result.costSheets) this.state.costSheets = result.costSheets;
 
       // Re-map audit data to owners with new mapping and re-render
       this._remapAndRenderAudit();

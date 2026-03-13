@@ -1689,58 +1689,6 @@ td.cell-red    { background: #e53935 !important; color: #000 !important; font-we
 }
 
 /* ═══════════════════════════════════════════════════════
-   RECRUITING COSTS TABLE
-   ═══════════════════════════════════════════════════════ */
-.rc-month-select {
-  padding: 4px 10px;
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--gray-700);
-  background: var(--white);
-  cursor: pointer;
-  margin-left: 8px;
-}
-.rc-table-wrap { margin-top: 4px; }
-.rc-table-wrap .data-table td.rc-label {
-  white-space: nowrap;
-  font-weight: 700;
-  background: var(--gray-50);
-}
-.rc-table-wrap .data-table td.rc-total-val {
-  font-weight: 800;
-}
-.rc-table-wrap .data-table th.rc-total-col {
-  background: #fef08a;
-  color: var(--gray-800);
-}
-/* Platform breakdown table — allow horizontal scroll on narrow screens */
-.rc-platform-table {
-  min-width: 500px;
-}
-/* Month-over-month trend table */
-.rc-trend { margin-bottom: 16px; }
-.rc-trend .data-table td .trend-up,
-.rc-trend .data-table td .trend-down,
-.rc-trend .data-table td .trend-flat {
-  font-size: 10px;
-  margin-left: 4px;
-}
-.rc-detail-label { margin-top: 16px; }
-.btn-unclaim-cost {
-  background: none;
-  border: none;
-  color: #94a3b8;
-  font-size: 16px;
-  cursor: pointer;
-  margin-left: 6px;
-  padding: 0 4px;
-  line-height: 1;
-}
-.btn-unclaim-cost:hover { color: var(--red); }
-
-/* ═══════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════ */
 @media (max-width: 768px) {

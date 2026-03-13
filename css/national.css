@@ -552,16 +552,30 @@ input, select, textarea { font-family: inherit; }
 }
 .hc-submit-note.show { opacity: 1; }
 
-/* ── Headcount Trend Chart ── */
-.hc-chart-wrap {
-  position: relative;
+/* ── Headcount Trend Chart (scrollable, fixed y-axis) ── */
+.hc-chart-outer {
+  display: flex;
+  align-items: flex-start;
   width: 100%;
-  overflow: visible;
 }
-.hc-chart-wrap svg {
+.hc-chart-yaxis {
+  flex-shrink: 0;
   display: block;
-  width: 100%;
-  height: auto;
+}
+.hc-chart-scroll {
+  position: relative;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Subtle scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.15) transparent;
+}
+.hc-chart-scroll::-webkit-scrollbar { height: 5px; }
+.hc-chart-scroll::-webkit-scrollbar-track { background: transparent; }
+.hc-chart-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+.hc-chart-scroll svg {
+  display: block;
 }
 
 /* Legend */

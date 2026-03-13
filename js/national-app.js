@@ -1895,9 +1895,10 @@ const NationalApp = {
     // Store chart state for scroll-driven re-renders
     this._prodData = { hist, ownerIdx, n, slotW, barW, barOff, barAreaW, barAreaVisibleW, plotH, PAD_T, PAD_R, BAR_R, GAP, MIN_LABEL_H, svgH, baseY, YAXIS_W, VISIBLE, shortDate };
 
-    // Compute initial yMax from visible bars (multiples of 5)
+    // Compute initial yMax from visible bars (multiples of 25 or 50)
     const visibleMax = this._getProdVisibleMax(0);
-    const yMax = Math.ceil(visibleMax / 5) * 5 || 5;
+    const prodStep = visibleMax > 100 ? 50 : 25;
+    const yMax = Math.ceil(visibleMax / prodStep) * prodStep || 25;
     this._prodCurrentYMax = yMax;
 
     const yAxisSvg = this._buildProdYAxisSvg(yMax);
@@ -2000,7 +2001,8 @@ const NationalApp = {
     const scrollEl = document.getElementById('prod-chart-scroll');
     if (!scrollEl || !this._prodData) return;
     const visibleMax = this._getProdVisibleMax(scrollEl.scrollLeft);
-    const yMax = Math.ceil(visibleMax / 5) * 5 || 5;
+    const prodStep = visibleMax > 100 ? 50 : 25;
+    const yMax = Math.ceil(visibleMax / prodStep) * prodStep || 25;
     if (yMax === this._prodCurrentYMax) return;
     this._prodCurrentYMax = yMax;
     const yAxisEl = document.getElementById('prod-yaxis-svg');
@@ -2013,7 +2015,7 @@ const NationalApp = {
     const d = this._prodData;
     if (!d) return '';
     const yScale = d.plotH / yMax;
-    const step = yMax <= 10 ? 1 : yMax <= 30 ? 5 : 10;
+    const step = yMax > 100 ? 50 : 25;
     let svg = '';
     for (let val = 0; val <= yMax; val += step) {
       const y = d.baseY - val * yScale;
@@ -2026,7 +2028,7 @@ const NationalApp = {
     const d = this._prodData;
     if (!d) return '';
     const yScale = d.plotH / yMax;
-    const step = yMax <= 10 ? 1 : yMax <= 30 ? 5 : 10;
+    const step = yMax > 100 ? 50 : 25;
     let svg = '';
 
     // Gridlines

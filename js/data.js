@@ -996,6 +996,9 @@ const DataPipeline = {
   },
 
   // Enrich person metrics with _TableauChurnReport data
+  // Supports TWO formats:
+  //   NEW (bucket-per-row): columns = Rep, Churn Buckets, Churn Rate, Disconnect count (SPE/SP), Activated SPE/SP
+  //   OLD (metric-per-row): columns = Rep, metricType, 0-30 Day, 30 Day, 60 Day, 90 Day, 120 Day
   enrichWithChurnReport(people, churnReport) {
     if (!churnReport || churnReport.length === 0) {
       console.warn('[Churn] No churnReport data received (empty or missing)');
@@ -1011,7 +1014,6 @@ const DataPipeline = {
         const found = keys.find(k => k.toLowerCase() === lp);
         if (found) return found;
       }
-      // Partial match fallback
       for (const p of patterns) {
         const lp = p.toLowerCase();
         const found = keys.find(k => k.toLowerCase().includes(lp));
@@ -1021,63 +1023,130 @@ const DataPipeline = {
     };
 
     const repNameKey = _findKey(sampleKeys, ['rep.Full Name', 'Rep', 'Full Name', 'Rep Name', 'Name']);
+    const churnBucketsKey = _findKey(sampleKeys, ['Churn Buckets', 'churn_buckets', 'Churn Bucket']);
     const metricTypeKey = _findKey(sampleKeys, ['metricType', 'Metric Type', 'metric_type', 'Measure Names']);
-    const colorKey = _findKey(sampleKeys, ['30-60 Color Churn (copy)', 'Color Churn', 'Churn Color']);
 
-    console.log('[Churn] Resolved keys → repName:', repNameKey, '| metricType:', metricTypeKey, '| color:', colorKey);
+    // Detect format: NEW = has 'Churn Buckets' column, OLD = has 'metricType' column
+    const isNewFormat = !!churnBucketsKey;
+    console.log('[Churn] Format detected:', isNewFormat ? 'NEW (bucket-per-row)' : 'OLD (metric-per-row)');
 
-    if (!repNameKey || !metricTypeKey) {
-      console.error('[Churn] Cannot find required columns. Available keys:', sampleKeys);
+    if (!repNameKey) {
+      console.error('[Churn] Cannot find rep name column. Available keys:', sampleKeys);
       console.error('[Churn] First row sample:', JSON.stringify(churnReport[0]));
       return;
     }
 
-    // Match bucket columns by exact match first, then substring.
-    // Order matters: '0-30 Day' must not steal '30 Day', so use exact-first strategy.
     const BUCKET_NAMES = ['0-30 Day', '30 Day', '60 Day', '90 Day', '120 Day'];
-    const usedKeys = new Set();
-    const cols = BUCKET_NAMES.map(name => {
-      // Exact match (case-insensitive)
-      let found = sampleKeys.find(k => k.toLowerCase() === name.toLowerCase() && !usedKeys.has(k));
-      if (!found) {
-        // Substring fallback — but skip already-used keys
-        found = sampleKeys.find(k => k.toLowerCase().includes(name.toLowerCase()) && !usedKeys.has(k));
-      }
-      if (found) usedKeys.add(found);
-      return found || name;
-    });
-    console.log('[Churn] Bucket columns:', cols);
-
-    // Group rows by rep name, summing activated + disco counts
-    // Result: byRep[name] = { activated:[5], disco:[5], hasData:[5] }
     const byRep = {};
-    churnReport.forEach(row => {
-      const repName = String(row[repNameKey] || '').trim();
-      const metricType = String(row[metricTypeKey] || '').trim();
-      if (!repName || !metricType || repName === 'Grand Total') return;
 
-      if (!byRep[repName]) {
-        byRep[repName] = {
-          activated: new Array(5).fill(0),
-          disco: new Array(5).fill(0),
-          hasData: new Array(5).fill(false)
-        };
+    if (isNewFormat) {
+      // ── NEW FORMAT: Each row = one rep + one churn bucket ──
+      // Columns: Rep, Churn Buckets, Churn Rate, Disconnect count (SPE/SP), Activated SPE/SP
+      const churnRateKey = _findKey(sampleKeys, ['Churn Rate', 'churn_rate']);
+      const discoKey = _findKey(sampleKeys, ['Disconnect count (SPE/SP)', 'Disconnect Count', 'Disconnects']);
+      const activatedKey = _findKey(sampleKeys, ['Activated SPE/SP', 'Activated']);
+
+      console.log('[Churn] NEW format keys → rep:', repNameKey, '| bucket:', churnBucketsKey,
+                  '| rate:', churnRateKey, '| disco:', discoKey, '| activated:', activatedKey);
+
+      if (!churnRateKey && !discoKey && !activatedKey) {
+        console.error('[Churn] NEW format but no metric columns found. Available keys:', sampleKeys);
+        return;
       }
-      const rd = byRep[repName];
 
-      cols.forEach((col, i) => {
-        const val = row[col];
-        if (val === undefined || val === '') return;
+      churnReport.forEach(row => {
+        const repName = String(row[repNameKey] || '').trim();
+        const bucketName = String(row[churnBucketsKey] || '').trim();
+        if (!repName || !bucketName || repName === 'Grand Total') return;
 
-        if (metricType === 'Activated SPE/SP') {
-          rd.activated[i] += parseInt(val) || 0;
-          rd.hasData[i] = true;
-        } else if (metricType === 'Disconnect count (SPE/SP)') {
-          rd.disco[i] += parseInt(val) || 0;
+        // Map bucket name to index (0-4) — exact match first, then substring
+        let bucketIdx = BUCKET_NAMES.findIndex(b => b.toLowerCase() === bucketName.toLowerCase());
+        if (bucketIdx === -1) {
+          bucketIdx = BUCKET_NAMES.findIndex(b => bucketName.toLowerCase().includes(b.toLowerCase()));
+        }
+        if (bucketIdx === -1) return; // Unknown bucket, skip
+
+        if (!byRep[repName]) {
+          byRep[repName] = {
+            activated: new Array(5).fill(0),
+            disco: new Array(5).fill(0),
+            rate: new Array(5).fill(null),
+            hasData: new Array(5).fill(false)
+          };
+        }
+        const rd = byRep[repName];
+
+        if (activatedKey && row[activatedKey] !== undefined && row[activatedKey] !== '') {
+          rd.activated[bucketIdx] += parseInt(row[activatedKey]) || 0;
+          rd.hasData[bucketIdx] = true;
+        }
+        if (discoKey && row[discoKey] !== undefined && row[discoKey] !== '') {
+          rd.disco[bucketIdx] += parseInt(row[discoKey]) || 0;
+          rd.hasData[bucketIdx] = true;
+        }
+        if (churnRateKey && row[churnRateKey] !== undefined && row[churnRateKey] !== '') {
+          // Parse rate — handle "2.5%", 2.5, or 0.025 (decimal) formats
+          let rawRate = String(row[churnRateKey]).replace('%', '').trim();
+          let rate = parseFloat(rawRate) || 0;
+          // If rate looks like a decimal fraction (< 1), convert to percentage
+          if (rate > 0 && rate < 1) rate = parseFloat((rate * 100).toFixed(1));
+          rd.rate[bucketIdx] = rate;
+          rd.hasData[bucketIdx] = true;
         }
       });
-    });
 
+    } else {
+      // ── OLD FORMAT: metricType column + bucket names as column headers ──
+      if (!metricTypeKey) {
+        console.error('[Churn] Cannot find metricType or Churn Buckets column. Available keys:', sampleKeys);
+        console.error('[Churn] First row sample:', JSON.stringify(churnReport[0]));
+        return;
+      }
+
+      console.log('[Churn] OLD format keys → repName:', repNameKey, '| metricType:', metricTypeKey);
+
+      // Match bucket columns by exact match first, then substring
+      const usedKeys = new Set();
+      const cols = BUCKET_NAMES.map(name => {
+        let found = sampleKeys.find(k => k.toLowerCase() === name.toLowerCase() && !usedKeys.has(k));
+        if (!found) {
+          found = sampleKeys.find(k => k.toLowerCase().includes(name.toLowerCase()) && !usedKeys.has(k));
+        }
+        if (found) usedKeys.add(found);
+        return found || name;
+      });
+      console.log('[Churn] Bucket columns:', cols);
+
+      churnReport.forEach(row => {
+        const repName = String(row[repNameKey] || '').trim();
+        const metricType = String(row[metricTypeKey] || '').trim();
+        if (!repName || !metricType || repName === 'Grand Total') return;
+
+        if (!byRep[repName]) {
+          byRep[repName] = {
+            activated: new Array(5).fill(0),
+            disco: new Array(5).fill(0),
+            rate: new Array(5).fill(null),
+            hasData: new Array(5).fill(false)
+          };
+        }
+        const rd = byRep[repName];
+
+        cols.forEach((col, i) => {
+          const val = row[col];
+          if (val === undefined || val === '') return;
+
+          if (metricType === 'Activated SPE/SP') {
+            rd.activated[i] += parseInt(val) || 0;
+            rd.hasData[i] = true;
+          } else if (metricType === 'Disconnect count (SPE/SP)') {
+            rd.disco[i] += parseInt(val) || 0;
+          }
+        });
+      });
+    }
+
+    // ── Common: Match aggregated churn data to dashboard people ──
     const repNames = Object.keys(byRep);
     console.log('[Churn] Aggregated', repNames.length, 'reps from report:', repNames.slice(0, 5));
 
@@ -1089,16 +1158,22 @@ const DataPipeline = {
       if (!repData) return;
       matched++;
 
-      cols.forEach((col, i) => {
-        if (!repData.hasData[i]) return;
+      for (let i = 0; i < 5; i++) {
+        if (!repData.hasData[i]) continue;
         const bucket = p.metrics.churnBuckets[i];
         bucket.activated = repData.activated[i];
         bucket.disco = repData.disco[i];
-        bucket.pct = bucket.activated > 0
-          ? parseFloat((bucket.disco / bucket.activated * 100).toFixed(1))
-          : 0;
+        // NEW format: use Tableau-provided churn rate directly when available
+        if (repData.rate[i] !== null) {
+          bucket.pct = repData.rate[i];
+        } else {
+          // OLD format / fallback: calculate from activated + disconnects
+          bucket.pct = bucket.activated > 0
+            ? parseFloat((bucket.disco / bucket.activated * 100).toFixed(1))
+            : 0;
+        }
         bucket.color = this._getChurnBucketColor(bucket.pct, i);
-      });
+      }
     });
     console.log('[Churn] Matched', matched, '/', people.length, 'people');
   },

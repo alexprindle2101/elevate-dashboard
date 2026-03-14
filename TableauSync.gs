@@ -82,7 +82,8 @@ var REPORTS = {
     viewContentUrl: 'ATTTRACKER-B2B/sheets/CHURNRATES',
     customViewId: '58951ad0-8492-4390-91b4-4ebdfdbc2395',  // "2026" custom view
     tabName: 'Churn Rates',
-    columns: null  // null = pull ALL columns from Tableau (no filtering)
+    columns: null,  // null = pull ALL columns from Tableau (no filtering)
+    deduplicateKey: ['Rep', 'Churn Buckets']  // One row per rep per churn bucket
   }
 
   // Add more reports here:

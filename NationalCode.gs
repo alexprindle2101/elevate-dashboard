@@ -3521,8 +3521,10 @@ function readNDSProduction() {
 
   var owners = {};
 
-  for (var t = 0; t < NDS_OWNER_TABS.length; t++) {
-    var tabName = NDS_OWNER_TABS[t];
+  // Use the same owner tabs as NDS_SOURCES[0] (One-on-Ones sheet)
+  var ownerTabs = NDS_SOURCES[0].tabs || [];
+  for (var t = 0; t < ownerTabs.length; t++) {
+    var tabName = ownerTabs[t];
     var sheet = ss.getSheetByName(tabName);
     if (!sheet) continue;
 
@@ -3615,7 +3617,10 @@ function readNDSProduction() {
     }
 
     if (summary || reps.length) {
-      owners[tabName] = { summary: summary, reps: reps };
+      // Use canonical name (alias) if available
+      var NDS_NAME_ALIASES = { 'Sam Poles': 'Samih Poles' };
+      var ownerKey = NDS_NAME_ALIASES[tabName] || tabName;
+      owners[ownerKey] = { summary: summary, reps: reps };
     }
   }
 

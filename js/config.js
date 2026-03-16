@@ -47,7 +47,7 @@ const OFFICE_CONFIG = {
   teams: [],
 
   // ── Logos ──
-  logoUrl: "references/logos/elevate-logo-full-standard-blue.png",
+  logoUrl: "references/logos/aptel-full-black.png",
   logoIconUrl: "references/logos/aptel-symbol-black.png",
   headerLogoStyle: "full",  // 'full' = full logo image, 'icon' = icon + text name
 

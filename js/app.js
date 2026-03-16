@@ -1176,18 +1176,22 @@ const App = {
     this.state.viewAsActive = !this.state.viewAsActive;
     const controls = document.getElementById('view-as-controls');
     const personaWrap = document.getElementById('role-persona-wrap');
+    const emailWrap = document.getElementById('view-as-email-wrap');
     const toggleBtn = document.getElementById('view-as-toggle');
 
     if (this.state.viewAsActive) {
       if (controls) controls.style.display = 'flex';
       if (personaWrap) personaWrap.style.display = '';
+      if (emailWrap) emailWrap.style.display = 'flex';
       if (toggleBtn) toggleBtn.textContent = '◂ Close';
       // Keep current view-as role as-is (default to admin on first open)
     } else {
       if (controls) controls.style.display = 'none';
       if (personaWrap) personaWrap.style.display = 'none';
+      if (emailWrap) emailWrap.style.display = 'none';
       if (toggleBtn) toggleBtn.textContent = 'Admin ▸';
-      // Collapse back to admin view
+      // Collapse back to admin view — restore real email
+      this.state.currentEmail = this.state._realEmail || this.state.currentEmail;
       this.setRole('admin');
     }
   },
@@ -1214,6 +1218,13 @@ const App = {
       <div id="role-persona-wrap" style="display:none">
         <select id="role-persona" onchange="App.setPersona(this.value)"></select>
       </div>
+      <div id="view-as-email-wrap" style="display:none;margin-left:auto">
+        <input id="view-as-email" type="text" placeholder="Impersonate email..."
+          style="padding:4px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:11px;width:220px"
+          onkeydown="if(event.key==='Enter'){App.impersonateEmail(this.value);this.blur()}" />
+        <button onclick="App.impersonateEmail(document.getElementById('view-as-email').value)"
+          style="padding:4px 10px;border-radius:8px;border:1px solid rgba(0,200,255,0.4);background:rgba(0,200,255,0.15);color:#00c8ff;font-family:'Neue Haas Grotesk','Helvetica Neue','Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;margin-left:4px">Go</button>
+      </div>
     `;
     // Force visible — inline styles override everything
     switcher.style.cssText = 'display:flex !important;position:fixed;top:0;left:0;right:0;z-index:99999;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 24px;background:#1a1a2e;border-bottom:2px solid #00c8ff;box-shadow:0 2px 12px rgba(0,0,0,0.3)';
@@ -1222,6 +1233,42 @@ const App = {
     this.state.viewAsActive = false;
     this.state.currentRole = 'admin';
     this.updateNav();
+  },
+
+  // Impersonate a specific email — full context switch for View-As
+  impersonateEmail(email) {
+    email = (email || '').trim().toLowerCase();
+    if (!email) return;
+    // Save real email on first impersonation
+    if (!this.state._realEmail) this.state._realEmail = this.state.currentEmail;
+    this.state.currentEmail = email;
+    // Try to find in roster for role + name
+    const roster = this.state.roster || {};
+    const rosterEntry = roster[email];
+    if (rosterEntry) {
+      this.state.currentRole = rosterEntry.rank || 'rep';
+      this.state.currentPersona = rosterEntry.name;
+    } else {
+      // Not in roster — check if owner or admin email
+      if (email === (OFFICE_CONFIG.ownerEmail || '').toLowerCase()) {
+        this.state.currentRole = 'owner';
+        this.state.currentPersona = OFFICE_CONFIG.ownerName || 'Owner';
+      } else {
+        // Default to admin role for non-roster users (admin SSO users)
+        this.state.currentRole = 'admin';
+        this.state.currentPersona = email.split('@')[0];
+      }
+    }
+    // Update View-As pills
+    document.querySelectorAll('.role-pill').forEach(b => b.classList.toggle('active', b.dataset.role === this.state.currentRole));
+    // Update email input display
+    const emailInput = document.getElementById('view-as-email');
+    if (emailInput) emailInput.value = email;
+    this.updateRoleIndicator();
+    this.updateNav();
+    Render.closeProfile();
+    Render.renderAll(this.state.people, this.state.teams);
+    console.log('[View-As] Impersonating:', email, 'as', this.state.currentRole);
   },
 
   setRole(role) {
@@ -1238,6 +1285,10 @@ const App = {
 
   setPersona(name) {
     this.state.currentPersona = name;
+    // Update currentEmail to match the selected persona (for payroll/permission checks)
+    const roster = this.state.roster || {};
+    const match = Object.entries(roster).find(([, r]) => r.name === name);
+    if (match) this.state.currentEmail = match[0]; // email is the key
     this.state.currentNav = 'profile';
     this.updateRoleIndicator();
     this.updateNav();

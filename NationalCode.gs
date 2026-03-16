@@ -3223,7 +3223,7 @@ function _formatCellDate(v) {
 // ══════════════════════════════════════════════════
 
 // Proof of concept: only Eli Goldberg's tab for now.
-var NDS_OWNER_TABS = ['Eli Goldberg'];
+var NDS_OWNER_TABS = ['Sam Poles'];
 
 function readNDSHeadcount() {
   if (!SHEETS.NDS_ONE_ON_ONES) return { owners: {} };

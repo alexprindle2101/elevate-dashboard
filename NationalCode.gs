@@ -2934,6 +2934,10 @@ var INDEED_TRACKING_SHEETS = {
   'Jackie Leroy': {
     sheetId: '1FnekrOkKwTCNgzSQEf2-Fz5P0BH7hfeHefsLmYc7A_g',
     tab: 'Indeed Tracking 2026'
+  },
+  'Samih Poles': {
+    sheetId: '1u2iM7gfEGLUtxog5nxOLpjwCmJhWVsF5aT7_l87SCCg',
+    tab: 'Indeed Tracking 2026'
   }
 };
 
@@ -3282,7 +3286,7 @@ function readNDSHeadcount() {
       dist:           findCol(headers, ['dist']),
       training:       findCol(headers, ['training']),
       productionLW:   findCol(headers, ['production lw']),
-      productionGoals:findCol(headers, ['production goals'])
+      productionGoals:findCol(headers, ['production goals', 'production goal', 'goals'])
     };
 
     if (colMap.dates < 0 && colMap.active < 0) continue;
@@ -3417,8 +3421,9 @@ function importNDSHeadcount() {
   var rows = [];
   var ownerNames = Object.keys(ndsOwners).sort();
   for (var o = 0; o < ownerNames.length; o++) {
-    var name = NAME_ALIASES[ownerNames[o]] || ownerNames[o];
-    var ownerData = ndsOwners[name];
+    var rawName = ownerNames[o];
+    var name = NAME_ALIASES[rawName] || rawName;
+    var ownerData = ndsOwners[rawName];
     var trend = ownerData.trend || [];
     for (var t = 0; t < trend.length; t++) {
       var e = trend[t];

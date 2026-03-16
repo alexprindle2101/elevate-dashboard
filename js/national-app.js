@@ -2816,39 +2816,41 @@ const NationalApp = {
     }
 
     const weeks = data.weeks; // oldest-first
-    const latest = weeks[weeks.length - 1];
-    const prev = weeks.length > 1 ? weeks[weeks.length - 2] : null;
+    // Default to prior week (current week is still in progress)
+    const defaultIdx = weeks.length > 1 ? weeks.length - 2 : weeks.length - 1;
+    const defaultWeek = weeks[defaultIdx];
+    const defaultPrev = defaultIdx > 0 ? weeks[defaultIdx - 1] : null;
 
     let html = '';
 
-    // ── Part 1: Weekly Totals KPI Cards ──
+    // ── Part 1: Weekly Totals KPI Cards (show prior week) ──
     html += `<div class="coaching-label">Weekly Ad Spend Overview</div>`;
     html += `<div class="it-kpi-row">`;
-    html += this._itKpiCard('Total Spend', this._fmtDollar(latest.totalSpend),
-      latest.delta ? latest.delta.spendPct : null, true);
-    html += this._itKpiCard('Applies', this._fmtNum(latest.totalApplies),
-      latest.delta ? latest.delta.appliesPct : null, false);
-    html += this._itKpiCard('2nds', this._fmtNum(latest.total2nds), null, false);
-    html += this._itKpiCard('New Starts', this._fmtNum(latest.totalNewStarts), null, false);
-    html += this._itKpiCard('CPA', this._fmtDollar(latest.cpa),
-      latest.delta ? latest.delta.cpaPct : null, true);
-    html += this._itKpiCard('CPNS', this._fmtDollar(latest.cpns),
-      latest.delta ? latest.delta.cpnsPct : null, true);
+    html += this._itKpiCard('Total Spend', this._fmtDollar(defaultWeek.totalSpend),
+      defaultWeek.delta ? defaultWeek.delta.spendPct : null, true);
+    html += this._itKpiCard('Applies', this._fmtNum(defaultWeek.totalApplies),
+      defaultWeek.delta ? defaultWeek.delta.appliesPct : null, false);
+    html += this._itKpiCard('2nds', this._fmtNum(defaultWeek.total2nds), null, false);
+    html += this._itKpiCard('New Starts', this._fmtNum(defaultWeek.totalNewStarts), null, false);
+    html += this._itKpiCard('CPA', this._fmtDollar(defaultWeek.cpa),
+      defaultWeek.delta ? defaultWeek.delta.cpaPct : null, true);
+    html += this._itKpiCard('CPNS', this._fmtDollar(defaultWeek.cpns),
+      defaultWeek.delta ? defaultWeek.delta.cpnsPct : null, true);
     html += `</div>`;
-    html += `<div class="it-kpi-week-label">Week of ${this._esc(latest.weekOf)} · ${latest.numAds} ads</div>`;
+    html += `<div class="it-kpi-week-label">Week of ${this._esc(defaultWeek.weekOf)} · ${defaultWeek.numAds} ads</div>`;
 
     // ── Part 2: Week-over-Week Trend Table ──
     html += `<div class="coaching-label it-section-label">Week-over-Week Trends</div>`;
     html += this._buildTrackingTrend(weeks);
 
-    // ── Part 3: Ad Breakdown for Latest Week ──
+    // ── Part 3: Ad Breakdown (defaults to prior week) ──
     html += `<div class="coaching-label it-section-label">Ad Breakdown
       <select class="it-week-select" onchange="NationalApp._switchTrackingWeek(this.value)">
-        ${weeks.map((w, i) => `<option value="${i}"${i === weeks.length - 1 ? ' selected' : ''}>${this._esc(w.weekOf)}</option>`).join('')}
+        ${weeks.map((w, i) => `<option value="${i}"${i === defaultIdx ? ' selected' : ''}>${this._esc(w.weekOf)}</option>`).join('')}
       </select>
     </div>`;
     html += `<div id="it-ad-breakdown">`;
-    html += this._buildAdBreakdown(latest, prev);
+    html += this._buildAdBreakdown(defaultWeek, defaultPrev);
     html += `</div>`;
 
     el.innerHTML = html;

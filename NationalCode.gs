@@ -15,6 +15,7 @@ var SHEETS = {
   PERFORMANCE_AUDIT:  '15WCMzKnqvyyRMx2ae4tC1a12_-aoSRDh3McOuRAKuHk',  // Performance Audit
   NATIONAL:           '1eGkwjQRD9RV4n-JR_TTlgE6VY858WZID8cAF8soYSYM', // Ken's national recruiting sheet
   NLR_B2B:            '1sxauFjNjq4_rRYM2PAl5cyOyHF3Hg4OkO-t_hLKDJB8', // NLR's AT&T B2B 1-on-1's report
+  NDS_ONE_ON_ONES:    '1kcUWR3EKgP-9wDct4vDyuQJ7IuS0cbcetY97dmVTY64', // AT&T NDS/Verizon Wireless One on Ones
   INDEED_COSTS_FOLDER: '1r2lGOOjXQkvzz1we5k1Gn5drXrZKc42y'              // Drive folder: per-owner Indeed ad spend sheets
 };
 
@@ -73,6 +74,11 @@ function doGet(e) {
     // ── B2B production/sales data (local copy in _B2B_Production tab) ──
     if (action === 'b2bProduction') {
       return jsonResp(readLocalProduction());
+    }
+
+    // ── NDS headcount data (local copy in _NDS_Headcount tab) ──
+    if (action === 'ndsHeadcount') {
+      return jsonResp(readLocalNDSHeadcount());
     }
 
     // ── List cost files in Drive folder (names + IDs only) ──
@@ -145,6 +151,9 @@ function doPost(e) {
         break;
       case 'importNLRHeadcount':
         result = importNLRHeadcount();
+        break;
+      case 'importNDSHeadcount':
+        result = importNDSHeadcount();
         break;
       case 'updateHeadcount':
         result = updateHeadcountRow(body.ownerName, body.date,
@@ -3203,5 +3212,251 @@ function _formatCellDate(v) {
     return (m < 10 ? '0' : '') + m + '/' + (d < 10 ? '0' : '') + d;
   }
   return String(v).trim();
+}
+
+// ══════════════════════════════════════════════════
+// READ NDS HEADCOUNT from external NDS One-on-Ones sheet
+// Reads specified owner tabs (or all owner tabs) and returns
+// headcount/production data in the same shape as readNLRHeadcount().
+// ══════════════════════════════════════════════════
+
+// Proof of concept: only Eli Goldberg's tab for now.
+var NDS_OWNER_TABS = ['Eli Goldberg'];
+
+function readNDSHeadcount() {
+  if (!SHEETS.NDS_ONE_ON_ONES) return { owners: {} };
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NDS_ONE_ON_ONES);
+  } catch (err) {
+    return { error: 'Cannot open NDS One-on-Ones sheet: ' + err.message, owners: {} };
+  }
+
+  var owners = {};
+
+  for (var t = 0; t < NDS_OWNER_TABS.length; t++) {
+    var tabName = NDS_OWNER_TABS[t];
+    var sheet = ss.getSheetByName(tabName);
+    if (!sheet) { Logger.log('NDS tab not found: ' + tabName); continue; }
+
+    // Read top ~50 rows (office health section is at top, recruiting starts around row 48)
+    var lastRow = Math.min(sheet.getLastRow(), 50);
+    if (lastRow < 2) continue;
+    var lastCol = Math.min(sheet.getLastColumn(), 18); // cols A-R
+    var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+
+    // Row 0 = headers — use header-based column mapping
+    var headers = data[0].map(function(h) { return String(h).toLowerCase().trim(); });
+
+    var colMap = {
+      dates:          findCol(headers, ['dates', 'date']),
+      active:         findCol(headers, ['active']),
+      leaders:        findCol(headers, ['leaders']),
+      dist:           findCol(headers, ['dist']),
+      training:       findCol(headers, ['training']),
+      productionLW:   findCol(headers, ['production lw']),
+      productionGoals:findCol(headers, ['production goals'])
+    };
+
+    if (colMap.dates < 0 && colMap.active < 0) continue;
+
+    // Also map recruiting funnel columns (same row, cols H onward)
+    var rcMap = {
+      firstRoundsBooked:  findCol(headers, ['1st rounds booked', '1st round booked']),
+      firstRoundsShowed:  findCol(headers, ['1st rounds showed', '1st round showed']),
+      turnedTo2nd:        findCol(headers, ['turned to 2nd']),
+      retention1:         _findNthCol(headers, ['retention'], 1),
+      conversion:         findCol(headers, ['conversion']),
+      secondRoundsBooked: findCol(headers, ['2nd rounds booked', '2nd round booked']),
+      secondRoundsShowed: findCol(headers, ['2nd rounds showed', '2nd round showed']),
+      retention2:         _findNthCol(headers, ['retention'], 2),
+      newStartScheduled:  findCol(headers, ['new start scheduled', 'new starts scheduled']),
+      newStartsShowed:    findCol(headers, ['new starts showed']),
+      retention3:         _findNthCol(headers, ['retention'], 3)
+    };
+
+    var trend = [];
+    var lastGood = null;
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+
+      // Date gate
+      var dateCell = colMap.dates >= 0 ? row[colMap.dates] : null;
+      if (!dateCell) continue;
+      if (!(dateCell instanceof Date)) {
+        var parsed = new Date(dateCell);
+        if (isNaN(parsed.getTime())) continue;
+      }
+
+      var hasActive = colMap.active >= 0 && row[colMap.active] !== '' && row[colMap.active] !== null;
+      var hasProd   = colMap.productionLW >= 0 && row[colMap.productionLW] !== '' && row[colMap.productionLW] !== null;
+      if (!hasActive && !hasProd) continue;
+
+      var entry = {
+        date:            colMap.dates >= 0 ? formatDate(row[colMap.dates]) : '',
+        active:          colMap.active >= 0 ? num(row[colMap.active]) : 0,
+        leaders:         colMap.leaders >= 0 ? num(row[colMap.leaders]) : 0,
+        dist:            colMap.dist >= 0 ? num(row[colMap.dist]) : 0,
+        training:        colMap.training >= 0 ? num(row[colMap.training]) : 0,
+        productionLW:    colMap.productionLW >= 0 ? num(row[colMap.productionLW]) : 0,
+        productionGoals: colMap.productionGoals >= 0 ? num(row[colMap.productionGoals]) : 0,
+        // Recruiting funnel
+        firstRoundsBooked:  rcMap.firstRoundsBooked >= 0 ? num(row[rcMap.firstRoundsBooked]) : 0,
+        firstRoundsShowed:  rcMap.firstRoundsShowed >= 0 ? num(row[rcMap.firstRoundsShowed]) : 0,
+        turnedTo2nd:        rcMap.turnedTo2nd >= 0 ? num(row[rcMap.turnedTo2nd]) : 0,
+        retention1:         rcMap.retention1 >= 0 ? numDec(row[rcMap.retention1]) : 0,
+        conversion:         rcMap.conversion >= 0 ? numDec(row[rcMap.conversion]) : 0,
+        secondRoundsBooked: rcMap.secondRoundsBooked >= 0 ? num(row[rcMap.secondRoundsBooked]) : 0,
+        secondRoundsShowed: rcMap.secondRoundsShowed >= 0 ? num(row[rcMap.secondRoundsShowed]) : 0,
+        retention2:         rcMap.retention2 >= 0 ? numDec(row[rcMap.retention2]) : 0,
+        newStartScheduled:  rcMap.newStartScheduled >= 0 ? num(row[rcMap.newStartScheduled]) : 0,
+        newStartsShowed:    rcMap.newStartsShowed >= 0 ? num(row[rcMap.newStartsShowed]) : 0,
+        retention3:         rcMap.retention3 >= 0 ? numDec(row[rcMap.retention3]) : 0
+      };
+      trend.push(entry);
+      lastGood = entry;
+    }
+
+    if (lastGood) {
+      owners[tabName] = { current: lastGood, trend: trend };
+    }
+  }
+
+  return { owners: owners };
+}
+
+// ── Helper: find Nth occurrence of a header (for repeated "Retention" columns) ──
+function _findNthCol(headers, patterns, n) {
+  var count = 0;
+  for (var i = 0; i < headers.length; i++) {
+    for (var p = 0; p < patterns.length; p++) {
+      if (headers[i] === patterns[p]) {
+        count++;
+        if (count === n) return i;
+      }
+    }
+  }
+  return -1;
+}
+
+// ══════════════════════════════════════════════════
+// IMPORT NDS HEADCOUNT → LOCAL _NDS_Headcount TAB
+// Reads from NDS One-on-Ones sheet, writes into Ken's national sheet.
+// Tab format: Owner | Date | Active | Leaders | Dist | Training | ProductionLW | ProductionGoals |
+//             1stBooked | 1stShowed | TurnedTo2nd | Ret1 | Conversion |
+//             2ndBooked | 2ndShowed | Ret2 | NewStartSched | NewStartsShowed | Ret3
+// ══════════════════════════════════════════════════
+
+function importNDSHeadcount() {
+  // 1. Read from NDS spreadsheet
+  var ndsResult = readNDSHeadcount();
+  if (ndsResult.error) return ndsResult;
+  var ndsOwners = ndsResult.owners || {};
+  if (!Object.keys(ndsOwners).length) return { error: 'No owner data found in NDS sheet' };
+
+  // 2. Open Ken's national sheet
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    return { error: 'Cannot open national sheet: ' + err.message };
+  }
+
+  // 3. Get or create _NDS_Headcount tab
+  var TAB_NAME = '_NDS_Headcount';
+  var HEADERS = [
+    'Owner', 'Date', 'Active', 'Leaders', 'Dist', 'Training', 'ProductionLW', 'ProductionGoals',
+    '1stBooked', '1stShowed', 'TurnedTo2nd', 'Ret1', 'Conversion',
+    '2ndBooked', '2ndShowed', 'Ret2', 'NewStartSched', 'NewStartsShowed', 'Ret3'
+  ];
+  var sheet = ss.getSheetByName(TAB_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(TAB_NAME);
+    sheet.appendRow(HEADERS);
+  } else {
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.getRange(2, 1, lastRow - 1, HEADERS.length).clearContent();
+    }
+  }
+
+  // 4. Build rows
+  var rows = [];
+  var ownerNames = Object.keys(ndsOwners).sort();
+  for (var o = 0; o < ownerNames.length; o++) {
+    var name = ownerNames[o];
+    var ownerData = ndsOwners[name];
+    var trend = ownerData.trend || [];
+    for (var t = 0; t < trend.length; t++) {
+      var e = trend[t];
+      rows.push([
+        name, e.date, e.active, e.leaders, e.dist, e.training, e.productionLW, e.productionGoals,
+        e.firstRoundsBooked, e.firstRoundsShowed, e.turnedTo2nd, e.retention1, e.conversion,
+        e.secondRoundsBooked, e.secondRoundsShowed, e.retention2, e.newStartScheduled, e.newStartsShowed, e.retention3
+      ]);
+    }
+  }
+
+  // 5. Write all rows
+  if (rows.length) {
+    sheet.getRange(2, 1, rows.length, HEADERS.length).setValues(rows);
+  }
+
+  return { success: true, ownersImported: ownerNames.length, rowsWritten: rows.length };
+}
+
+// ══════════════════════════════════════════════════
+// READ LOCAL NDS HEADCOUNT from _NDS_Headcount tab
+// Returns same shape as readNLRHeadcount():
+// { owners: { "Name": { current: {...}, trend: [{...}] } } }
+// ══════════════════════════════════════════════════
+
+function readLocalNDSHeadcount() {
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    return { error: 'Cannot open national sheet: ' + err.message, owners: {} };
+  }
+
+  var sheet = ss.getSheetByName('_NDS_Headcount');
+  if (!sheet) return { owners: {} };
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { owners: {} };
+
+  var owners = {};
+  for (var i = 1; i < data.length; i++) {
+    var oName = String(data[i][0] || '').trim();
+    if (!oName) continue;
+
+    var entry = {
+      date:            String(data[i][1] || ''),
+      active:          num(data[i][2]),
+      leaders:         num(data[i][3]),
+      dist:            num(data[i][4]),
+      training:        num(data[i][5]),
+      productionLW:    num(data[i][6]),
+      productionGoals: num(data[i][7]),
+      firstRoundsBooked:  num(data[i][8]),
+      firstRoundsShowed:  num(data[i][9]),
+      turnedTo2nd:        num(data[i][10]),
+      retention1:         numDec(data[i][11]),
+      conversion:         numDec(data[i][12]),
+      secondRoundsBooked: num(data[i][13]),
+      secondRoundsShowed: num(data[i][14]),
+      retention2:         numDec(data[i][15]),
+      newStartScheduled:  num(data[i][16]),
+      newStartsShowed:    num(data[i][17]),
+      retention3:         numDec(data[i][18])
+    };
+
+    if (!owners[oName]) owners[oName] = { current: null, trend: [] };
+    owners[oName].trend.push(entry);
+    owners[oName].current = entry; // last row wins
+  }
+
+  return { owners: owners };
 }
 

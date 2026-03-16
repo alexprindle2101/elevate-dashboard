@@ -146,6 +146,7 @@ const NationalApp = {
     const hasApi = !!NATIONAL_CONFIG.appsScriptUrl;
     const hasNational = hasApi && NATIONAL_CONFIG.sheets.national && NATIONAL_CONFIG.sheets.national.id;
     const isB2B = campaignKey === 'att-b2b';
+    const isNDS = campaignKey.indexOf('nds') >= 0 || campaignKey.indexOf('NDS') >= 0;
 
     // ── Fire ALL independent fetches in parallel (each with 20s timeout) ──
     const fetchPromises = {};
@@ -154,6 +155,7 @@ const NationalApp = {
     if (hasApi)      fetchPromises.camMapping  = this._fetchWithTimeout(this._fetchOwnerCamMapping());
     if (isB2B && hasApi) fetchPromises.headcount  = this._fetchWithTimeout(this._fetchB2BHeadcount());
     if (isB2B && hasApi) fetchPromises.production = this._fetchWithTimeout(this._fetchB2BProduction());
+    if (isNDS && hasApi) fetchPromises.ndsHeadcount = this._fetchWithTimeout(this._fetchNDSHeadcount());
     // Indeed/recruiting costs excluded from initial load — fetched only via Import button
 
     const keys = Object.keys(fetchPromises);
@@ -189,6 +191,10 @@ const NationalApp = {
 
     if (results.headcount && results.headcount.owners && Object.keys(results.headcount.owners).length) {
       this._enrichOwnersWithNLR(results.headcount.owners);
+    }
+
+    if (results.ndsHeadcount && results.ndsHeadcount.owners && Object.keys(results.ndsHeadcount.owners).length) {
+      this._enrichOwnersWithNLR(results.ndsHeadcount.owners);
     }
 
     if (results.production && results.production.owners && Object.keys(results.production.owners).length) {
@@ -327,6 +333,18 @@ const NationalApp = {
     return result;
   },
 
+  // ── Fetch NDS headcount from local _NDS_Headcount tab ──
+  async _fetchNDSHeadcount() {
+    const url = NATIONAL_CONFIG.appsScriptUrl +
+      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+      '&action=ndsHeadcount' +
+      '&_t=' + Date.now();
+    const resp = await fetch(url);
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
+
   // ── Fetch B2B production/sales data from local _B2B_Production tab ──
   async _fetchB2BProduction() {
     const url = NATIONAL_CONFIG.appsScriptUrl +
@@ -451,6 +469,35 @@ const NationalApp = {
       this.renderDashboard();
     } catch (err) {
       console.error('[NationalApp] NLR import failed:', err);
+      if (btn) { btn.disabled = false; btn.textContent = 'Import Failed — Retry'; }
+    }
+  },
+
+  // ── Import NDS headcount data into local sheet ──
+  async importNDSHeadcount() {
+    const btn = document.getElementById('btn-import-nds');
+    if (btn) { btn.disabled = true; btn.textContent = 'Importing NDS...'; }
+
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'importNDSHeadcount'
+        })
+      });
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+
+      console.log('[NationalApp] NDS import complete:', result);
+      if (btn) { btn.textContent = `Imported ${result.ownersImported} owners (${result.rowsWritten} rows)`; }
+
+      // Reload to pick up the freshly imported data
+      await this.loadCampaignData(this.state.campaign);
+      this.renderDashboard();
+    } catch (err) {
+      console.error('[NationalApp] NDS import failed:', err);
       if (btn) { btn.disabled = false; btn.textContent = 'Import Failed — Retry'; }
     }
   },
@@ -1162,7 +1209,7 @@ const NationalApp = {
           });
         }
 
-        // Re-enrich B2B owners with weekly data (headcount + production)
+        // Re-enrich owners with weekly data (headcount + production)
         // CPA/Indeed costs are monthly and don't change on weekly import — skip
         if (campaignKey === 'att-b2b' && NATIONAL_CONFIG.appsScriptUrl) {
           const [hcRes, prodRes] = await Promise.allSettled([
@@ -1174,6 +1221,15 @@ const NationalApp = {
           }
           if (prodRes.status === 'fulfilled' && prodRes.value?.owners && Object.keys(prodRes.value.owners).length) {
             this._enrichOwnersWithProduction(prodRes.value.owners);
+          }
+        }
+
+        // Re-enrich NDS owners with headcount data
+        const isNDS = campaignKey.indexOf('nds') >= 0 || campaignKey.indexOf('NDS') >= 0;
+        if (isNDS && NATIONAL_CONFIG.appsScriptUrl) {
+          const ndsRes = await this._fetchWithTimeout(this._fetchNDSHeadcount()).catch(() => null);
+          if (ndsRes?.owners && Object.keys(ndsRes.owners).length) {
+            this._enrichOwnersWithNLR(ndsRes.owners);
           }
         }
 
@@ -1231,6 +1287,12 @@ const NationalApp = {
     document.getElementById('kpi-retention').textContent = t.retention || '—';
     document.getElementById('kpi-production').textContent = t.production || '—';
 
+    // Show/hide NDS import button based on campaign
+    const ndsBtn = document.getElementById('btn-import-nds');
+    if (ndsBtn) {
+      const isNDS = this.state.campaign.indexOf('nds') >= 0 || this.state.campaign.indexOf('NDS') >= 0;
+      ndsBtn.style.display = isNDS ? '' : 'none';
+    }
   },
 
   // ══════════════════════════════════════════════════

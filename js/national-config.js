@@ -43,6 +43,11 @@ const NATIONAL_CONFIG = {
       id: '1eGkwjQRD9RV4n-JR_TTlgE6VY858WZID8cAF8soYSYM',
       label: 'National Recruiting Data'
     },
+    // Sheet 7: AT&T NDS/Verizon Wireless One-on-Ones (per-owner tabs with headcount + recruiting + sales)
+    ndsOneOnOnes: {
+      id: '1kcUWR3EKgP-9wDct4vDyuQJ7IuS0cbcetY97dmVTY64',
+      label: 'AT&T NDS One-on-Ones'
+    },
     // Folder 6: Indeed ad cost spreadsheets (one per owner, named by owner name)
     indeedCostsFolder: {
       id: '1r2lGOOjXQkvzz1we5k1Gn5drXrZKc42y',

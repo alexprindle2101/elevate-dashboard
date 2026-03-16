@@ -3434,7 +3434,7 @@ function readLocalNDSHeadcount() {
     if (!oName) continue;
 
     var entry = {
-      date:            String(data[i][1] || ''),
+      date:            formatDate(data[i][1]),
       active:          num(data[i][2]),
       leaders:         num(data[i][3]),
       dist:            num(data[i][4]),

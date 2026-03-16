@@ -1597,8 +1597,14 @@ const NationalApp = {
 
     const shortDate = (d) => {
       if (!d) return '';
-      const parts = String(d).split('/');
-      return parts.length >= 2 ? parts[0] + '/' + parts[1] : d;
+      const s = String(d);
+      // If it's a full Date toString(), parse it
+      if (s.length > 10 && s.indexOf('GMT') >= 0) {
+        const dt = new Date(s);
+        if (!isNaN(dt)) return (dt.getMonth()+1) + '/' + dt.getDate();
+      }
+      const parts = s.split('/');
+      return parts.length >= 2 ? parts[0] + '/' + parts[1] : s;
     };
 
     // ── Layout constants ──
@@ -1988,8 +1994,14 @@ const NationalApp = {
 
     const shortDate = (d) => {
       if (!d) return '';
-      const parts = String(d).split('/');
-      return parts.length >= 2 ? parts[0] + '/' + parts[1] : d;
+      const s = String(d);
+      // If it's a full Date toString(), parse it
+      if (s.length > 10 && s.indexOf('GMT') >= 0) {
+        const dt = new Date(s);
+        if (!isNaN(dt)) return (dt.getMonth()+1) + '/' + dt.getDate();
+      }
+      const parts = s.split('/');
+      return parts.length >= 2 ? parts[0] + '/' + parts[1] : s;
     };
 
     // ── Layout constants (match headcount chart) ──

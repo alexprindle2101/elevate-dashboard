@@ -97,8 +97,8 @@ const App = {
       }
       // Update loading screen logo with restored office branding
       this._applyLoginBranding();
-      // Fetch discordWebhookUrl if missing (old URLs without ?office= param)
-      if (!OFFICE_CONFIG.discordWebhookUrl && OFFICE_CONFIG.officeId) {
+      // Resolve office config if key fields are missing (webhooks, payroll manager, etc.)
+      if (OFFICE_CONFIG.officeId && (!OFFICE_CONFIG.discordWebhookUrl || !OFFICE_CONFIG.payrollManagerEmail)) {
         await this._resolveOfficeId(OFFICE_CONFIG.officeId);
       }
       this.state.currentRole = session.role;
@@ -116,8 +116,8 @@ const App = {
       if (OFFICE_CONFIG._pendingOfficeId) {
         await this._resolveOfficeId(OFFICE_CONFIG._pendingOfficeId);
       }
-      // Fetch discordWebhookUrl if missing (old URLs without ?office= param)
-      if (!OFFICE_CONFIG.discordWebhookUrl && OFFICE_CONFIG.officeId) {
+      // Resolve office config if key fields are missing (webhooks, payroll manager, etc.)
+      if (OFFICE_CONFIG.officeId && (!OFFICE_CONFIG.discordWebhookUrl || !OFFICE_CONFIG.payrollManagerEmail)) {
         await this._resolveOfficeId(OFFICE_CONFIG.officeId);
       }
 

@@ -1604,11 +1604,11 @@ const NationalApp = {
     // ── Layout constants ──
     const VISIBLE = 5;
     const YAXIS_W = 36;
-    const PAD_R = 10, PAD_T = 14, PAD_B = 28;
+    const PAD_R = 10, PAD_T = 14, PAD_B = 52;
     const BAR_R = 5;
     const GAP = 0.14;
     const MIN_LABEL_H = 14;
-    const svgH = 220;
+    const svgH = 244;
     const plotH = svgH - PAD_T - PAD_B;
     const REF_W = 500;
     const barAreaVisibleW = REF_W - YAXIS_W;
@@ -1824,8 +1824,8 @@ const NationalApp = {
       const topY = trainH > 0 ? trainTop : solidTop;
       svg += `<rect x="${x}" y="${Math.min(topY, d.baseY - 1)}" width="${d.barW}" height="${Math.max(totalH, 4)}" fill="transparent" style="cursor:pointer" onmouseenter="NationalApp._showHcTooltip(event,${origIdx},${d.ownerIdx})" onmouseleave="NationalApp._hideHcTooltip()"/>`;
 
-      // X-axis date label
-      svg += `<text x="${cx}" y="${d.svgH - 8}" text-anchor="middle" fill="#8a95a5" font-size="10" font-weight="600" font-family="Inter,sans-serif">${d.shortDate(r.date)}</text>`;
+      // X-axis date label (rotated -45°)
+      svg += `<text x="${cx}" y="${d.baseY + 12}" text-anchor="end" fill="#8a95a5" font-size="10" font-weight="600" font-family="Inter,sans-serif" transform="rotate(-45 ${cx} ${d.baseY + 12})">${d.shortDate(r.date)}</text>`;
     });
 
     return svg;
@@ -1995,11 +1995,11 @@ const NationalApp = {
     // ── Layout constants (match headcount chart) ──
     const VISIBLE = 5;
     const YAXIS_W = 36;
-    const PAD_R = 10, PAD_T = 14, PAD_B = 28;
+    const PAD_R = 10, PAD_T = 14, PAD_B = 52;
     const BAR_R = 5;
     const GAP = 0.14;
     const MIN_LABEL_H = 14;
-    const svgH = 220;
+    const svgH = 244;
     const plotH = svgH - PAD_T - PAD_B;
     const REF_W = 500;
     const barAreaVisibleW = REF_W - YAXIS_W;
@@ -2198,8 +2198,8 @@ const NationalApp = {
       const totalH = d.baseY - topY;
       svg += `<rect x="${x}" y="${Math.min(topY, d.baseY - 1)}" width="${d.barW}" height="${Math.max(totalH, 4)}" fill="transparent" style="cursor:pointer" onmouseenter="NationalApp._showProdTooltip(event,${origIdx},${d.ownerIdx})" onmouseleave="NationalApp._hideProdTooltip()"/>`;
 
-      // X-axis date label
-      svg += `<text x="${cx}" y="${d.svgH - 8}" text-anchor="middle" fill="#8a95a5" font-size="10" font-weight="600" font-family="Inter,sans-serif">${d.shortDate(r.date)}</text>`;
+      // X-axis date label (rotated -45°)
+      svg += `<text x="${cx}" y="${d.baseY + 12}" text-anchor="end" fill="#8a95a5" font-size="10" font-weight="600" font-family="Inter,sans-serif" transform="rotate(-45 ${cx} ${d.baseY + 12})">${d.shortDate(r.date)}</text>`;
     });
 
     return svg;

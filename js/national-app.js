@@ -3615,7 +3615,7 @@ const NationalApp = {
           <div class="bis-grade-letter">${websiteGrade}</div>
         </div>
         <div class="bis-section-content">
-          <div class="bis-section-banner">Website${ws?.url ? ` <a href="${extUrl(ws.url)}" target="_blank" rel="noopener" class="bis-link">↗</a>` : ''}</div>
+          <div class="bis-section-banner">${ws?.url ? `<a href="${extUrl(ws.url)}" target="_blank" rel="noopener" class="bis-link">Website ↗</a>` : 'Website'}</div>
           <table class="bis-table bis-table-website">
             <thead>
               <tr>
@@ -3649,7 +3649,7 @@ const NationalApp = {
           <div class="bis-grade-letter">${socialGrade}</div>
         </div>
         <div class="bis-section-content">
-          <div class="bis-section-banner">Social Media${ig.link ? ` <a href="${extUrl(ig.link)}" target="_blank" rel="noopener" class="bis-link">↗</a>` : ''}</div>
+          <div class="bis-section-banner">${ig.link ? `<a href="${extUrl(ig.link)}" target="_blank" rel="noopener" class="bis-link">Social Media ↗</a>` : 'Social Media'}</div>
           <table class="bis-table">
             <thead>
               <tr>

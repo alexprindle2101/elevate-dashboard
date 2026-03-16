@@ -1577,17 +1577,21 @@ td.cell-red    { background: #e53935 !important; color: #000 !important; font-we
   font-weight: 700 !important;
 }
 .bis-link {
-  color: inherit;
+  color: var(--blue-core, #0099cc);
   text-decoration: none;
-  opacity: 0.85;
+  font-weight: 700;
+  transition: color 0.15s;
 }
 .bis-link:hover {
-  opacity: 1;
+  color: var(--blue-deep, #004466);
   text-decoration: underline;
 }
 .bis-section-banner .bis-link {
   color: #ffffff;
   margin-left: 4px;
+}
+.bis-section-banner .bis-link:hover {
+  color: var(--sc-cyan, #00c8ff);
 }
 
 /* Sub-headers for website section */

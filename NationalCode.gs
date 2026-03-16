@@ -16,6 +16,7 @@ var SHEETS = {
   NATIONAL:           '1eGkwjQRD9RV4n-JR_TTlgE6VY858WZID8cAF8soYSYM', // Ken's national recruiting sheet
   NLR_B2B:            '1sxauFjNjq4_rRYM2PAl5cyOyHF3Hg4OkO-t_hLKDJB8', // NLR's AT&T B2B 1-on-1's report
   NDS_ONE_ON_ONES:    '1kcUWR3EKgP-9wDct4vDyuQJ7IuS0cbcetY97dmVTY64', // AT&T NDS/Verizon Wireless One on Ones
+  NLR_NDS:            '1u2iM7gfEGLUtxog5nxOLpjwCmJhWVsF5aT7_l87SCCg', // NLR's AT&T NDS 1-on-1's report (Sam Poles)
   INDEED_COSTS_FOLDER: '1r2lGOOjXQkvzz1we5k1Gn5drXrZKc42y'              // Drive folder: per-owner Indeed ad spend sheets
 };
 
@@ -3222,25 +3223,48 @@ function _formatCellDate(v) {
 // headcount/production data in the same shape as readNLRHeadcount().
 // ══════════════════════════════════════════════════
 
-// Proof of concept: only Eli Goldberg's tab for now.
-var NDS_OWNER_TABS = ['Sam Poles'];
+// NDS data sources: One-on-Ones sheet + NLR NDS report
+// Each entry: { sheetId, tabs } — tabs is array of tab names to read
+var NDS_SOURCES = [
+  { sheetId: 'NDS_ONE_ON_ONES', tabs: ['Sam Poles'] },
+  { sheetId: 'NLR_NDS',         tabs: null }  // null = read ALL owner tabs (skip known non-owner tabs)
+];
+
+var NDS_SKIP_TABS = {
+  'input - sales qual metrics': true,
+  'input - comm per rep and total dd': true,
+  'input - market metrics': true,
+  'sheet1': true, 'sheet2': true, 'sheet3': true
+};
 
 function readNDSHeadcount() {
-  if (!SHEETS.NDS_ONE_ON_ONES) return { owners: {} };
-
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NDS_ONE_ON_ONES);
-  } catch (err) {
-    return { error: 'Cannot open NDS One-on-Ones sheet: ' + err.message, owners: {} };
-  }
-
   var owners = {};
 
-  for (var t = 0; t < NDS_OWNER_TABS.length; t++) {
-    var tabName = NDS_OWNER_TABS[t];
-    var sheet = ss.getSheetByName(tabName);
-    if (!sheet) { Logger.log('NDS tab not found: ' + tabName); continue; }
+  for (var s = 0; s < NDS_SOURCES.length; s++) {
+    var src = NDS_SOURCES[s];
+    var id = SHEETS[src.sheetId];
+    if (!id) continue;
+
+    var ss;
+    try {
+      ss = SpreadsheetApp.openById(id);
+    } catch (err) {
+      Logger.log('Cannot open ' + src.sheetId + ': ' + err.message);
+      continue;
+    }
+
+    // Determine which tabs to read
+    var tabsToRead = src.tabs;
+    if (!tabsToRead) {
+      // Read all tabs, skip known non-owner tabs
+      tabsToRead = ss.getSheets().map(function(sh) { return sh.getName(); })
+        .filter(function(name) { return !NDS_SKIP_TABS[name.toLowerCase().trim()]; });
+    }
+
+    for (var t = 0; t < tabsToRead.length; t++) {
+      var tabName = tabsToRead[t];
+      var sheet = ss.getSheetByName(tabName);
+      if (!sheet) { Logger.log('NDS tab not found: ' + tabName + ' in ' + src.sheetId); continue; }
 
     // Read top ~50 rows (office health section is at top, recruiting starts around row 48)
     var lastRow = Math.min(sheet.getLastRow(), 50);
@@ -3323,7 +3347,8 @@ function readNDSHeadcount() {
     if (lastGood) {
       owners[tabName] = { current: lastGood, trend: trend };
     }
-  }
+    } // end tabs loop
+  } // end sources loop
 
   return { owners: owners };
 }
@@ -3383,11 +3408,16 @@ function importNDSHeadcount() {
     }
   }
 
+  // Name aliases: tab name → canonical owner name (for matching with recruiting data)
+  var NAME_ALIASES = {
+    'Sam Poles': 'Samih Poles'
+  };
+
   // 4. Build rows
   var rows = [];
   var ownerNames = Object.keys(ndsOwners).sort();
   for (var o = 0; o < ownerNames.length; o++) {
-    var name = ownerNames[o];
+    var name = NAME_ALIASES[ownerNames[o]] || ownerNames[o];
     var ownerData = ndsOwners[name];
     var trend = ownerData.trend || [];
     for (var t = 0; t < trend.length; t++) {

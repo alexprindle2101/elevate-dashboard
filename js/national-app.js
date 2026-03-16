@@ -166,7 +166,8 @@ const NationalApp = {
     if (hasApi)      fetchPromises.camMapping  = this._fetchWithTimeout(this._fetchOwnerCamMapping());
     if (isB2B && hasApi) fetchPromises.headcount  = this._fetchWithTimeout(this._fetchB2BHeadcount());
     if (isB2B && hasApi) fetchPromises.production = this._fetchWithTimeout(this._fetchB2BProduction());
-    if (isNDS && hasApi) fetchPromises.ndsHeadcount = this._fetchWithTimeout(this._fetchNDSHeadcount());
+    if (isNDS && hasApi) fetchPromises.ndsHeadcount  = this._fetchWithTimeout(this._fetchNDSHeadcount());
+    if (isNDS && hasApi) fetchPromises.ndsProduction = this._fetchWithTimeout(this._fetchNDSProduction());
     // Indeed/recruiting costs excluded from initial load — fetched only via Import button
 
     const keys = Object.keys(fetchPromises);
@@ -206,6 +207,10 @@ const NationalApp = {
 
     if (results.ndsHeadcount && results.ndsHeadcount.owners && Object.keys(results.ndsHeadcount.owners).length) {
       this._enrichOwnersWithNLR(results.ndsHeadcount.owners);
+    }
+
+    if (results.ndsProduction && results.ndsProduction.owners && Object.keys(results.ndsProduction.owners).length) {
+      this._enrichOwnersWithProduction(results.ndsProduction.owners);
     }
 
     if (results.production && results.production.owners && Object.keys(results.production.owners).length) {
@@ -349,6 +354,18 @@ const NationalApp = {
     const url = NATIONAL_CONFIG.appsScriptUrl +
       '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
       '&action=ndsHeadcount' +
+      '&_t=' + Date.now();
+    const resp = await fetch(url);
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
+
+  // ── Fetch NDS production/sales from NDS One-on-Ones sheet ──
+  async _fetchNDSProduction() {
+    const url = NATIONAL_CONFIG.appsScriptUrl +
+      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+      '&action=ndsProduction' +
       '&_t=' + Date.now();
     const resp = await fetch(url);
     const result = await resp.json();
@@ -1265,12 +1282,18 @@ const NationalApp = {
           }
         }
 
-        // Re-enrich NDS owners with headcount data
+        // Re-enrich NDS owners with headcount + production data
         const isNDS = campaignKey.indexOf('nds') >= 0 || campaignKey.indexOf('NDS') >= 0;
         if (isNDS && NATIONAL_CONFIG.appsScriptUrl) {
-          const ndsRes = await this._fetchWithTimeout(this._fetchNDSHeadcount()).catch(() => null);
-          if (ndsRes?.owners && Object.keys(ndsRes.owners).length) {
-            this._enrichOwnersWithNLR(ndsRes.owners);
+          const [ndsHcRes, ndsProdRes] = await Promise.allSettled([
+            this._fetchWithTimeout(this._fetchNDSHeadcount()),
+            this._fetchWithTimeout(this._fetchNDSProduction())
+          ]);
+          if (ndsHcRes.status === 'fulfilled' && ndsHcRes.value?.owners && Object.keys(ndsHcRes.value.owners).length) {
+            this._enrichOwnersWithNLR(ndsHcRes.value.owners);
+          }
+          if (ndsProdRes.status === 'fulfilled' && ndsProdRes.value?.owners && Object.keys(ndsProdRes.value.owners).length) {
+            this._enrichOwnersWithProduction(ndsProdRes.value.owners);
           }
         }
 
@@ -3051,27 +3074,48 @@ const NationalApp = {
   renderSalesTab(owner) {
     const s = owner.sales;
     const sm = s.summary;
+    const isNDS = this.state.campaign && (this.state.campaign.indexOf('nds') >= 0 || this.state.campaign.indexOf('NDS') >= 0);
 
     // ── Card 1: Owner Summary ──
     const summaryEl = document.getElementById('sales-summary');
     if (sm) {
-      summaryEl.innerHTML = `
-        <div class="coaching-section">
-          <div class="coaching-label">Owner Overview</div>
-          <div class="sales-kpi-grid">
-            ${[
-              { label: 'Total Volume', value: sm.totalVolume, cls: 'big' },
-              { label: 'Rep Count', value: sm.repCount },
-              { label: 'Sales / Rep', value: sm.salesPerRep },
-              { label: 'Order Count', value: sm.orderCount }
-            ].map(k => `
-              <div class="health-kpi${k.cls ? ' ' + k.cls : ''}">
-                <div class="health-kpi-value">${k.value}</div>
-                <div class="health-kpi-label">${k.label}</div>
-              </div>
-            `).join('')}
-          </div>
-          <div class="sales-metrics-grid">
+      const kpis = isNDS
+        ? [
+            { label: 'New/Ports LW', value: sm.newPorts || sm.totalVolume, cls: 'big' },
+            { label: 'Rep Count', value: sm.repCount },
+            { label: 'Order Count', value: sm.orderCount }
+          ]
+        : [
+            { label: 'Total Volume', value: sm.totalVolume, cls: 'big' },
+            { label: 'Rep Count', value: sm.repCount },
+            { label: 'Sales / Rep', value: sm.salesPerRep },
+            { label: 'Order Count', value: sm.orderCount }
+          ];
+
+      const metricsHtml = isNDS
+        ? `<div class="sales-metrics-grid">
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Quality Metrics</div>
+              <div class="sales-metric-row"><span>Cancel/Fraud Review</span><span class="num">${this._pct(sm.cancelFraudPct)}</span></div>
+              <div class="sales-metric-row"><span>Extra & Premium</span><span class="num">${this._pct(sm.extraPremiumPct)}</span></div>
+              <div class="sales-metric-row"><span>Next Up</span><span class="num">${this._pct(sm.nextUpPct)}</span></div>
+              <div class="sales-metric-row"><span>Insurance</span><span class="num">${this._pct(sm.insurancePct)}</span></div>
+            </div>
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Performance %</div>
+              <div class="sales-metric-row"><span>ABP</span><span class="num">${this._pct(sm.abpPct)}</span></div>
+              <div class="sales-metric-row"><span>BYOD</span><span class="num">${this._pct(sm.byodPct)}</span></div>
+              <div class="sales-metric-row"><span>New % of New/Ports</span><span class="num">${this._pct(sm.newOfNewPortsPct)}</span></div>
+              <div class="sales-metric-row"><span>High/Med Credit</span><span class="num">${this._pct(sm.highMedCreditPct)}</span></div>
+            </div>
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Order Timing</div>
+              <div class="sales-metric-row"><span>Away from Doors</span><span class="num">${this._pct(sm.awayFromDoorsPct)}</span></div>
+              <div class="sales-metric-row"><span>Before 3:00 PM</span><span class="num">${this._pct(sm.before3pmPct)}</span></div>
+              <div class="sales-metric-row"><span>After 7:30 PM</span><span class="num">${this._pct(sm.after730pmPct)}</span></div>
+            </div>
+          </div>`
+        : `<div class="sales-metrics-grid">
             <div class="sales-metric-group">
               <div class="sales-metric-group-label">Sales Breakdown</div>
               <div class="sales-metric-row"><span>Internet</span><span class="num">${sm.internet}</span></div>
@@ -3093,14 +3137,27 @@ const NationalApp = {
               <div class="sales-metric-row"><span>New Wireless</span><span class="num">${this._pct(sm.newWrlsPct)}</span></div>
               <div class="sales-metric-row"><span>BYOD</span><span class="num">${this._pct(sm.byodPct)}</span></div>
             </div>
+          </div>`;
+
+      summaryEl.innerHTML = `
+        <div class="coaching-section">
+          <div class="coaching-label">Owner Overview</div>
+          <div class="sales-kpi-grid">
+            ${kpis.map(k => `
+              <div class="health-kpi${k.cls ? ' ' + k.cls : ''}">
+                <div class="health-kpi-value">${k.value}</div>
+                <div class="health-kpi-label">${k.label}</div>
+              </div>
+            `).join('')}
           </div>
+          ${metricsHtml}
         </div>`;
     } else {
       summaryEl.innerHTML = `
         <div class="coaching-section">
           <div class="coaching-label">Owner Overview</div>
           <div class="empty-state">
-            <div class="empty-state-text">No production data yet. Click "Import Recruiting" to pull sales data from NLR.</div>
+            <div class="empty-state-text">No production data yet. Click "Import Recruiting" to pull sales data.</div>
           </div>
         </div>`;
     }
@@ -3108,49 +3165,81 @@ const NationalApp = {
     // ── Card 2: Rep Breakdown Table ──
     const repsEl = document.getElementById('sales-reps-table');
     if (s.reps.length) {
+      const repHeaders = isNDS
+        ? `<th>Rep Name</th>
+           <th class="num">New/Ports</th>
+           <th class="num">Orders</th>
+           <th class="num">Cancel %</th>
+           <th class="num">Extra %</th>
+           <th class="num">Next Up %</th>
+           <th class="num">ABP %</th>
+           <th class="num">BYOD %</th>
+           <th class="num">New %</th>
+           <th class="num">Insurance %</th>
+           <th class="num">Credit %</th>
+           <th class="num">Away %</th>
+           <th class="num">Before 3 %</th>
+           <th class="num">After 7:30 %</th>`
+        : `<th>Rep Name</th>
+           <th class="num">Volume</th>
+           <th class="num">Orders</th>
+           <th class="num">Sales/Rep</th>
+           <th class="num">Internet</th>
+           <th class="num">VOIP</th>
+           <th class="num">Wireless</th>
+           <th class="num">AIR/AWB</th>
+           <th class="num">Early %</th>
+           <th class="num">Late %</th>
+           <th class="num">ABP %</th>
+           <th class="num">CRU %</th>
+           <th class="num">New Wrls %</th>
+           <th class="num">BYOD %</th>`;
+
+      const repRows = isNDS
+        ? s.reps.map(rep => `
+            <tr>
+              <td class="bold">${this._esc(rep.name)}</td>
+              <td class="num">${rep.newPorts || rep.totalVolume}</td>
+              <td class="num">${rep.orderCount}</td>
+              <td class="num">${this._pct(rep.cancelFraudPct)}</td>
+              <td class="num">${this._pct(rep.extraPremiumPct)}</td>
+              <td class="num">${this._pct(rep.nextUpPct)}</td>
+              <td class="num">${this._pct(rep.abpPct)}</td>
+              <td class="num">${this._pct(rep.byodPct)}</td>
+              <td class="num">${this._pct(rep.newOfNewPortsPct)}</td>
+              <td class="num">${this._pct(rep.insurancePct)}</td>
+              <td class="num">${this._pct(rep.highMedCreditPct)}</td>
+              <td class="num">${this._pct(rep.awayFromDoorsPct)}</td>
+              <td class="num">${this._pct(rep.before3pmPct)}</td>
+              <td class="num">${this._pct(rep.after730pmPct)}</td>
+            </tr>`).join('')
+        : s.reps.map(rep => `
+            <tr>
+              <td class="bold">${this._esc(rep.name)}</td>
+              <td class="num">${rep.totalVolume}</td>
+              <td class="num">${rep.orderCount}</td>
+              <td class="num">${rep.salesPerRep}</td>
+              <td class="num">${rep.internet}</td>
+              <td class="num">${rep.voip}</td>
+              <td class="num">${rep.wireless}</td>
+              <td class="num">${rep.airAwb}</td>
+              <td class="num">${this._pct(rep.earlyPct)}</td>
+              <td class="num">${this._pct(rep.latePct)}</td>
+              <td class="num">${this._pct(rep.abpPct)}</td>
+              <td class="num">${this._pct(rep.cruPct)}</td>
+              <td class="num">${this._pct(rep.newWrlsPct)}</td>
+              <td class="num">${this._pct(rep.byodPct)}</td>
+            </tr>`).join('');
+
       repsEl.innerHTML = `
         <div class="coaching-section">
           <div class="coaching-label">Rep Breakdown <span class="coaching-sublabel">${s.reps.length} reps</span></div>
           <div class="data-table-wrap">
             <table class="data-table">
               <thead>
-                <tr>
-                  <th>Rep Name</th>
-                  <th class="num">Volume</th>
-                  <th class="num">Orders</th>
-                  <th class="num">Sales/Rep</th>
-                  <th class="num">Internet</th>
-                  <th class="num">VOIP</th>
-                  <th class="num">Wireless</th>
-                  <th class="num">AIR/AWB</th>
-                  <th class="num">Early %</th>
-                  <th class="num">Late %</th>
-                  <th class="num">ABP %</th>
-                  <th class="num">CRU %</th>
-                  <th class="num">New Wrls %</th>
-                  <th class="num">BYOD %</th>
-                </tr>
+                <tr>${repHeaders}</tr>
               </thead>
-              <tbody>
-                ${s.reps.map(rep => `
-                  <tr>
-                    <td class="bold">${this._esc(rep.name)}</td>
-                    <td class="num">${rep.totalVolume}</td>
-                    <td class="num">${rep.orderCount}</td>
-                    <td class="num">${rep.salesPerRep}</td>
-                    <td class="num">${rep.internet}</td>
-                    <td class="num">${rep.voip}</td>
-                    <td class="num">${rep.wireless}</td>
-                    <td class="num">${rep.airAwb}</td>
-                    <td class="num">${this._pct(rep.earlyPct)}</td>
-                    <td class="num">${this._pct(rep.latePct)}</td>
-                    <td class="num">${this._pct(rep.abpPct)}</td>
-                    <td class="num">${this._pct(rep.cruPct)}</td>
-                    <td class="num">${this._pct(rep.newWrlsPct)}</td>
-                    <td class="num">${this._pct(rep.byodPct)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
+              <tbody>${repRows}</tbody>
             </table>
           </div>
         </div>`;

@@ -82,6 +82,11 @@ function doGet(e) {
       return jsonResp(readLocalNDSHeadcount());
     }
 
+    // ── NDS production/sales data (read directly from NDS One-on-Ones sheet) ──
+    if (action === 'ndsProduction') {
+      return jsonResp(readNDSProduction());
+    }
+
     // ── List cost files in Drive folder (names + IDs only) ──
     if (action === 'listCostFiles') {
       return jsonResp(listCostFiles());
@@ -3492,6 +3497,126 @@ function readLocalNDSHeadcount() {
     if (!owners[oName]) owners[oName] = { current: null, trend: [] };
     owners[oName].trend.push(entry);
     owners[oName].current = entry; // last row wins
+  }
+
+  return { owners: owners };
+}
+
+// ══════════════════════════════════════════════════
+// READ NDS PRODUCTION/SALES from NDS One-on-Ones sheet
+// Finds "Rep" in column A, reads headers + data rows.
+// Returns same shape as readNLRProduction():
+// { owners: { "Tab Name": { summary: {...}, reps: [{...}] } } }
+// ══════════════════════════════════════════════════
+
+function readNDSProduction() {
+  if (!SHEETS.NDS_ONE_ON_ONES) return { owners: {} };
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NDS_ONE_ON_ONES);
+  } catch (err) {
+    return { error: 'Cannot open NDS One-on-Ones sheet: ' + err.message, owners: {} };
+  }
+
+  var owners = {};
+
+  for (var t = 0; t < NDS_OWNER_TABS.length; t++) {
+    var tabName = NDS_OWNER_TABS[t];
+    var sheet = ss.getSheetByName(tabName);
+    if (!sheet) continue;
+
+    var lastRow = sheet.getLastRow();
+    var lastCol = Math.min(sheet.getLastColumn(), 20);
+    if (lastRow < 10 || lastCol < 5) continue;
+
+    var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+
+    // Find "Rep" header row in column A
+    var headersRow = -1;
+    for (var i = 30; i < data.length; i++) { // sales section is below row 30
+      var cellA = String(data[i][0] || '').trim().toLowerCase();
+      if (cellA === 'rep') {
+        headersRow = i;
+        break;
+      }
+    }
+    if (headersRow < 0) continue;
+
+    // Build column map from headers
+    var hdrs = data[headersRow].map(function(h) { return String(h || '').trim().toLowerCase(); });
+
+    var colIdx = function(patterns) {
+      for (var p = 0; p < patterns.length; p++) {
+        for (var c = 0; c < hdrs.length; c++) {
+          if (hdrs[c].indexOf(patterns[p]) >= 0) return c;
+        }
+      }
+      return -1;
+    };
+
+    var cols = {
+      rep:              0, // column A
+      newPorts:         colIdx(['new/ports', 'new ports', 'sold last week']),
+      orderCount:       colIdx(['order count', 'tier bonus']),
+      cancelFraudPct:   colIdx(['cancel fraud', 'cancel']),
+      extraPremiumPct:  colIdx(['extra', 'premium']),
+      nextUpPct:        colIdx(['next up']),
+      abpPct:           colIdx(['abp']),
+      byodPct:          colIdx(['byod']),
+      newOfNewPortsPct: colIdx(['new %', 'new % of']),
+      insurancePct:     colIdx(['insurance']),
+      highMedCreditPct: colIdx(['high/med', 'credit rating']),
+      awayFromDoorsPct: colIdx(['away from door']),
+      before3pmPct:     colIdx(['before 3']),
+      after730pmPct:    colIdx(['after 7'])
+    };
+
+    // Read data rows below headers
+    var summary = null;
+    var reps = [];
+
+    for (var i = headersRow + 1; i < data.length; i++) {
+      var row = data[i];
+      var repName = String(row[cols.rep] || '').trim();
+      if (!repName) break; // empty row = end of section
+
+      var entry = {
+        name:             repName,
+        rep:              repName,
+        newPorts:         cols.newPorts >= 0 ? num(row[cols.newPorts]) : 0,
+        orderCount:       cols.orderCount >= 0 ? num(row[cols.orderCount]) : 0,
+        cancelFraudPct:   cols.cancelFraudPct >= 0 ? numDec(row[cols.cancelFraudPct]) : 0,
+        extraPremiumPct:  cols.extraPremiumPct >= 0 ? numDec(row[cols.extraPremiumPct]) : 0,
+        nextUpPct:        cols.nextUpPct >= 0 ? numDec(row[cols.nextUpPct]) : 0,
+        abpPct:           cols.abpPct >= 0 ? numDec(row[cols.abpPct]) : 0,
+        byodPct:          cols.byodPct >= 0 ? numDec(row[cols.byodPct]) : 0,
+        newOfNewPortsPct: cols.newOfNewPortsPct >= 0 ? numDec(row[cols.newOfNewPortsPct]) : 0,
+        insurancePct:     cols.insurancePct >= 0 ? numDec(row[cols.insurancePct]) : 0,
+        highMedCreditPct: cols.highMedCreditPct >= 0 ? numDec(row[cols.highMedCreditPct]) : 0,
+        awayFromDoorsPct: cols.awayFromDoorsPct >= 0 ? numDec(row[cols.awayFromDoorsPct]) : 0,
+        before3pmPct:     cols.before3pmPct >= 0 ? numDec(row[cols.before3pmPct]) : 0,
+        after730pmPct:    cols.after730pmPct >= 0 ? numDec(row[cols.after730pmPct]) : 0,
+        // Map to B2B-compatible fields
+        totalVolume:      cols.newPorts >= 0 ? num(row[cols.newPorts]) : 0,
+        salesPerRep:      0,
+        repCount:         0
+      };
+
+      if (repName.toLowerCase() === 'total') {
+        summary = entry;
+      } else {
+        reps.push(entry);
+      }
+    }
+
+    if (summary) {
+      summary.repCount = reps.length;
+    }
+
+    if (summary || reps.length) {
+      owners[tabName] = { summary: summary, reps: reps };
+    }
   }
 
   return { owners: owners };

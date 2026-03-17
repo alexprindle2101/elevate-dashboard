@@ -616,60 +616,257 @@ const OwnerDev = {
   },
 
   /**
-   * Render Cam's company <select>
+   * Render a searchable dropdown trigger (shared by all 3 column types)
+   * @param {string} cellId - unique ID for this dropdown
+   * @param {string} displayVal - current display text (or '' for placeholder)
+   * @param {string} placeholder - placeholder text
+   * @param {boolean} disabled - whether the dropdown is disabled
+   * @param {string} onClickFn - JS expression for opening the dropdown
+   * @param {string} onClearFn - JS expression for clearing the value
+   */
+  _renderSearchDropdown(cellId, displayVal, placeholder, disabled, onClickFn, onClearFn) {
+    const hasVal = displayVal ? ' has-value' : '';
+    const disabledClass = disabled ? ' disabled' : '';
+    const clearBtn = displayVal ? `<span class="sd-clear" onclick="event.stopPropagation();${onClearFn}" title="Clear">&times;</span>` : '';
+
+    return `<div class="sd-wrap" id="sd-wrap-${cellId}">
+      <div class="sd-trigger${hasVal}${disabledClass}" onclick="${disabled ? '' : onClickFn}">
+        <span style="overflow:hidden;text-overflow:ellipsis">${displayVal ? this._esc(displayVal) : placeholder}</span>
+        ${clearBtn}
+        <span class="sd-arrow">▾</span>
+      </div>
+      <div class="sd-dropdown" id="sd-dd-${cellId}"></div>
+    </div>`;
+  },
+
+  /**
+   * Open a searchable dropdown with given options
+   * @param {string} cellId - matches the dropdown wrapper ID
+   * @param {Array} options - [{ value, label }]
+   * @param {string} currentVal - currently selected value
+   * @param {Function} onSelect - callback(value, label) when an option is picked
+   */
+  _openSearchDropdown(cellId, options, currentVal, onSelect) {
+    // Close any other open dropdowns first
+    this._closeAllDropdowns();
+
+    const dd = document.getElementById(`sd-dd-${cellId}`);
+    if (!dd) return;
+
+    // Build the dropdown content
+    dd.innerHTML = `
+      <div class="sd-search-wrap">
+        <input class="sd-search" type="text" placeholder="Type to search..." autocomplete="off">
+      </div>
+      <div class="sd-options"></div>
+    `;
+    dd.classList.add('open');
+
+    const searchInput = dd.querySelector('.sd-search');
+    const optionsContainer = dd.querySelector('.sd-options');
+
+    const renderOptions = (filter = '') => {
+      const q = filter.toLowerCase();
+      const filtered = q ? options.filter(o => o.label.toLowerCase().includes(q)) : options;
+
+      if (filtered.length === 0) {
+        optionsContainer.innerHTML = `<div class="sd-no-results">No matches</div>`;
+        return;
+      }
+
+      optionsContainer.innerHTML = filtered.map(o => {
+        const sel = o.value === currentVal ? ' selected' : '';
+        return `<div class="sd-option${sel}" data-value="${this._esc(o.value)}" data-label="${this._esc(o.label)}">${this._esc(o.label)}</div>`;
+      }).join('');
+
+      // Click handlers on options
+      optionsContainer.querySelectorAll('.sd-option').forEach(el => {
+        el.onclick = () => {
+          const val = el.dataset.value;
+          const label = el.dataset.label;
+          dd.classList.remove('open');
+          onSelect(val, label);
+        };
+      });
+    };
+
+    renderOptions();
+
+    // Search filtering
+    searchInput.oninput = () => renderOptions(searchInput.value);
+    searchInput.onkeydown = (e) => {
+      if (e.key === 'Escape') { dd.classList.remove('open'); }
+    };
+
+    // Focus the search input
+    setTimeout(() => searchInput.focus(), 50);
+
+    // Close on outside click (one-time listener)
+    setTimeout(() => {
+      const closeHandler = (e) => {
+        if (!dd.contains(e.target) && !dd.previousElementSibling?.contains(e.target)) {
+          dd.classList.remove('open');
+          document.removeEventListener('mousedown', closeHandler);
+        }
+      };
+      document.addEventListener('mousedown', closeHandler);
+    }, 10);
+  },
+
+  /**
+   * Close all open searchable dropdowns
+   */
+  _closeAllDropdowns() {
+    document.querySelectorAll('.sd-dropdown.open').forEach(dd => dd.classList.remove('open'));
+  },
+
+  /**
+   * Render Cam's company searchable dropdown
    */
   _renderCamSelect(row, mapping) {
     const val = mapping?.camCompany || '';
     const cellId = `cam-${this._rowId(row.campaign, row.ownerName)}`;
-    const hasVal = val ? ' has-value' : '';
+    const campaign = this._esc(row.campaign);
+    const owner = this._esc(row.ownerName);
 
-    let opts = `<option value="">-- Select --</option>`;
-    for (const company of this.state.camCompanies) {
-      const sel = company === val ? ' selected' : '';
-      opts += `<option value="${this._esc(company)}"${sel}>${this._esc(company)}</option>`;
-    }
-
-    return `<select id="${cellId}" class="${hasVal}" onchange="OwnerDev._onCamCompanyChange('${this._esc(row.campaign)}','${this._esc(row.ownerName)}',this)">${opts}</select>`;
+    return this._renderSearchDropdown(
+      cellId, val, '-- Select Company --', false,
+      `OwnerDev._openCamDropdown('${campaign}','${owner}','${cellId}')`,
+      `OwnerDev._clearCamCompany('${campaign}','${owner}')`
+    );
   },
 
   /**
-   * Render NLR workbook file <select>
+   * Open Cam's company searchable dropdown
+   */
+  _openCamDropdown(campaign, ownerName, cellId) {
+    const mapping = this._findMapping(campaign, ownerName);
+    const currentVal = mapping?.camCompany || '';
+    const options = this.state.camCompanies.map(c => ({ value: c, label: c }));
+
+    this._openSearchDropdown(cellId, options, currentVal, (value, label) => {
+      // Update the trigger display
+      const trigger = document.querySelector(`#sd-wrap-${cellId} .sd-trigger`);
+      if (trigger) {
+        trigger.querySelector('span').textContent = value || '-- Select Company --';
+        trigger.classList.toggle('has-value', !!value);
+      }
+      // Fire the save
+      this._onCamCompanyChange(campaign, ownerName, value);
+    });
+  },
+
+  /**
+   * Clear Cam's company value
+   */
+  _clearCamCompany(campaign, ownerName) {
+    const cellId = `cam-${this._rowId(campaign, ownerName)}`;
+    const trigger = document.querySelector(`#sd-wrap-${cellId} .sd-trigger`);
+    if (trigger) {
+      trigger.querySelector('span').textContent = '-- Select Company --';
+      trigger.classList.remove('has-value');
+    }
+    this._onCamCompanyChange(campaign, ownerName, '');
+  },
+
+  /**
+   * Render NLR workbook file searchable dropdown
    */
   _renderNlrFileSelect(row, mapping) {
     const val = mapping?.nlrWorkbookId || '';
+    const displayVal = mapping?.nlrWorkbookName || '';
     const cellId = `nlr-file-${this._rowId(row.campaign, row.ownerName)}`;
-    const hasVal = val ? ' has-value' : '';
+    const campaign = this._esc(row.campaign);
+    const owner = this._esc(row.ownerName);
 
-    let opts = `<option value="">-- Select File --</option>`;
-    for (const wb of this.state.nlrWorkbooks) {
-      const sel = wb.id === val ? ' selected' : '';
-      opts += `<option value="${this._esc(wb.id)}"${sel}>${this._esc(wb.name)}</option>`;
-    }
-
-    return `<select id="${cellId}" class="${hasVal}" onchange="OwnerDev._onNlrFileChange('${this._esc(row.campaign)}','${this._esc(row.ownerName)}',this)">${opts}</select>`;
+    return this._renderSearchDropdown(
+      cellId, displayVal, '-- Select File --', false,
+      `OwnerDev._openNlrFileDropdown('${campaign}','${owner}','${cellId}')`,
+      `OwnerDev._clearNlrFile('${campaign}','${owner}')`
+    );
   },
 
   /**
-   * Render NLR tab <select> (disabled until workbook is selected)
+   * Open NLR file searchable dropdown
+   */
+  _openNlrFileDropdown(campaign, ownerName, cellId) {
+    const mapping = this._findMapping(campaign, ownerName);
+    const currentVal = mapping?.nlrWorkbookId || '';
+    const options = this.state.nlrWorkbooks.map(wb => ({ value: wb.id, label: wb.name }));
+
+    this._openSearchDropdown(cellId, options, currentVal, (value, label) => {
+      const trigger = document.querySelector(`#sd-wrap-${cellId} .sd-trigger`);
+      if (trigger) {
+        trigger.querySelector('span').textContent = value ? label : '-- Select File --';
+        trigger.classList.toggle('has-value', !!value);
+      }
+      // Fire save (this also fetches tabs for the new workbook)
+      this._onNlrFileChangeSearchable(campaign, ownerName, value, label);
+    });
+  },
+
+  /**
+   * Clear NLR file value
+   */
+  _clearNlrFile(campaign, ownerName) {
+    const cellId = `nlr-file-${this._rowId(campaign, ownerName)}`;
+    const trigger = document.querySelector(`#sd-wrap-${cellId} .sd-trigger`);
+    if (trigger) {
+      trigger.querySelector('span').textContent = '-- Select File --';
+      trigger.classList.remove('has-value');
+    }
+    this._onNlrFileChangeSearchable(campaign, ownerName, '', '');
+  },
+
+  /**
+   * Render NLR tab searchable dropdown
    */
   _renderNlrTabSelect(row, mapping) {
     const wbId = mapping?.nlrWorkbookId || '';
     const val = mapping?.nlrTab || '';
     const cellId = `nlr-tab-${this._rowId(row.campaign, row.ownerName)}`;
-    const disabled = !wbId ? ' disabled' : '';
-    const hasVal = val ? ' has-value' : '';
+    const campaign = this._esc(row.campaign);
+    const owner = this._esc(row.ownerName);
+    const disabled = !wbId;
 
-    let opts = `<option value="">-- Select Tab --</option>`;
+    return this._renderSearchDropdown(
+      cellId, val, '-- Select Tab --', disabled,
+      `OwnerDev._openNlrTabDropdown('${campaign}','${owner}','${cellId}')`,
+      `OwnerDev._clearNlrTab('${campaign}','${owner}')`
+    );
+  },
 
-    // If we have cached tabs for this workbook, populate options
-    if (wbId && this.state.nlrTabsCache[wbId]) {
-      for (const tab of this.state.nlrTabsCache[wbId]) {
-        const sel = tab === val ? ' selected' : '';
-        opts += `<option value="${this._esc(tab)}"${sel}>${this._esc(tab)}</option>`;
+  /**
+   * Open NLR tab searchable dropdown
+   */
+  _openNlrTabDropdown(campaign, ownerName, cellId) {
+    const mapping = this._findMapping(campaign, ownerName);
+    const wbId = mapping?.nlrWorkbookId || '';
+    const currentVal = mapping?.nlrTab || '';
+    const tabs = (wbId && this.state.nlrTabsCache[wbId]) || [];
+    const options = tabs.map(t => ({ value: t, label: t }));
+
+    this._openSearchDropdown(cellId, options, currentVal, (value, label) => {
+      const trigger = document.querySelector(`#sd-wrap-${cellId} .sd-trigger`);
+      if (trigger) {
+        trigger.querySelector('span').textContent = value || '-- Select Tab --';
+        trigger.classList.toggle('has-value', !!value);
       }
-    }
+      this._onNlrTabChangeSearchable(campaign, ownerName, value);
+    });
+  },
 
-    return `<select id="${cellId}" class="${hasVal}"${disabled} onchange="OwnerDev._onNlrTabChange('${this._esc(row.campaign)}','${this._esc(row.ownerName)}',this)">${opts}</select>`;
+  /**
+   * Clear NLR tab value
+   */
+  _clearNlrTab(campaign, ownerName) {
+    const cellId = `nlr-tab-${this._rowId(campaign, ownerName)}`;
+    const trigger = document.querySelector(`#sd-wrap-${cellId} .sd-trigger`);
+    if (trigger) {
+      trigger.querySelector('span').textContent = '-- Select Tab --';
+      trigger.classList.remove('has-value');
+    }
+    this._onNlrTabChangeSearchable(campaign, ownerName, '');
   },
 
   // ══════════════════════════════════════════════════════
@@ -677,14 +874,11 @@ const OwnerDev = {
   // ══════════════════════════════════════════════════════
 
   /**
-   * Handle Cam's Company dropdown change
+   * Handle Cam's Company save (called from searchable dropdown)
    */
-  async _onCamCompanyChange(campaign, ownerName, selectEl) {
+  async _onCamCompanyChange(campaign, ownerName, value) {
     const cellKey = `cam-${campaign}-${ownerName}`;
     if (this.state._savingCells.has(cellKey)) return;
-
-    const value = selectEl.value;
-    selectEl.disabled = true;
     this.state._savingCells.add(cellKey);
 
     try {
@@ -697,12 +891,9 @@ const OwnerDev = {
       });
 
       if (res.success) {
-        // Update local state
         this._upsertMapping(campaign, ownerName, { camCompany: value });
-        selectEl.classList.toggle('has-value', !!value);
         this._renderStats();
         this._toast('Saved', 'success');
-        // Update status badge in same row
         this._updateRowStatus(campaign, ownerName);
       } else {
         this._toast(res.message || 'Save failed', 'error');
@@ -711,36 +902,31 @@ const OwnerDev = {
       console.error('[OwnerDev] Save error:', err);
       this._toast('Save failed. Please try again.', 'error');
     } finally {
-      selectEl.disabled = false;
       this.state._savingCells.delete(cellKey);
     }
   },
 
   /**
-   * Handle NLR File dropdown change — also fetches tabs for the workbook
+   * Handle NLR File save + fetch tabs for the workbook (searchable dropdown version)
    */
-  async _onNlrFileChange(campaign, ownerName, selectEl) {
+  async _onNlrFileChangeSearchable(campaign, ownerName, wbId, wbName) {
     const cellKey = `nlr-file-${campaign}-${ownerName}`;
     if (this.state._savingCells.has(cellKey)) return;
-
-    const wbId = selectEl.value;
-    const wbName = selectEl.options[selectEl.selectedIndex]?.text || '';
-    selectEl.disabled = true;
     this.state._savingCells.add(cellKey);
 
-    // Get the tab select for this row
-    const tabSelectId = `nlr-tab-${this._rowId(campaign, ownerName)}`;
-    const tabSelect = document.getElementById(tabSelectId);
+    // Reset the tab dropdown trigger
+    const tabCellId = `nlr-tab-${this._rowId(campaign, ownerName)}`;
+    const tabTrigger = document.querySelector(`#sd-wrap-${tabCellId} .sd-trigger`);
 
     try {
-      // Save the workbook selection (clear tab when file changes)
+      // Save workbook selection (clear tab when file changes)
       const res = await this._post('odSaveMapping', {
         campaign,
         ownerName,
         field: 'nlrWorkbook',
         nlrWorkbookId: wbId,
         nlrWorkbookName: wbName,
-        nlrTab: '', // clear tab on file change
+        nlrTab: '',
         updatedBy: this.state.session.email
       });
 
@@ -750,7 +936,6 @@ const OwnerDev = {
           nlrWorkbookName: wbName,
           nlrTab: ''
         });
-        selectEl.classList.toggle('has-value', !!wbId);
         this._renderStats();
         this._toast('File saved', 'success');
         this._updateRowStatus(campaign, ownerName);
@@ -758,56 +943,47 @@ const OwnerDev = {
         this._toast(res.message || 'Save failed', 'error');
       }
 
-      // Fetch tabs for the selected workbook
-      if (wbId && tabSelect) {
-        tabSelect.disabled = true;
-        tabSelect.innerHTML = '<option value="">Loading tabs...</option>';
+      // Fetch tabs for the newly selected workbook
+      if (wbId) {
+        if (tabTrigger) {
+          tabTrigger.querySelector('span').textContent = 'Loading tabs...';
+          tabTrigger.classList.add('disabled');
+        }
 
         if (!this.state.nlrTabsCache[wbId]) {
           try {
             const tabsRes = await this._api('odNlrTabs', { sheetId: wbId });
-            if (tabsRes.success) {
-              this.state.nlrTabsCache[wbId] = tabsRes.tabs || [];
-            } else {
-              this.state.nlrTabsCache[wbId] = [];
-            }
+            this.state.nlrTabsCache[wbId] = tabsRes.success ? (tabsRes.tabs || []) : [];
           } catch (err) {
             console.error('[OwnerDev] Tab fetch error:', err);
             this.state.nlrTabsCache[wbId] = [];
           }
         }
 
-        // Populate tab dropdown
-        let tabOpts = '<option value="">-- Select Tab --</option>';
-        for (const tab of (this.state.nlrTabsCache[wbId] || [])) {
-          tabOpts += `<option value="${this._esc(tab)}">${this._esc(tab)}</option>`;
+        // Re-enable the tab dropdown
+        if (tabTrigger) {
+          tabTrigger.querySelector('span').textContent = '-- Select Tab --';
+          tabTrigger.classList.remove('has-value', 'disabled');
         }
-        tabSelect.innerHTML = tabOpts;
-        tabSelect.disabled = false;
-        tabSelect.classList.remove('has-value');
-      } else if (tabSelect) {
-        tabSelect.innerHTML = '<option value="">-- Select Tab --</option>';
-        tabSelect.disabled = true;
-        tabSelect.classList.remove('has-value');
+      } else if (tabTrigger) {
+        tabTrigger.querySelector('span').textContent = '-- Select Tab --';
+        tabTrigger.classList.remove('has-value');
+        tabTrigger.classList.add('disabled');
       }
     } catch (err) {
       console.error('[OwnerDev] Save error:', err);
       this._toast('Save failed. Please try again.', 'error');
     } finally {
-      selectEl.disabled = false;
       this.state._savingCells.delete(cellKey);
     }
   },
 
   /**
-   * Handle NLR Tab dropdown change
+   * Handle NLR Tab save (searchable dropdown version)
    */
-  async _onNlrTabChange(campaign, ownerName, selectEl) {
+  async _onNlrTabChangeSearchable(campaign, ownerName, value) {
     const cellKey = `nlr-tab-${campaign}-${ownerName}`;
     if (this.state._savingCells.has(cellKey)) return;
-
-    const value = selectEl.value;
-    selectEl.disabled = true;
     this.state._savingCells.add(cellKey);
 
     try {
@@ -821,7 +997,6 @@ const OwnerDev = {
 
       if (res.success) {
         this._upsertMapping(campaign, ownerName, { nlrTab: value });
-        selectEl.classList.toggle('has-value', !!value);
         this._renderStats();
         this._toast('Saved', 'success');
         this._updateRowStatus(campaign, ownerName);
@@ -832,7 +1007,6 @@ const OwnerDev = {
       console.error('[OwnerDev] Save error:', err);
       this._toast('Save failed. Please try again.', 'error');
     } finally {
-      selectEl.disabled = false;
       this.state._savingCells.delete(cellKey);
     }
   },

@@ -594,6 +594,63 @@ input, select, textarea { font-family: inherit; }
 .toast.error { background: var(--red); }
 
 /* ═══════════════════════════════════════════════════════
+   SEARCHABLE DROPDOWN
+   ═══════════════════════════════════════════════════════ */
+.sd-wrap {
+  position: relative;
+  min-width: 160px;
+}
+.sd-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 6px 10px; gap: 6px;
+  background: var(--white); border: 1px dashed var(--gray-200);
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 13px; color: var(--gray-500);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sd-trigger:hover { border-color: var(--blue); }
+.sd-trigger.has-value { color: var(--gray-800); border-style: solid; font-weight: 500; }
+.sd-trigger.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+.sd-trigger .sd-arrow { font-size: 10px; color: var(--gray-400); flex-shrink: 0; }
+.sd-trigger .sd-clear {
+  font-size: 14px; color: var(--gray-400); cursor: pointer;
+  padding: 0 2px; flex-shrink: 0; line-height: 1;
+}
+.sd-trigger .sd-clear:hover { color: var(--red); }
+
+.sd-dropdown {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  z-index: 500; max-height: 260px; overflow: hidden;
+  flex-direction: column; min-width: 220px;
+}
+.sd-dropdown.open { display: flex; }
+.sd-dropdown .sd-search-wrap {
+  padding: 8px; border-bottom: 1px solid var(--gray-100);
+}
+.sd-dropdown .sd-search {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm); font-size: 13px;
+  outline: none; font-family: inherit;
+}
+.sd-dropdown .sd-search:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.sd-dropdown .sd-options {
+  overflow-y: auto; max-height: 200px; padding: 4px 0;
+}
+.sd-dropdown .sd-option {
+  padding: 7px 12px; cursor: pointer; font-size: 13px;
+  color: var(--gray-700); transition: background 0.1s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sd-dropdown .sd-option:hover { background: var(--blue-light); color: var(--blue); }
+.sd-dropdown .sd-option.selected { background: var(--blue-light); color: var(--blue); font-weight: 600; }
+.sd-dropdown .sd-no-results {
+  padding: 12px; text-align: center; color: var(--gray-400); font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {

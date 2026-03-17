@@ -129,8 +129,14 @@ function doGet(e) {
     }
 
     // ── OD: Campaign owners (Column A from each campaign sheet) ──
+    // Also returns tab names for each campaign so frontend can show dropdowns
     if (action === 'odCampaignOwners') {
       return jsonResp(odGetCampaignOwners());
+    }
+
+    // ── OD: Campaign tab mappings (owner → tab name overrides) ──
+    if (action === 'odGetCampaignTabMap') {
+      return jsonResp(odGetCampaignTabMap());
     }
 
     // ── OD: List NLR workbooks in Drive folder ──
@@ -247,6 +253,12 @@ function doPost(e) {
         break;
       case 'odSaveMapping':
         result = odSaveMapping(body);
+        break;
+      case 'odSaveCampaignTabMap':
+        result = odSaveCampaignTabMap(body);
+        break;
+      case 'odBatchSaveCampaignTabMap':
+        result = odBatchSaveCampaignTabMap(body);
         break;
       case 'odBatchSaveMappings':
         result = odBatchSaveMappings(body);
@@ -3678,10 +3690,16 @@ function odGetCampaignOwners() {
         var val = String(data[i][0] || '').trim();
         if (val) owners.push(val);
       }
-      campaigns[key] = { label: cfg.label, owners: owners };
+      // Also collect all tab names (for campaign tab mapping dropdown)
+      var tabNames = [];
+      for (var s = 0; s < sheets.length; s++) {
+        var tName = sheets[s].getName().trim();
+        if (tName && tName.charAt(0) !== '_') tabNames.push(tName);
+      }
+      campaigns[key] = { label: cfg.label, owners: owners, tabs: tabNames };
     } catch (err) {
       Logger.log('odCampaignOwners error for ' + key + ': ' + err.message);
-      campaigns[key] = { label: cfg.label, owners: [], error: err.message };
+      campaigns[key] = { label: cfg.label, owners: [], tabs: [], error: err.message };
     }
   }
   return { success: true, campaigns: campaigns };
@@ -4273,25 +4291,52 @@ function consolidateCampaign_(campaignKey, campaign, destSS) {
     }
   }
 
-  // Build set of valid owner tab names (case-insensitive lookup)
-  var ownerTabMap = {}; // lowercase → original name
-  for (var i = 0; i < ownerNames.length; i++) {
-    ownerTabMap[ownerNames[i].toLowerCase()] = ownerNames[i];
+  // ── Load saved tab mappings from _Campaign_Tab_Map ──
+  var savedTabMap = {}; // lowercase ownerName → tabName
+  try {
+    var mapTab = destSS.getSheetByName('_Campaign_Tab_Map');
+    if (mapTab) {
+      var mapData = mapTab.getDataRange().getValues();
+      for (var m = 1; m < mapData.length; m++) {
+        var mapCampaign = String(mapData[m][0] || '').trim().toLowerCase();
+        var mapOwner    = String(mapData[m][1] || '').trim().toLowerCase();
+        var mapTabName  = String(mapData[m][2] || '').trim();
+        if (mapCampaign === campaignKey.toLowerCase() && mapOwner && mapTabName) {
+          savedTabMap[mapOwner] = mapTabName;
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('consolidateCampaign_: could not load tab map: ' + e.message);
+  }
+
+  // Build tab lookup: tabName (lowercase) → Sheet object
+  var tabByName = {};
+  for (var t = 0; t < allTabs.length; t++) {
+    var tn = allTabs[t].getName().trim();
+    if (tn) tabByName[tn.toLowerCase()] = allTabs[t];
   }
 
   var rows = [];
 
-  for (var t = 0; t < allTabs.length; t++) {
-    var tab = allTabs[t];
-    var tabName = tab.getName().trim();
-    if (!tabName) continue;
-    if (tabName.charAt(0) === '_') continue;
-    if (SKIP_TABS_.indexOf(tabName.toLowerCase()) >= 0) continue;
+  // Process each owner: use saved tab mapping if available, else fallback to name match
+  for (var oi = 0; oi < ownerNames.length; oi++) {
+    var ownerName = ownerNames[oi];
+    var ownerLower = ownerName.toLowerCase();
 
-    // Only process tabs that match a known owner name
-    var canonicalName = ownerTabMap[tabName.toLowerCase()];
-    if (!canonicalName && ownerNames.length > 0) continue;
-    var ownerName = canonicalName || tabName;
+    // Determine which tab to read for this owner
+    var targetTabName = savedTabMap[ownerLower] || null;
+    var tab = null;
+
+    if (targetTabName) {
+      // Use saved mapping
+      tab = tabByName[targetTabName.toLowerCase()] || null;
+    }
+    if (!tab) {
+      // Fallback: find tab by owner name match
+      tab = tabByName[ownerLower] || null;
+    }
+    if (!tab) continue; // no tab found for this owner
 
     try {
       var data = tab.getDataRange().getValues();
@@ -4312,7 +4357,7 @@ function consolidateCampaign_(campaignKey, campaign, destSS) {
         rows.push(merged[r]);
       }
     } catch (err) {
-      Logger.log('consolidateCampaign_ tab error (' + campaignKey + '/' + tabName + '): ' + err.message);
+      Logger.log('consolidateCampaign_ tab error (' + campaignKey + '/' + ownerName + '): ' + err.message);
     }
   }
 
@@ -4745,5 +4790,152 @@ function scheduledRefreshCampaigns_() {
     }
   }
   refreshAllCampaigns();
+}
+
+// ══════════════════════════════════════════════════
+// CAMPAIGN TAB MAP — owner→tab name overrides
+// Stored in _Campaign_Tab_Map tab in NATIONAL sheet.
+// Columns: campaign | ownerName | tabName | updatedBy | updatedAt
+// ══════════════════════════════════════════════════
+
+var CAMPAIGN_TAB_MAP_HEADERS = ['campaign', 'ownerName', 'tabName', 'updatedBy', 'updatedAt'];
+
+/**
+ * action=odGetCampaignTabMap
+ * Returns all saved campaign→tab mappings plus the available tabs for each campaign spreadsheet.
+ */
+function odGetCampaignTabMap() {
+  var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  var tab = ss.getSheetByName('_Campaign_Tab_Map');
+
+  var mappings = [];
+  if (tab) {
+    var data = tab.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      if (!row[0] && !row[1]) continue;
+      mappings.push({
+        campaign:  String(row[0] || '').trim(),
+        ownerName: String(row[1] || '').trim(),
+        tabName:   String(row[2] || '').trim(),
+        updatedBy: String(row[3] || '').trim(),
+        updatedAt: String(row[4] || '')
+      });
+    }
+  }
+
+  // Also gather available tabs per campaign
+  var campaignTabs = {};
+  var keys = Object.keys(OD_CAMPAIGNS);
+  for (var k = 0; k < keys.length; k++) {
+    var key = keys[k];
+    var cfg = OD_CAMPAIGNS[key];
+    if (!cfg.sheetId) continue;
+    try {
+      var srcSS = SpreadsheetApp.openById(cfg.sheetId);
+      var sheets = srcSS.getSheets();
+      var tabNames = [];
+      for (var s = 0; s < sheets.length; s++) {
+        var name = sheets[s].getName().trim();
+        if (name && name.charAt(0) !== '_') tabNames.push(name);
+      }
+      campaignTabs[key] = tabNames;
+    } catch (err) {
+      Logger.log('odGetCampaignTabMap tab list error for ' + key + ': ' + err.message);
+      campaignTabs[key] = [];
+    }
+  }
+
+  return { success: true, mappings: mappings, campaignTabs: campaignTabs };
+}
+
+/**
+ * action=odSaveCampaignTabMap (POST)
+ * Save a single campaign→owner→tab mapping.
+ * Body: { campaign, ownerName, tabName, updatedBy }
+ */
+function odSaveCampaignTabMap(body) {
+  var campaign  = String(body.campaign  || '').trim();
+  var ownerName = String(body.ownerName || '').trim();
+  var tabName   = String(body.tabName   || '').trim();
+  var updatedBy = String(body.updatedBy || '').trim();
+  if (!campaign || !ownerName) return { success: false, message: 'campaign and ownerName required' };
+
+  var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  var tab = ss.getSheetByName('_Campaign_Tab_Map');
+  if (!tab) {
+    tab = ss.insertSheet('_Campaign_Tab_Map');
+    tab.getRange(1, 1, 1, CAMPAIGN_TAB_MAP_HEADERS.length).setValues([CAMPAIGN_TAB_MAP_HEADERS]);
+  }
+
+  var data = tab.getDataRange().getValues();
+  var now = new Date().toISOString();
+
+  // Find existing row
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === campaign.toLowerCase() &&
+        String(data[i][1]).trim().toLowerCase() === ownerName.toLowerCase()) {
+      tab.getRange(i + 1, 3, 1, 3).setValues([[tabName, updatedBy, now]]);
+      return { success: true, updated: true };
+    }
+  }
+
+  // Append new row
+  tab.appendRow([campaign, ownerName, tabName, updatedBy, now]);
+  return { success: true, created: true };
+}
+
+/**
+ * action=odBatchSaveCampaignTabMap (POST)
+ * Save multiple campaign→tab mappings at once.
+ * Body: { mappings: [{ campaign, ownerName, tabName, updatedBy }] }
+ */
+function odBatchSaveCampaignTabMap(body) {
+  var items = body.mappings || [];
+  if (!items.length) return { success: true, saved: 0 };
+
+  var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  var tab = ss.getSheetByName('_Campaign_Tab_Map');
+  if (!tab) {
+    tab = ss.insertSheet('_Campaign_Tab_Map');
+    tab.getRange(1, 1, 1, CAMPAIGN_TAB_MAP_HEADERS.length).setValues([CAMPAIGN_TAB_MAP_HEADERS]);
+  }
+
+  var data = tab.getDataRange().getValues();
+  var now = new Date().toISOString();
+
+  // Build lookup for existing rows: "campaign|ownerName" → row index
+  var lookup = {};
+  for (var i = 1; i < data.length; i++) {
+    var key = String(data[i][0]).trim().toLowerCase() + '|' + String(data[i][1]).trim().toLowerCase();
+    lookup[key] = i + 1; // 1-indexed sheet row
+  }
+
+  var toAppend = [];
+  var saved = 0;
+
+  for (var j = 0; j < items.length; j++) {
+    var item = items[j];
+    var campaign  = String(item.campaign  || '').trim();
+    var ownerName = String(item.ownerName || '').trim();
+    var tabName   = String(item.tabName   || '').trim();
+    var updatedBy = String(item.updatedBy || '').trim();
+    if (!campaign || !ownerName) continue;
+
+    var key = campaign.toLowerCase() + '|' + ownerName.toLowerCase();
+    if (lookup[key]) {
+      tab.getRange(lookup[key], 3, 1, 3).setValues([[tabName, updatedBy, now]]);
+    } else {
+      toAppend.push([campaign, ownerName, tabName, updatedBy, now]);
+    }
+    saved++;
+  }
+
+  if (toAppend.length > 0) {
+    var lastRow = tab.getLastRow();
+    tab.getRange(lastRow + 1, 1, toAppend.length, CAMPAIGN_TAB_MAP_HEADERS.length).setValues(toAppend);
+  }
+
+  return { success: true, saved: saved };
 }
 

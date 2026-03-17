@@ -14,6 +14,8 @@ const OwnerDev = {
     camCompanies: [],       // ['Company1', ...] for Cam's autocomplete
     nlrWorkbooks: [],       // [{ id, name }, ...] from NLR Drive folder
     nlrTabsCache: {},       // { sheetId: ['Tab1', ...] }
+    campaignTabMap: [],     // [{ campaign, ownerName, tabName }] saved source tab overrides
+    campaignTabsCache: {},  // { campaignKey: ['Tab1', ...] } available tabs per campaign
     activeCampaign: 'all',  // filter key
     searchQuery: '',        // search filter
     activeTab: 'mapping',   // 'mapping' | 'team'
@@ -351,12 +353,19 @@ const OwnerDev = {
       this._api('odGetMappings'),
       this._api('odGetUsers'),
       this._api('odCamCompanies'),
-      this._api('odNlrWorkbooks')
+      this._api('odNlrWorkbooks'),
+      this._api('odGetCampaignTabMap')
     ]);
 
-    // Process campaign owners
+    // Process campaign owners (also captures tab names per campaign)
     if (results[0].status === 'fulfilled' && results[0].value.success) {
       this.state.campaigns = results[0].value.campaigns || {};
+      // Cache available tabs per campaign from the odCampaignOwners response
+      for (const [key, camp] of Object.entries(this.state.campaigns)) {
+        if (camp.tabs && camp.tabs.length) {
+          this.state.campaignTabsCache[key] = camp.tabs;
+        }
+      }
     } else {
       console.warn('[OwnerDev] Failed to load campaign owners:', results[0].reason || results[0].value);
       // Fallback: build campaigns from config
@@ -406,13 +415,28 @@ const OwnerDev = {
       this.state.nlrWorkbooks = [];
     }
 
+    // Process campaign tab map (source tab overrides)
+    if (results[5].status === 'fulfilled' && results[5].value.success) {
+      this.state.campaignTabMap = results[5].value.mappings || [];
+      // Also merge in campaignTabs from tab map endpoint (may be more up-to-date)
+      const ct = results[5].value.campaignTabs || {};
+      for (const [key, tabs] of Object.entries(ct)) {
+        if (tabs.length) this.state.campaignTabsCache[key] = tabs;
+      }
+    } else {
+      console.warn('[OwnerDev] Failed to load campaign tab map:', results[5].reason || results[5].value);
+      this.state.campaignTabMap = [];
+    }
+
     console.log('[OwnerDev] Data loaded:', {
       campaigns: Object.keys(this.state.campaigns).length,
       mappings: this.state.mappings.length,
       users: this.state.users.length,
       camCompanies: this.state.camCompanies.length,
       nlrWorkbooks: this.state.nlrWorkbooks.length,
-      clientToBusinessPairs: this.state.clientToBusinessMap.length
+      clientToBusinessPairs: this.state.clientToBusinessMap.length,
+      campaignTabMaps: this.state.campaignTabMap.length,
+      campaignTabsCached: Object.keys(this.state.campaignTabsCache).length
     });
 
     // Run Cam auto-map immediately (data already loaded)
@@ -423,6 +447,11 @@ const OwnerDev = {
     // NLR auto-map: match files first, then fetch tabs only for matched workbooks
     if (this.state.nlrWorkbooks.length > 0) {
       await this._autoMapNlrFiles();
+    }
+
+    // Campaign tab auto-map: match owner names to tab names in each campaign spreadsheet
+    if (Object.keys(this.state.campaignTabsCache).length > 0) {
+      await this._autoMapCampaignTabs();
     }
   },
 
@@ -642,14 +671,16 @@ const OwnerDev = {
     const btn = document.getElementById('btn-automap');
     if (btn) { btn.disabled = true; btn.textContent = '⚡ Mapping...'; }
 
+    const tabCount = await this._autoMapCampaignTabs();
     const camCount = await this._autoMapCamCompanies();
     const nlrCount = await this._autoMapNlrFiles();
-    const total = camCount + nlrCount;
+    const total = tabCount + camCount + nlrCount;
 
     if (total === 0) {
       this._toast('No new matches found — remaining owners need manual mapping', 'error');
     } else {
       const parts = [];
+      if (tabCount) parts.push(`${tabCount} source tab${tabCount > 1 ? 's' : ''}`);
       if (camCount) parts.push(`${camCount} compan${camCount > 1 ? 'ies' : 'y'}`);
       if (nlrCount) parts.push(`${nlrCount} NLR file${nlrCount > 1 ? 's' : ''}`);
       this._toast(`Auto-mapped ${parts.join(' + ')}`, 'success');
@@ -837,6 +868,7 @@ const OwnerDev = {
     const team = this._getEffectiveTeam();
     const isCam = team === 'cam';
     const isNlr = team === 'nlr';
+    const isMaddie = team === 'maddie';
 
     let html = '';
     for (const row of sorted) {
@@ -854,6 +886,15 @@ const OwnerDev = {
 
       // Owner name
       html += `<td><strong>${this._esc(row.ownerName)}</strong></td>`;
+
+      // Source Tab column (editable for Maddie's team + superadmins)
+      if (isMaddie || this.state.isSuperadmin) {
+        html += `<td class="cell-editable">${this._renderSourceTabSelect(row)}</td>`;
+      } else {
+        const tabMapping = this._findCampaignTabMap(row.campaign, row.ownerName);
+        const val = tabMapping?.tabName || '';
+        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span style="color:var(--gray-300)">--</span>'}</td>`;
+      }
 
       // Cam's Company column
       if (isCam) {
@@ -1158,8 +1199,174 @@ const OwnerDev = {
   },
 
   // ══════════════════════════════════════════════════════
+  // SOURCE TAB — Campaign spreadsheet tab mapping
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * Find an existing campaign tab mapping for a campaign+owner
+   */
+  _findCampaignTabMap(campaign, ownerName) {
+    return this.state.campaignTabMap.find(
+      m => m.campaign === campaign && m.ownerName.toLowerCase() === ownerName.toLowerCase()
+    ) || null;
+  },
+
+  /**
+   * Upsert campaign tab mapping in local state
+   */
+  _upsertCampaignTabMap(campaign, ownerName, tabName) {
+    let mapping = this._findCampaignTabMap(campaign, ownerName);
+    if (mapping) {
+      mapping.tabName = tabName;
+    } else {
+      this.state.campaignTabMap.push({ campaign, ownerName, tabName });
+    }
+  },
+
+  /**
+   * Render Source Tab searchable dropdown
+   */
+  _renderSourceTabSelect(row) {
+    const tabMapping = this._findCampaignTabMap(row.campaign, row.ownerName);
+    const val = tabMapping?.tabName || '';
+    const cellId = `src-tab-${this._rowId(row.campaign, row.ownerName)}`;
+    const campaign = this._esc(row.campaign);
+    const owner = this._esc(row.ownerName);
+    const hasTabs = (this.state.campaignTabsCache[row.campaign] || []).length > 0;
+
+    return this._renderSearchDropdown(
+      cellId, val, '-- Select Tab --', !hasTabs,
+      `OwnerDev._openSourceTabDropdown('${campaign}','${owner}','${cellId}')`,
+      `OwnerDev._clearSourceTab('${campaign}','${owner}')`
+    );
+  },
+
+  /**
+   * Open Source Tab searchable dropdown
+   */
+  _openSourceTabDropdown(campaign, ownerName, cellId) {
+    const tabMapping = this._findCampaignTabMap(campaign, ownerName);
+    const currentVal = tabMapping?.tabName || '';
+    const tabs = this.state.campaignTabsCache[campaign] || [];
+    const options = tabs.map(t => ({ value: t, label: t }));
+
+    this._openSearchDropdown(cellId, options, currentVal, (value, label) => {
+      const trigger = document.querySelector(`#sd-wrap-${cellId} .sd-trigger`);
+      if (trigger) {
+        trigger.querySelector('span').textContent = value || '-- Select Tab --';
+        trigger.classList.toggle('has-value', !!value);
+      }
+      this._onSourceTabChange(campaign, ownerName, value);
+    });
+  },
+
+  /**
+   * Clear Source Tab value
+   */
+  _clearSourceTab(campaign, ownerName) {
+    const cellId = `src-tab-${this._rowId(campaign, ownerName)}`;
+    const trigger = document.querySelector(`#sd-wrap-${cellId} .sd-trigger`);
+    if (trigger) {
+      trigger.querySelector('span').textContent = '-- Select Tab --';
+      trigger.classList.remove('has-value');
+    }
+    this._onSourceTabChange(campaign, ownerName, '');
+  },
+
+  /**
+   * Auto-map campaign tabs by fuzzy-matching owner names to tab names.
+   * Only fills in where there's no existing saved mapping.
+   * Returns count of auto-mapped owners.
+   */
+  async _autoMapCampaignTabs() {
+    let autoMapped = 0;
+    const toSave = [];
+
+    for (const [campaignKey, campaign] of Object.entries(this.state.campaigns)) {
+      const tabs = this.state.campaignTabsCache[campaignKey] || [];
+      if (!tabs.length) continue;
+
+      for (const ownerName of (campaign.owners || [])) {
+        // Skip if already has a saved mapping
+        const existing = this._findCampaignTabMap(campaignKey, ownerName);
+        if (existing?.tabName) continue;
+
+        // Try to find a matching tab
+        let matchedTab = null;
+
+        // 1. Exact match (case-insensitive)
+        const ownerLower = ownerName.toLowerCase().trim();
+        matchedTab = tabs.find(t => t.toLowerCase().trim() === ownerLower);
+
+        // 2. Fuzzy match using _namesMatch
+        if (!matchedTab) {
+          matchedTab = tabs.find(t => this._namesMatch(ownerName, t));
+        }
+
+        // 3. Token overlap: owner name tokens found inside tab name
+        if (!matchedTab) {
+          const ownerTokens = this._normName(ownerName).split(' ').filter(t => t.length >= 2);
+          if (ownerTokens.length >= 1) {
+            matchedTab = tabs.find(t => {
+              const normTab = this._normName(t);
+              const matchCount = ownerTokens.filter(tok => normTab.includes(tok)).length;
+              return matchCount >= 2 || (ownerTokens.length === 1 && matchCount === 1);
+            });
+          }
+        }
+
+        if (matchedTab) {
+          this._upsertCampaignTabMap(campaignKey, ownerName, matchedTab);
+          toSave.push({ campaign: campaignKey, ownerName, tabName: matchedTab, updatedBy: 'auto-map' });
+          autoMapped++;
+        }
+      }
+    }
+
+    // Batch save all auto-mapped tab mappings
+    if (toSave.length > 0) {
+      console.log(`[OwnerDev] Auto-mapped ${toSave.length} owners to campaign tabs`);
+      this._post('odBatchSaveCampaignTabMap', { mappings: toSave })
+        .then(res => console.log('[OwnerDev] Batch save campaign tab map result:', res))
+        .catch(err => console.warn('[OwnerDev] Batch save campaign tab map error:', err.message));
+    }
+
+    return autoMapped;
+  },
+
+  // ══════════════════════════════════════════════════════
   // SAVE HANDLERS (auto-save on dropdown change)
   // ══════════════════════════════════════════════════════
+
+  /**
+   * Handle Source Tab save (called from searchable dropdown)
+   */
+  async _onSourceTabChange(campaign, ownerName, value) {
+    const cellKey = `src-tab-${campaign}-${ownerName}`;
+    if (this.state._savingCells.has(cellKey)) return;
+    this.state._savingCells.add(cellKey);
+
+    try {
+      const res = await this._post('odSaveCampaignTabMap', {
+        campaign,
+        ownerName,
+        tabName: value,
+        updatedBy: this.state.session.email
+      });
+
+      if (res.success) {
+        this._upsertCampaignTabMap(campaign, ownerName, value);
+        this._toast('Source tab saved', 'success');
+      } else {
+        this._toast(res.message || 'Save failed', 'error');
+      }
+    } catch (err) {
+      console.error('[OwnerDev] Source tab save error:', err);
+      this._toast('Save failed. Please try again.', 'error');
+    } finally {
+      this.state._savingCells.delete(cellKey);
+    }
+  },
 
   /**
    * Handle Cam's Company save (called from searchable dropdown)

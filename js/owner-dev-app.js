@@ -375,12 +375,14 @@ const OwnerDev = {
       this.state.users = [];
     }
 
-    // Process Cam's companies
+    // Process Cam's companies + client→business name map
     if (results[3].status === 'fulfilled' && results[3].value.success) {
       this.state.camCompanies = results[3].value.companies || [];
+      this.state.clientToBusinessMap = results[3].value.clientToBusinessMap || [];
     } else {
       console.warn('[OwnerDev] Failed to load Cam companies:', results[3].reason || results[3].value);
       this.state.camCompanies = [];
+      this.state.clientToBusinessMap = [];
     }
 
     // Process NLR workbooks
@@ -396,8 +398,136 @@ const OwnerDev = {
       mappings: this.state.mappings.length,
       users: this.state.users.length,
       camCompanies: this.state.camCompanies.length,
-      nlrWorkbooks: this.state.nlrWorkbooks.length
+      nlrWorkbooks: this.state.nlrWorkbooks.length,
+      clientToBusinessPairs: this.state.clientToBusinessMap.length
     });
+
+    // Run auto-map on first load if there are unmapped owners and we have mapping data
+    if (this.state.clientToBusinessMap.length > 0) {
+      await this._autoMapCamCompanies();
+    }
+  },
+
+  // ══════════════════════════════════════════════════════
+  // AUTO-MAPPING (Cam's companies by name similarity)
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * Normalize a name for fuzzy comparison: lowercase, strip punctuation, collapse whitespace
+   */
+  _normName(name) {
+    return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  },
+
+  /**
+   * Check if two names are a fuzzy match.
+   * Matches if: exact, one contains the other, or first+last name tokens overlap.
+   */
+  _namesMatch(ownerName, clientName) {
+    const a = this._normName(ownerName);
+    const b = this._normName(clientName);
+    if (!a || !b) return false;
+
+    // Exact
+    if (a === b) return true;
+
+    // One contains the other
+    if (a.includes(b) || b.includes(a)) return true;
+
+    // Token overlap: if first and last name both match
+    const aToks = a.split(' ');
+    const bToks = b.split(' ');
+    if (aToks.length >= 2 && bToks.length >= 2) {
+      const aFirst = aToks[0], aLast = aToks[aToks.length - 1];
+      const bFirst = bToks[0], bLast = bToks[bToks.length - 1];
+      if (aFirst === bFirst && aLast === bLast) return true;
+    }
+
+    // First name + last initial (e.g. "Jay T" matches "Jay Thurston")
+    if (aToks.length >= 1 && bToks.length >= 2) {
+      if (aToks[0] === bToks[0] && aToks.length === 2 && aToks[1].length === 1 && bToks[bToks.length - 1].startsWith(aToks[1])) return true;
+    }
+    if (bToks.length >= 1 && aToks.length >= 2) {
+      if (bToks[0] === aToks[0] && bToks.length === 2 && bToks[1].length === 1 && aToks[aToks.length - 1].startsWith(bToks[1])) return true;
+    }
+
+    return false;
+  },
+
+  /**
+   * Auto-map unmapped owners to Cam's companies by matching owner name → client name.
+   * Only fills in camCompany where there's no existing mapping.
+   * Returns count of auto-mapped owners.
+   */
+  async _autoMapCamCompanies() {
+    const pairs = this.state.clientToBusinessMap;
+    if (!pairs.length) return 0;
+
+    let autoMapped = 0;
+    const toSave = [];
+
+    // For each owner across all campaigns, check if they match a client name
+    for (const [campaignKey, campaign] of Object.entries(this.state.campaigns)) {
+      for (const ownerName of (campaign.owners || [])) {
+        const existing = this._findMapping(campaignKey, ownerName);
+        if (existing?.camCompany) continue; // already mapped
+
+        // Find best match from client→business pairs
+        let match = null;
+        for (const pair of pairs) {
+          if (this._namesMatch(ownerName, pair.clientName)) {
+            match = pair.businessName;
+            break;
+          }
+        }
+
+        if (match) {
+          // Update local state immediately
+          this._upsertMapping(campaignKey, ownerName, { camCompany: match });
+          toSave.push({ campaign: campaignKey, ownerName, value: match });
+          autoMapped++;
+        }
+      }
+    }
+
+    // Save all auto-mapped values to backend (fire-and-forget, don't block UI)
+    if (toSave.length > 0) {
+      console.log(`[OwnerDev] Auto-mapped ${toSave.length} owners to Cam companies`);
+      this._toast(`Auto-mapped ${toSave.length} owner${toSave.length > 1 ? 's' : ''} to companies`, 'success');
+
+      // Save in background (don't await all — just fire them)
+      for (const item of toSave) {
+        this._post('odSaveMapping', {
+          campaign: item.campaign,
+          ownerName: item.ownerName,
+          field: 'camCompany',
+          value: item.value,
+          updatedBy: 'auto-map'
+        }).catch(err => console.warn('[OwnerDev] Auto-map save error:', err.message));
+      }
+    }
+
+    return autoMapped;
+  },
+
+  /**
+   * Manual auto-map trigger (from the UI button)
+   */
+  async runAutoMap() {
+    const btn = document.getElementById('btn-automap');
+    if (btn) { btn.disabled = true; btn.textContent = '⚡ Mapping...'; }
+
+    const count = await this._autoMapCamCompanies();
+
+    if (count === 0) {
+      this._toast('No new matches found — remaining owners need manual mapping', 'error');
+    }
+
+    // Re-render everything
+    this._renderStats();
+    this.renderMapping();
+
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Map'; }
   },
 
   // ══════════════════════════════════════════════════════

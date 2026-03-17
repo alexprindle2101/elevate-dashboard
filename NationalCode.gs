@@ -3990,21 +3990,30 @@ function odGetCamCompanies() {
     if (headerRowIdx >= 0) break;
   }
 
-  // Prefer Business Name; fall back to Client Name
+  // Prefer Business Name; fall back to Client Name for company list
   var useCol = bizCol >= 0 ? bizCol : clientCol;
-  if (useCol < 0) return { success: true, companies: [] };
+  if (useCol < 0) return { success: true, companies: [], clientToBusinessMap: [] };
 
   var seen = {};
   var companies = [];
+  // Also build client name → business name pairs for auto-mapping
+  var clientToBusinessMap = [];
   for (var i = headerRowIdx + 1; i < data.length; i++) {
-    var val = String(data[i][useCol] || '').trim();
-    if (val && !seen[val]) {
-      seen[val] = true;
-      companies.push(val);
+    var bizVal = String(data[i][useCol] || '').trim();
+    if (bizVal && !seen[bizVal]) {
+      seen[bizVal] = true;
+      companies.push(bizVal);
+    }
+    // If both columns exist, build the mapping pairs
+    if (bizCol >= 0 && clientCol >= 0) {
+      var clientVal = String(data[i][clientCol] || '').trim();
+      if (clientVal && bizVal) {
+        clientToBusinessMap.push({ clientName: clientVal, businessName: bizVal });
+      }
     }
   }
   companies.sort();
-  return { success: true, companies: companies };
+  return { success: true, companies: companies, clientToBusinessMap: clientToBusinessMap };
 }
 
 // ═══════════════════════════════════════════════════════

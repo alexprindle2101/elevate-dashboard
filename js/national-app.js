@@ -1127,6 +1127,71 @@ const NationalApp = {
     }
   },
 
+  /**
+   * Refresh all campaign data from the landing page.
+   * Same as importLatestRecruiting but targets landing page UI elements
+   * and reloads the landing page when done.
+   */
+  async refreshAllFromLanding() {
+    if (!NATIONAL_CONFIG.appsScriptUrl) {
+      alert('Apps Script URL not configured. Deploy NationalCode.gs first.');
+      return;
+    }
+
+    const btn = document.getElementById('btn-refresh-all');
+    const status = document.getElementById('landing-refresh-status');
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Refreshing...'; }
+    if (status) { status.textContent = 'Pulling data from all campaign spreadsheets...'; status.className = 'import-status'; }
+
+    try {
+      const resp = await this._fetchWithTimeout(
+        fetch(NATIONAL_CONFIG.appsScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            key: NATIONAL_CONFIG.apiKey,
+            action: 'refreshCampaigns'
+          })
+        }),
+        180000 // 3 min — full historic pull from all spreadsheets
+      );
+
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+
+      // Show success summary
+      const results = result.results || {};
+      const successCount = Object.values(results).filter(r => r.ok).length;
+      const totalRows = Object.values(results).reduce((sum, r) => sum + (r.rows || 0), 0);
+
+      if (status) {
+        status.textContent = `Done! ${successCount} campaigns, ${totalRows} rows. Reloading...`;
+        status.className = 'import-status import-success';
+      }
+
+      // Clear cache and reload everything
+      this._allCampaignsData = null;
+      await this.loadCampaignData('att-b2b'); // re-fetches all campaigns
+      this._showLandingPage();
+
+      if (status) {
+        status.textContent = `Refreshed ${successCount} campaigns (${totalRows} rows)`;
+        setTimeout(() => { status.textContent = ''; status.className = 'import-status'; }, 8000);
+      }
+
+      console.log('[NationalApp] Full refresh from landing:', result);
+    } catch (err) {
+      console.error('[NationalApp] Landing refresh failed:', err);
+      if (status) {
+        status.textContent = 'Refresh failed: ' + err.message;
+        status.className = 'import-status import-error';
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Refresh All Data'; }
+    }
+  },
+
   // (Bulk importCosts removed — costs now lazy-load per-owner when Recruiting tab opens)
 
   // ══════════════════════════════════════════════════

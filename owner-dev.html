@@ -184,8 +184,14 @@
     <!-- CAMPAIGN LANDING PAGE -->
     <section id="campaign-landing" class="campaign-landing">
       <div class="landing-header">
-        <h1 class="landing-title">Campaigns</h1>
-        <p class="landing-subtitle">Select a campaign to view owner coaching data</p>
+        <div>
+          <h1 class="landing-title">Campaigns</h1>
+          <p class="landing-subtitle">Select a campaign to view owner coaching data</p>
+        </div>
+        <div class="landing-actions">
+          <button id="btn-refresh-all" class="hc-submit-btn" onclick="NationalApp.refreshAllFromLanding()">Refresh All Data</button>
+          <span id="landing-refresh-status" class="import-status"></span>
+        </div>
       </div>
       <div id="campaign-cards" class="campaign-cards-grid"></div>
     </section>
@@ -319,7 +325,7 @@
      ═══════════════════════════════════════════════════════ -->
 <script src="js/owner-dev-config.js?v=2"></script>
 <script src="js/national-config.js?v=17"></script>
-<script src="js/national-app.js?v=95"></script>
+<script src="js/national-app.js?v=96"></script>
 <script src="js/owner-dev-app.js?v=6"></script>
 
 </body>

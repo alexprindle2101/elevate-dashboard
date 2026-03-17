@@ -53,6 +53,12 @@ const OwnerDev = {
       document.getElementById('nav-team-tab').style.display = '';
     }
 
+    // Show coach tab for superadmins (Ken's coaching view)
+    if (this.state.isSuperadmin) {
+      const coachTab = document.getElementById('nav-coach-tab');
+      if (coachTab) coachTab.style.display = '';
+    }
+
     // Build View-As bar for superadmins
     if (this.state.isSuperadmin) {
       this._buildViewAsBar();
@@ -675,9 +681,20 @@ const OwnerDev = {
     document.getElementById('view-mapping').style.display = tab === 'mapping' ? '' : 'none';
     const teamView = document.getElementById('view-team');
     teamView.classList.toggle('active', tab === 'team');
+    const coachView = document.getElementById('view-coach');
+    if (coachView) coachView.style.display = tab === 'coach' ? '' : 'none';
 
     if (tab === 'team') {
       this.renderTeam();
+    }
+    if (tab === 'coach') {
+      // Lazy-init the NationalApp coach view on first open
+      if (typeof NationalApp !== 'undefined') {
+        NationalApp.initCoachView({
+          email: this.state.session.email,
+          name: this.state.session.name
+        });
+      }
     }
   },
 

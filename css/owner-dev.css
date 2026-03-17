@@ -661,6 +661,28 @@ input, select, textarea { font-family: inherit; }
 }
 
 /* ═══════════════════════════════════════════════════════
+   COACH VIEW (embedded National Dashboard)
+   ═══════════════════════════════════════════════════════ */
+#view-coach {
+  padding: 20px 28px 40px;
+}
+.coach-campaign-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.coach-campaign-bar .campaign-selector select {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-200);
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--white);
+  color: var(--gray-700);
+}
+
+/* ═══════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {

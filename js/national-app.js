@@ -82,6 +82,31 @@ const NationalApp = {
     this._showLandingPage();
   },
 
+  /**
+   * Embedded coach view init — called from OwnerDev.switchTab('coach').
+   * Skips auth (uses OwnerDev's session) and doesn't toggle dashboard visibility.
+   * @param {Object} session - { email, name } from OwnerDev
+   */
+  async initCoachView(session) {
+    if (this._coachInitDone) {
+      // Already loaded — just make sure landing page is visible
+      return;
+    }
+    console.log('[NationalApp] initCoachView (embedded in Owner Dev)');
+    this._embedded = true;
+    this.state.session = { email: session.email, name: session.name, loginTime: Date.now() };
+
+    this._showLoading('Loading coaching data...');
+    try {
+      await this.loadCampaignData('att-b2b');
+    } catch (err) {
+      console.warn('[NationalApp] Coach view campaign fetch failed:', err.message);
+    }
+    this._hideLoading();
+    this._showLandingPage();
+    this._coachInitDone = true;
+  },
+
   // ══════════════════════════════════════════════════
   // SESSION (simple localStorage — same pattern as admin)
   // ══════════════════════════════════════════════════
@@ -4053,4 +4078,10 @@ const NationalApp = {
 };
 
 // ── Boot ──
-document.addEventListener('DOMContentLoaded', () => NationalApp.init());
+// Only auto-init on national.html (standalone). When embedded in owner-dev.html,
+// OwnerDev calls NationalApp.initCoachView() from the Coach tab.
+document.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('view-coach')) {
+    NationalApp.init();
+  }
+});

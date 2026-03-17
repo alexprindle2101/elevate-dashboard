@@ -15,7 +15,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="css/owner-dev.css?v=1">
+  <link rel="stylesheet" href="css/owner-dev.css?v=2">
+  <link rel="stylesheet" href="css/national.css?v=67">
 </head>
 <body>
 
@@ -79,6 +80,7 @@
   <nav class="nav-tabs">
     <button class="nav-tab active" data-tab="mapping" onclick="OwnerDev.switchTab('mapping')">Mapping</button>
     <button id="nav-team-tab" class="nav-tab" data-tab="team" onclick="OwnerDev.switchTab('team')" style="display:none">Team</button>
+    <button id="nav-coach-tab" class="nav-tab" data-tab="coach" onclick="OwnerDev.switchTab('coach')" style="display:none">Coach</button>
   </nav>
 
   <!-- MAPPING VIEW -->
@@ -164,6 +166,148 @@
     </div>
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════
+       COACH VIEW (National Dashboard — embedded)
+       ═══════════════════════════════════════════════════════ -->
+  <div id="view-coach" class="dashboard-content dashboard-layout" style="display:none">
+
+    <!-- Campaign selector (inside coach view, not top bar) -->
+    <div class="coach-campaign-bar">
+      <div class="campaign-selector">
+        <select id="campaign-select" onchange="NationalApp.switchCampaign(this.value)">
+          <option value="att-b2b">AT&T B2B</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- CAMPAIGN LANDING PAGE -->
+    <section id="campaign-landing" class="campaign-landing">
+      <div class="landing-header">
+        <h1 class="landing-title">Campaigns</h1>
+        <p class="landing-subtitle">Select a campaign to view owner coaching data</p>
+      </div>
+      <div id="campaign-cards" class="campaign-cards-grid"></div>
+    </section>
+
+    <!-- CAMPAIGN OVERVIEW -->
+    <section class="campaign-overview" style="display:none">
+      <div class="overview-header">
+        <div class="overview-header-top">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <button class="back-btn" onclick="NationalApp.backToLanding()" title="Back to campaigns">&larr;</button>
+              <h1 id="campaign-title">AT&T B2B Campaign</h1>
+            </div>
+            <p id="campaign-subtitle">Week-over-week owner review</p>
+            <div class="overview-date" id="overview-date"></div>
+          </div>
+          <div class="overview-actions">
+            <select id="import-weeks" class="import-weeks-select">
+              <option value="1">Latest Week</option>
+              <option value="4">Last 4 Weeks</option>
+              <option value="6" selected>Last 6 Weeks</option>
+              <option value="0">All History</option>
+            </select>
+            <button id="btn-import-recruiting" class="hc-submit-btn"
+              onclick="NationalApp.importLatestRecruiting()">Import Recruiting</button>
+            <span id="import-status" class="import-status"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CAMPAIGN-LEVEL KPI CARDS -->
+      <div class="kpi-row" id="campaign-kpis">
+        <div class="kpi-card">
+          <div class="kpi-label">Active Headcount</div>
+          <div class="kpi-value" id="kpi-headcount">&mdash;</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">1st Rounds Booked</div>
+          <div class="kpi-value" id="kpi-1st-booked">&mdash;</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">New Starts Scheduled</div>
+          <div class="kpi-value" id="kpi-starts">&mdash;</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Start Retention</div>
+          <div class="kpi-value" id="kpi-retention">&mdash;</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total Production</div>
+          <div class="kpi-value" id="kpi-production">&mdash;</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OWNERS LIST -->
+    <section class="owners-section">
+      <div class="section-header">
+        <h2>Owners</h2>
+        <div class="section-actions">
+          <input type="text" id="owner-search" class="search-input" placeholder="Search owners..." oninput="NationalApp.filterOwners(this.value)">
+        </div>
+      </div>
+      <div id="owners-list" class="owners-grid">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- OWNER DETAIL (shown when an owner card is clicked) -->
+    <section id="owner-detail" class="owner-detail" style="display:none">
+      <div class="detail-header">
+        <button class="btn-back" onclick="NationalApp.closeOwnerDetail()">&larr; All Owners</button>
+        <h2 id="detail-owner-name">&mdash;</h2>
+        <span class="detail-badge" id="detail-owner-badge"></span>
+      </div>
+
+      <!-- TAB NAV -->
+      <div class="detail-tabs">
+        <button class="detail-tab active" data-tab="health" onclick="NationalApp.switchDetailTab('health')">Office Health</button>
+        <button class="detail-tab" data-tab="recruiting" onclick="NationalApp.switchDetailTab('recruiting')">Recruiting</button>
+        <button class="detail-tab" data-tab="sales" onclick="NationalApp.switchDetailTab('sales')">Sales</button>
+        <button class="detail-tab" data-tab="audit" onclick="NationalApp.switchDetailTab('audit')">Online Presence</button>
+      </div>
+
+      <!-- HEALTH TAB (1-on-1 Coaching Flow) — 2-column: cards | trends -->
+      <div id="tab-health" class="detail-tab-content">
+        <div class="health-grid">
+          <div class="health-col-left">
+            <div id="health-headcount" class="coaching-section"></div>
+            <div id="health-production" class="coaching-section"></div>
+            <div id="health-goals" class="coaching-section"></div>
+          </div>
+          <div class="health-col-right">
+            <div id="health-hc-trend" class="coaching-section"></div>
+            <div id="health-prod-trend" class="coaching-section"></div>
+            <div id="health-notes" class="coaching-section"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECRUITING TAB -->
+      <div id="tab-recruiting" class="detail-tab-content" style="display:none">
+        <div id="owner-recruiting-table"></div>
+        <div id="owner-recruiting-wow" class="coaching-section"></div>
+        <div id="recruiting-banner"></div>
+        <div id="owner-indeed-costs" class="coaching-section"></div>
+      </div>
+
+      <!-- SALES TAB -->
+      <div id="tab-sales" class="detail-tab-content" style="display:none">
+        <div class="sales-summary" id="sales-summary"></div>
+        <div class="sales-reps" id="sales-reps-table"></div>
+      </div>
+
+      <!-- AUDIT TAB -->
+      <div id="tab-audit" class="detail-tab-content" style="display:none">
+        <div class="audit-grades" id="audit-grades"></div>
+        <div class="audit-details" id="audit-details"></div>
+      </div>
+    </section>
+
+  </div>
+
 </div>
 
 <!-- Toast notification -->
@@ -172,8 +316,10 @@
 <!-- ═══════════════════════════════════════════════════════
      SCRIPTS
      ═══════════════════════════════════════════════════════ -->
-<script src="js/owner-dev-config.js?v=1"></script>
-<script src="js/owner-dev-app.js?v=3"></script>
+<script src="js/owner-dev-config.js?v=2"></script>
+<script src="js/national-config.js?v=15"></script>
+<script src="js/national-app.js?v=92"></script>
+<script src="js/owner-dev-app.js?v=4"></script>
 
 </body>
 </html>

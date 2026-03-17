@@ -4580,9 +4580,9 @@ function extractHorizontalRecruitingRows_(data, start, end) {
   // Use nth-occurrence logic for "retention" (appears 3 times)
   var colCalls = findCol(headers, ['calls received', 'applies received', 'applies']);
   var colSentToList = findCol(headers, ['sent to call list', 'sent to list', 'no list']);
-  var col1stBooked = findCol(headers, ['1st rounds booked', '1st booked']);
-  var col1stShowed = findCol(headers, ['1st rounds showed', '1st showed']);
-  var colConversion = findCol(headers, ['conversion', 'turned to 2nd']);
+  var col1stBooked = findCol(headers, ['1st rounds booked', '1st booked', 'first booked']);
+  var col1stShowed = findCol(headers, ['1st rounds showed', '1st showed', 'first showed']);
+  var colConversion = findCol(headers, ['conversion', 'turned to 2nd', 'call list']);
 
   // Find 2nd round columns (must contain "2nd")
   var col2ndBooked = -1, col2ndShowed = -1;
@@ -4664,8 +4664,10 @@ function extractRecruitingRows_(data, start, end) {
   var dateRowIdx = -1;
   var dateCols = []; // [{colIdx, date}]
 
-  // Scan first few rows of section for date-like values in columns B+
-  for (var i = start; i <= Math.min(start + 4, end); i++) {
+  // Scan from 2 rows BEFORE section start (dates row is often above the
+  // "Projected Weekly" / "Actual Recruiting" trigger row) through start+4
+  var scanFrom = Math.max(0, start - 2);
+  for (var i = scanFrom; i <= Math.min(start + 4, end); i++) {
     var foundDates = [];
     for (var j = 1; j < data[i].length; j++) {
       var cellVal = data[i][j];
@@ -4697,10 +4699,10 @@ function extractRecruitingRows_(data, start, end) {
 
     if (label.indexOf('calls received') >= 0 || label.indexOf('applies') >= 0) metricsMap.callsReceived = data[i];
     else if (label.indexOf('no list') >= 0 || label.indexOf('sent to call') >= 0 || label.indexOf('sent to list') >= 0) metricsMap.noList = data[i];
-    else if ((label === 'booked' || (label.indexOf('1st') >= 0 && label.indexOf('book') >= 0)) && !metricsMap.booked) metricsMap.booked = data[i];
-    else if ((label === 'showed' || (label.indexOf('1st') >= 0 && label.indexOf('show') >= 0)) && !metricsMap.showed) metricsMap.showed = data[i];
+    else if ((label === 'booked' || label === 'first booked' || (label.indexOf('1st') >= 0 && label.indexOf('book') >= 0) || (label.indexOf('first') >= 0 && label.indexOf('book') >= 0)) && !metricsMap.booked) metricsMap.booked = data[i];
+    else if ((label === 'showed' || label === 'first showed' || (label.indexOf('1st') >= 0 && label.indexOf('show') >= 0) || (label.indexOf('first') >= 0 && label.indexOf('show') >= 0)) && !metricsMap.showed) metricsMap.showed = data[i];
     else if (label.indexOf('retention') >= 0 && !metricsMap.retention1) metricsMap.retention1 = data[i];
-    else if (label.indexOf('conversion') >= 0 || label.indexOf('% call') >= 0 || label.indexOf('turned to 2nd') >= 0) metricsMap.conversion = data[i];
+    else if (label.indexOf('conversion') >= 0 || label.indexOf('% call') >= 0 || label.indexOf('call list') >= 0 || label.indexOf('turned to 2nd') >= 0) metricsMap.conversion = data[i];
     else if (label.indexOf('2nd') >= 0 && label.indexOf('book') >= 0) metricsMap.booked2 = data[i];
     else if (label.indexOf('2nd') >= 0 && label.indexOf('show') >= 0) metricsMap.showed2 = data[i];
     else if (label.indexOf('retention') >= 0 && metricsMap.retention1 && !metricsMap.retention2) metricsMap.retention2 = data[i];

@@ -1162,17 +1162,29 @@ const NationalApp = {
   // ══════════════════════════════════════════════════
 
   _showLandingPage() {
-    // Build campaign cards from cached data or config
+    // Build campaign cards only from campaigns that have actual data
     const campaigns = this._allCampaignsData || {};
     const configCampaigns = NATIONAL_CONFIG.campaigns || {};
-    // Merge: backend campaigns + config campaigns
-    const allKeys = new Set([...Object.keys(campaigns), ...Object.keys(configCampaigns)]);
 
     const container = document.getElementById('campaign-cards');
     if (!container) return;
 
+    // Only include campaigns that have real data (owners with weeks)
+    // OR are explicitly in NATIONAL_CONFIG.campaigns
+    const allKeys = new Set([...Object.keys(campaigns), ...Object.keys(configCampaigns)]);
+    const activeKeys = [...allKeys].filter(key => {
+      // Always show campaigns in config
+      if (configCampaigns[key]) return true;
+      // Only show backend campaigns that have owners with data
+      const cd = campaigns[key];
+      if (!cd) return false;
+      const hasOwners = (cd.owners || []).length > 0;
+      const hasWeeks = (cd.weeks || []).length > 0;
+      return hasOwners && hasWeeks;
+    });
+
     // Sort by label
-    const sorted = [...allKeys].sort((a, b) => {
+    const sorted = activeKeys.sort((a, b) => {
       const la = (campaigns[a]?.label || configCampaigns[a]?.label || a).toLowerCase();
       const lb = (campaigns[b]?.label || configCampaigns[b]?.label || b).toLowerCase();
       return la.localeCompare(lb);
@@ -1201,6 +1213,15 @@ const NationalApp = {
           ${ownerCount ? `<div class="campaign-card-owners">${ownerCount} owner${ownerCount !== 1 ? 's' : ''}</div>` : ''}
         </div>`;
     }).join('');
+
+    // Show empty state if no campaigns have data
+    if (sorted.length === 0) {
+      container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#708090;">
+        <div style="font-size:40px;margin-bottom:12px;">📊</div>
+        <div style="font-weight:600;">No campaign data yet</div>
+        <div style="font-size:13px;margin-top:6px;">Run a data refresh to pull from campaign spreadsheets</div>
+      </div>`;
+    }
 
     // Show landing, hide campaign detail views
     document.getElementById('campaign-landing').style.display = '';

@@ -4968,22 +4968,24 @@ function readConsolidatedRecruiting(weekCount, campaignFilter) {
     var headers = data[0].map(function(h) { return String(h).toLowerCase().trim(); });
     var colWeek = findCol(headers, ['week']);
     var colOwner = findCol(headers, ['owner']);
-    var colCalls = findCol(headers, ['calls received', 'applies']);
-    var colSTL = findCol(headers, ['sent to list', 'no list']);
-    var col1B = findCol(headers, ['1st booked']);
-    var col1S = findCol(headers, ['1st showed']);
-    var col1R = findCol(headers, ['1st retention']);
-    var colConv = findCol(headers, ['conversion']);
-    var col2B = findCol(headers, ['2nd booked']);
-    var col2S = findCol(headers, ['2nd showed']);
+    var colCalls = findCol(headers, ['calls received', 'applies received', 'applies']);
+    var colSTL = findCol(headers, ['sent to list', 'sent to call', 'no list']);
+    var col1B = findCol(headers, ['1st booked', '1st rounds booked', 'first booked']);
+    var col1S = findCol(headers, ['1st showed', '1st rounds showed', 'first showed']);
+    var col1R = findCol(headers, ['1st retention', 'retention']);
+    var colConv = findCol(headers, ['conversion', 'call list', '% call']);
+    var col2B = findCol(headers, ['2nd booked', '2nds booked']);
+    var col2S = findCol(headers, ['2nd showed', '2nds showed']);
     var col2R = findCol(headers, ['2nd retention']);
-    var colNSB = findCol(headers, ['ns booked']);
-    var colNSS = findCol(headers, ['ns showed']);
-    var colNSR = findCol(headers, ['ns retention']);
+    var colNSB = findCol(headers, ['ns booked', 'new start']);
+    var colNSS = findCol(headers, ['ns showed', 'new starts showed']);
+    var colNSR = findCol(headers, ['ns retention', 'new start retention']);
     var colHC = findCol(headers, ['active hc', 'active']);
     var colLeaders = findCol(headers, ['leaders']);
     var colDist = findCol(headers, ['dist']);
     var colTraining = findCol(headers, ['training']);
+    Logger.log('readConsolidatedRecruiting [' + key + '] headers: ' + JSON.stringify(headers));
+    Logger.log('readConsolidatedRecruiting [' + key + '] cols: week=' + colWeek + ' owner=' + colOwner + ' calls=' + colCalls + ' stl=' + colSTL + ' 1b=' + col1B + ' 1s=' + col1S + ' 1r=' + col1R + ' conv=' + colConv + ' 2b=' + col2B + ' 2s=' + col2S + ' nsb=' + colNSB + ' hc=' + colHC);
     // ── Find per-product production/goal columns ──
     // New format: "prod: frontier", "goal: frontier", "prod: cell", etc.
     // Fallback: old single "production" / "goals" columns

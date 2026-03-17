@@ -5083,8 +5083,11 @@ function readConsolidatedRecruiting(weekCount, campaignFilter) {
       };
     }
 
-    // Sort by date descending, limit to weekCount
-    var weekEntries = Object.keys(weekMap).map(function(wk) { return weekMap[wk]; });
+    // Filter out future dates (corrupted data) and sort by date descending
+    var now = new Date();
+    var cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7); // allow up to 1 week ahead
+    var weekEntries = Object.keys(weekMap).map(function(wk) { return weekMap[wk]; })
+      .filter(function(w) { return w.date && w.date.getTime() <= cutoff.getTime(); });
     weekEntries.sort(function(a, b) {
       var da = a.date ? a.date.getTime() : 0;
       var db = b.date ? b.date.getTime() : 0;

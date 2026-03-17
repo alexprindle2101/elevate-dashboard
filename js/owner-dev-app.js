@@ -385,9 +385,15 @@ const OwnerDev = {
       this.state.clientToBusinessMap = [];
     }
 
-    // Process NLR workbooks
+    // Process NLR workbooks (also pre-cache tabs from each workbook)
     if (results[4].status === 'fulfilled' && results[4].value.success) {
       this.state.nlrWorkbooks = results[4].value.workbooks || [];
+      // Pre-cache tabs for every workbook (backend now returns them inline)
+      for (const wb of this.state.nlrWorkbooks) {
+        if (wb.tabs && wb.tabs.length) {
+          this.state.nlrTabsCache[wb.id] = wb.tabs;
+        }
+      }
     } else {
       console.warn('[OwnerDev] Failed to load NLR workbooks:', results[4].reason || results[4].value);
       this.state.nlrWorkbooks = [];
@@ -402,9 +408,13 @@ const OwnerDev = {
       clientToBusinessPairs: this.state.clientToBusinessMap.length
     });
 
-    // Run auto-map on first load if there are unmapped owners and we have mapping data
+    // Run auto-map on first load for both Cam companies and NLR files
+    let autoTotal = 0;
     if (this.state.clientToBusinessMap.length > 0) {
-      await this._autoMapCamCompanies();
+      autoTotal += await this._autoMapCamCompanies();
+    }
+    if (this.state.nlrWorkbooks.length > 0) {
+      autoTotal += await this._autoMapNlrFiles();
     }
   },
 
@@ -511,16 +521,94 @@ const OwnerDev = {
   },
 
   /**
-   * Manual auto-map trigger (from the UI button)
+   * Auto-map NLR workbooks + tabs by matching owner names to file names.
+   * If a workbook name fuzzy-matches an owner, assign it.
+   * If the workbook has a tab called "Indeed Tracking 2026", auto-select it.
+   */
+  async _autoMapNlrFiles() {
+    const workbooks = this.state.nlrWorkbooks;
+    if (!workbooks.length) return 0;
+
+    let autoMapped = 0;
+    const toSave = [];
+
+    for (const [campaignKey, campaign] of Object.entries(this.state.campaigns)) {
+      for (const ownerName of (campaign.owners || [])) {
+        const existing = this._findMapping(campaignKey, ownerName);
+        if (existing?.nlrWorkbookId) continue; // already mapped
+
+        // Find a workbook whose filename fuzzy-matches this owner name
+        let matchedWb = null;
+        for (const wb of workbooks) {
+          if (this._namesMatch(ownerName, wb.name)) {
+            matchedWb = wb;
+            break;
+          }
+        }
+
+        if (matchedWb) {
+          // Check for "Indeed Tracking 2026" tab
+          const tabs = this.state.nlrTabsCache[matchedWb.id] || matchedWb.tabs || [];
+          const indeedTab = tabs.find(t => t.toLowerCase().includes('indeed tracking'));
+          const autoTab = indeedTab || '';
+
+          this._upsertMapping(campaignKey, ownerName, {
+            nlrWorkbookId: matchedWb.id,
+            nlrWorkbookName: matchedWb.name,
+            nlrTab: autoTab
+          });
+
+          toSave.push({
+            campaign: campaignKey,
+            ownerName,
+            nlrWorkbookId: matchedWb.id,
+            nlrWorkbookName: matchedWb.name,
+            nlrTab: autoTab
+          });
+          autoMapped++;
+        }
+      }
+    }
+
+    // Save to backend
+    if (toSave.length > 0) {
+      console.log(`[OwnerDev] Auto-mapped ${toSave.length} owners to NLR files`);
+
+      for (const item of toSave) {
+        // Save workbook
+        this._post('odSaveMapping', {
+          campaign: item.campaign,
+          ownerName: item.ownerName,
+          field: 'nlrWorkbook',
+          nlrWorkbookId: item.nlrWorkbookId,
+          nlrWorkbookName: item.nlrWorkbookName,
+          nlrTab: item.nlrTab,
+          updatedBy: 'auto-map'
+        }).catch(err => console.warn('[OwnerDev] Auto-map NLR save error:', err.message));
+      }
+    }
+
+    return autoMapped;
+  },
+
+  /**
+   * Manual auto-map trigger (from the UI button) — runs both Cam + NLR
    */
   async runAutoMap() {
     const btn = document.getElementById('btn-automap');
     if (btn) { btn.disabled = true; btn.textContent = '⚡ Mapping...'; }
 
-    const count = await this._autoMapCamCompanies();
+    const camCount = await this._autoMapCamCompanies();
+    const nlrCount = await this._autoMapNlrFiles();
+    const total = camCount + nlrCount;
 
-    if (count === 0) {
+    if (total === 0) {
       this._toast('No new matches found — remaining owners need manual mapping', 'error');
+    } else {
+      const parts = [];
+      if (camCount) parts.push(`${camCount} compan${camCount > 1 ? 'ies' : 'y'}`);
+      if (nlrCount) parts.push(`${nlrCount} NLR file${nlrCount > 1 ? 's' : ''}`);
+      this._toast(`Auto-mapped ${parts.join(' + ')}`, 'success');
     }
 
     // Re-render everything

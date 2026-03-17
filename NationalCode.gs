@@ -3798,7 +3798,19 @@ function odGetNlrWorkbooks() {
   var result = [];
   while (files.hasNext()) {
     var f = files.next();
-    result.push({ id: f.getId(), name: f.getName() });
+    var fId = f.getId();
+    // Also grab tab names for each workbook (enables auto-map without extra calls)
+    var tabs = [];
+    try {
+      var ss = SpreadsheetApp.openById(fId);
+      var sheets = ss.getSheets();
+      for (var i = 0; i < sheets.length; i++) {
+        tabs.push(sheets[i].getName());
+      }
+    } catch (e) {
+      // If we can't open it, just return empty tabs
+    }
+    result.push({ id: fId, name: f.getName(), tabs: tabs });
   }
   return { success: true, workbooks: result };
 }

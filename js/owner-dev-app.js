@@ -905,8 +905,8 @@ const OwnerDev = {
       // Owner name
       html += `<td><strong>${this._esc(row.ownerName)}</strong></td>`;
 
-      // Source Tab column (editable for Maddie's team + superadmins)
-      if (isMaddie || this.state.isSuperadmin) {
+      // Source Tab column (editable only when viewing as Maddie's team)
+      if (isMaddie) {
         html += `<td class="cell-editable">${this._renderSourceTabSelect(row)}</td>`;
       } else {
         const tabMapping = this._findCampaignTabMap(row.campaign, row.ownerName);

@@ -88,23 +88,85 @@ const NationalApp = {
    * @param {Object} session - { email, name } from OwnerDev
    */
   async initCoachView(session) {
-    if (this._coachInitDone) {
-      // Already loaded — just make sure landing page is visible
+    const campaign = session.campaign || null;
+    if (this._coachInitDone && this._coachCampaign === campaign) {
       return;
     }
-    console.log('[NationalApp] initCoachView (embedded in Owner Dev)');
+    console.log('[NationalApp] initCoachView (embedded in Owner Dev), campaign:', campaign);
     this._embedded = true;
+    this._coachCampaign = campaign;
     this.state.session = { email: session.email, name: session.name, loginTime: Date.now() };
 
-    this._showLoading('Loading coaching data...');
-    try {
-      await this.loadCampaignData('att-b2b');
-    } catch (err) {
-      console.warn('[NationalApp] Coach view campaign fetch failed:', err.message);
+    if (campaign) {
+      // Direct campaign selection — must fetch full data
+      this._showLoading('Loading campaign data...');
+      try {
+        await this.selectCampaign(campaign);
+      } catch (err) {
+        console.warn('[NationalApp] Coach view campaign fetch failed:', err.message);
+      }
+      this._hideLoading();
+    } else {
+      // Landing page — try instant render from OwnerDev's mapping cache
+      const rendered = this._tryRenderLandingFromCache();
+      if (rendered) {
+        console.log('[NationalApp] Landing page rendered instantly from OwnerDev cache');
+        this._showLandingPage();
+      } else {
+        // No cache — fall back to full fetch
+        this._showLoading('Loading coaching data...');
+        try {
+          await this.loadCampaignData(Object.keys(NATIONAL_CONFIG.campaigns)[0] || 'frontier');
+        } catch (err) {
+          console.warn('[NationalApp] Coach view campaign fetch failed:', err.message);
+        }
+        this._hideLoading();
+        this._showLandingPage();
+      }
     }
-    this._hideLoading();
-    this._showLandingPage();
+
     this._coachInitDone = true;
+    this._coachCampaign = campaign;
+  },
+
+  /**
+   * Try to render the landing page instantly from OwnerDev's od_data_cache.
+   * Builds a lightweight _allCampaignsData with just labels + owner counts.
+   * Returns true if successful, false to fall back to full fetch.
+   */
+  _tryRenderLandingFromCache() {
+    try {
+      const raw = localStorage.getItem('od_data_cache');
+      if (!raw) return false;
+      const cache = JSON.parse(raw);
+      if (!cache.campaigns) return false;
+
+      const lightweight = {};
+      let hasCampaigns = false;
+      for (const [key, camp] of Object.entries(cache.campaigns)) {
+        if (!camp.owners || !camp.owners.length) continue;
+        lightweight[key] = {
+          label: camp.label || key,
+          owners: camp.owners,  // string array — .length gives owner count
+          weeks: []             // empty — landing page doesn't need weeks
+        };
+        hasCampaigns = true;
+
+        // Ensure NATIONAL_CONFIG has entries for dynamically discovered campaigns
+        if (!NATIONAL_CONFIG.campaigns[key]) {
+          NATIONAL_CONFIG.campaigns[key] = { label: camp.label || key, weeksToPull: 6 };
+        }
+      }
+
+      if (!hasCampaigns) return false;
+
+      this._allCampaignsData = lightweight;
+      this._populateCampaignSelector(lightweight);
+      return true;
+    } catch (err) {
+      console.warn('[NationalApp] Landing cache read failed:', err.message);
+      return false;
+    }
   },
 
   // ══════════════════════════════════════════════════
@@ -208,6 +270,7 @@ const NationalApp = {
 
     // ── Build owners from recruiting data ──
     const sheetData = results.recruiting || null;
+    console.log('[NationalApp] recruiting result for', campaignKey, ':', sheetData ? { owners: sheetData.owners?.length, weeks: sheetData.weeks?.length } : 'null');
     if (sheetData && sheetData.owners && sheetData.owners.length) {
       this._buildOwnersFromSheet(campaignKey, sheetData);
     } else {
@@ -275,8 +338,11 @@ const NationalApp = {
   // ── Fetch ALL recruiting data from Ken's national sheet via NationalCode.gs ──
   // Returns the full campaigns dict. Caches in this._allCampaignsData.
   async _fetchRecruitingFromSheet(campaignKey) {
-    // If we have cached data, return the specific campaign
-    if (this._allCampaignsData && this._allCampaignsData[campaignKey]) {
+    // If we have cached data WITH actual week data, return it.
+    // (Lightweight landing-page-only entries have empty weeks — must not short-circuit here)
+    if (this._allCampaignsData && this._allCampaignsData[campaignKey]
+        && this._allCampaignsData[campaignKey].weeks
+        && this._allCampaignsData[campaignKey].weeks.length > 0) {
       const cd = this._allCampaignsData[campaignKey];
       return { owners: cd.owners || [], weeks: cd.weeks || [], label: cd.label || '' };
     }
@@ -293,13 +359,17 @@ const NationalApp = {
     // Cache ALL campaigns data
     if (result.campaigns) {
       this._allCampaignsData = result.campaigns;
+      console.log('[NationalApp] Cached campaigns:', Object.keys(result.campaigns), 'looking for:', campaignKey);
       // Dynamically populate campaign selector and config
       this._populateCampaignSelector(result.campaigns);
     }
 
     // Extract the campaign-specific data
     const campaignData = result.campaigns && result.campaigns[campaignKey];
-    if (!campaignData) return null;
+    if (!campaignData) {
+      console.warn('[NationalApp] Campaign not found in response:', campaignKey, 'available:', Object.keys(result.campaigns || {}));
+      return null;
+    }
 
     return {
       owners: campaignData.owners || [],
@@ -1101,6 +1171,8 @@ const NationalApp = {
     document.getElementById('owner-detail').style.display = 'none';
   },
 
+  _COACH_CACHE_MAX_AGE: 15 * 60 * 1000, // 15 min per-campaign cache
+
   async selectCampaign(campaignKey) {
     this.state.campaign = campaignKey;
     this.state.selectedOwner = null;
@@ -1114,9 +1186,23 @@ const NationalApp = {
     document.querySelector('.campaign-overview').style.display = '';
     document.querySelector('.owners-section').style.display = '';
 
+    // Check per-campaign localStorage cache first
+    const cached = this._readCoachCampaignCache(campaignKey);
+    if (cached) {
+      console.log('[NationalApp] Rendering campaign from cache:', campaignKey);
+      this.state.owners = cached.owners;
+      this.state.campaignTotals = cached.campaignTotals || {};
+      this.renderCampaignOverview();
+      this.renderOwnersList();
+      return;
+    }
+
+    // No cache — full fetch
     this._showLoading('Loading campaign data...');
     try {
       await this.loadCampaignData(campaignKey);
+      // Cache post-enrichment state for next time
+      this._writeCoachCampaignCache(campaignKey);
     } catch (err) {
       console.error('Failed to load campaign:', err);
     }
@@ -1135,6 +1221,45 @@ const NationalApp = {
   // ── Legacy dropdown switcher (still works from top bar) ──
   async switchCampaign(campaignKey) {
     await this.selectCampaign(campaignKey);
+  },
+
+  // ══════════════════════════════════════════════════
+  // COACH CAMPAIGN CACHE (per-campaign localStorage)
+  // ══════════════════════════════════════════════════
+
+  _readCoachCampaignCache(campaignKey) {
+    try {
+      const raw = localStorage.getItem('coach_cache_' + campaignKey);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (Date.now() - (data._ts || 0) > this._COACH_CACHE_MAX_AGE) {
+        localStorage.removeItem('coach_cache_' + campaignKey);
+        return null;
+      }
+      if (!data.owners || !data.owners.length) return null;
+      return data;
+    } catch { return null; }
+  },
+
+  _writeCoachCampaignCache(campaignKey) {
+    try {
+      localStorage.setItem('coach_cache_' + campaignKey, JSON.stringify({
+        _ts: Date.now(),
+        owners: this.state.owners,
+        campaignTotals: this.state.campaignTotals
+      }));
+    } catch (err) {
+      console.warn('[NationalApp] Coach cache write failed:', err.message);
+    }
+  },
+
+  _clearAllCoachCaches() {
+    const toRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('coach_cache_')) toRemove.push(k);
+    }
+    toRemove.forEach(k => localStorage.removeItem(k));
   },
 
   // ══════════════════════════════════════════════════
@@ -1172,8 +1297,10 @@ const NationalApp = {
       const result = await resp.json();
       if (result.error) throw new Error(result.error);
 
-      // Step 2: Clear cache and reload campaign data
+      // Step 2: Clear all caches and reload campaign data
       this._allCampaignsData = null;
+      this._clearAllCoachCaches();
+      this._coachInitDone = false;
       const campaignKey = this.state.campaign || 'att-b2b';
       await this.loadCampaignData(campaignKey);
 
@@ -1247,8 +1374,10 @@ const NationalApp = {
         status.className = 'import-status import-success';
       }
 
-      // Clear cache and reload everything
+      // Clear all caches and reload everything
       this._allCampaignsData = null;
+      this._clearAllCoachCaches();
+      this._coachInitDone = false;
       await this.loadCampaignData('att-b2b'); // re-fetches all campaigns
       this._showLandingPage();
 

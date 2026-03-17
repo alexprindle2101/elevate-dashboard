@@ -911,7 +911,7 @@ const OwnerDev = {
       } else {
         const tabMapping = this._findCampaignTabMap(row.campaign, row.ownerName);
         const val = tabMapping?.tabName || '';
-        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span style="color:var(--gray-300)">--</span>'}</td>`;
+        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span class="input-needed">Input Needed from Maddie</span>'}</td>`;
       }
 
       // Cam's Company column
@@ -919,7 +919,7 @@ const OwnerDev = {
         html += `<td class="cell-editable">${this._renderCamSelect(row, mapping)}</td>`;
       } else {
         const val = mapping?.camCompany || '';
-        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span style="color:var(--gray-300)">--</span>'}</td>`;
+        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span class="input-needed">Input Needed from BIS</span>'}</td>`;
       }
 
       // NLR File column
@@ -927,7 +927,7 @@ const OwnerDev = {
         html += `<td class="cell-editable">${this._renderNlrFileSelect(row, mapping)}</td>`;
       } else {
         const val = mapping?.nlrWorkbookName || '';
-        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span style="color:var(--gray-300)">--</span>'}</td>`;
+        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span class="input-needed">Input Needed from NLR</span>'}</td>`;
       }
 
       // NLR Tab column
@@ -935,7 +935,7 @@ const OwnerDev = {
         html += `<td class="cell-editable">${this._renderNlrTabSelect(row, mapping)}</td>`;
       } else {
         const val = mapping?.nlrTab || '';
-        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span style="color:var(--gray-300)">--</span>'}</td>`;
+        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span class="input-needed">Input Needed from NLR</span>'}</td>`;
       }
 
       // Status badge

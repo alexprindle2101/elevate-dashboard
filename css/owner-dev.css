@@ -631,6 +631,10 @@ input, select, textarea { font-family: inherit; }
 .sd-trigger.has-value .sd-clear { display: inline; }
 .sd-trigger .sd-clear:hover { color: var(--red); }
 
+.input-needed {
+  font-size: 0.8rem; color: var(--orange, #f97316); font-style: italic; opacity: 0.85;
+}
+
 .sd-dropdown {
   display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
   background: var(--white); border: 1px solid var(--gray-200);

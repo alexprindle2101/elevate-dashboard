@@ -35,5 +35,17 @@ const OD_CONFIG = {
     maddie: { label: "Maddie's Team", color: '#8b5cf6', icon: '\u{1F451}' },
     cam:    { label: "Cam's Team",    color: '#3b82f6', icon: '\u{1F517}' },
     nlr:    { label: 'NLR Team',      color: '#0ea5a0', icon: '\u{1F4CB}' }
+  },
+
+  // ── Superadmins ──
+  // These emails bypass _OD_Users check. They see all teams,
+  // have manager powers, and get the View-As team switcher bar.
+  superadmins: [
+    'alex.aspirehr@gmail.com'
+  ],
+
+  // ── Login aliases (shorthand → full email) ──
+  loginAliases: {
+    'alex': 'alex.aspirehr@gmail.com'
   }
 };

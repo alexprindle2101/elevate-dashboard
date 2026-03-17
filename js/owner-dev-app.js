@@ -19,7 +19,12 @@ const OwnerDev = {
     activeTab: 'mapping',   // 'mapping' | 'team'
     sortCol: 'campaign',    // current sort column
     sortAsc: true,          // ascending sort
-    _savingCells: new Set() // tracks cells currently saving (prevents double-submit)
+    _savingCells: new Set(),// tracks cells currently saving (prevents double-submit)
+
+    // View-As state (superadmin only)
+    viewAsTeam: null,       // which team we're impersonating (null = own team)
+    isSuperadmin: false,    // is the logged-in user a superadmin?
+    realTeam: null          // actual logged-in team (preserved during View-As)
   },
 
   // ══════════════════════════════════════════════════════
@@ -35,12 +40,22 @@ const OwnerDev = {
       return;
     }
 
+    // Check superadmin status
+    const email = (this.state.session.email || '').toLowerCase();
+    this.state.isSuperadmin = (OD_CONFIG.superadmins || []).some(e => e.toLowerCase() === email);
+    this.state.realTeam = this.state.session.team;
+
     // Populate user info in top bar
     this._renderUserInfo();
 
-    // Show team tab if manager
-    if (this.state.session.role === 'manager') {
+    // Show team tab if manager or superadmin
+    if (this.state.session.role === 'manager' || this.state.isSuperadmin) {
       document.getElementById('nav-team-tab').style.display = '';
+    }
+
+    // Build View-As bar for superadmins
+    if (this.state.isSuperadmin) {
+      this._buildViewAsBar();
     }
 
     // Load data
@@ -128,6 +143,27 @@ const OwnerDev = {
           // ── Email step: verify user exists ──
           loginEmail = emailInput.value.trim().toLowerCase();
           if (!loginEmail) { error.textContent = 'Please enter your email'; btn.disabled = false; return; }
+
+          // Resolve login aliases (e.g. 'alex' → 'alex.aspirehr@gmail.com')
+          if (OD_CONFIG.loginAliases && OD_CONFIG.loginAliases[loginEmail]) {
+            loginEmail = OD_CONFIG.loginAliases[loginEmail].toLowerCase();
+          }
+
+          // Check if superadmin — bypass _OD_Users check
+          const isSA = (OD_CONFIG.superadmins || []).some(e => e.toLowerCase() === loginEmail);
+          if (isSA) {
+            // Superadmins get instant access with a simple PIN prompt
+            const name = loginEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            this.state.session = this._saveSession({
+              email: loginEmail,
+              name: name,
+              team: 'maddie', // default team — View-As lets them switch
+              role: 'manager'
+            });
+            screen.style.display = 'none';
+            this.init();
+            return;
+          }
 
           const res = await this._post('odCheckUser', { email: loginEmail });
           if (!res.success) {
@@ -423,11 +459,17 @@ const OwnerDev = {
     document.getElementById('user-name').textContent = s.name || s.email;
 
     const badge = document.getElementById('user-team-badge');
-    const teamCfg = OD_CONFIG.teams[s.team];
+    const effectiveTeam = this._getEffectiveTeam();
+    const teamCfg = OD_CONFIG.teams[effectiveTeam];
     if (teamCfg) {
       badge.style.display = '';
       badge.style.background = teamCfg.color;
       badge.textContent = teamCfg.icon + ' ' + teamCfg.label;
+    }
+
+    // If superadmin, show indicator
+    if (this.state.isSuperadmin && this.state.viewAsTeam) {
+      badge.textContent = '👁️ ' + badge.textContent;
     }
   },
 
@@ -505,7 +547,7 @@ const OwnerDev = {
     }
     empty.style.display = 'none';
 
-    const team = this.state.session?.team;
+    const team = this._getEffectiveTeam();
     const isCam = team === 'cam';
     const isNlr = team === 'nlr';
 
@@ -786,7 +828,7 @@ const OwnerDev = {
   // ══════════════════════════════════════════════════════
 
   renderTeam() {
-    const team = this.state.session?.team;
+    const team = this._getEffectiveTeam();
     if (!team) return;
 
     const teamCfg = OD_CONFIG.teams[team];
@@ -1076,6 +1118,114 @@ const OwnerDev = {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  },
+
+  // ══════════════════════════════════════════════════════
+  // VIEW-AS (Superadmin team switcher)
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * Get the effective team for rendering (view-as or real)
+   */
+  _getEffectiveTeam() {
+    return this.state.viewAsTeam || this.state.session?.team || 'maddie';
+  },
+
+  /**
+   * Build and inject the View-As bar at the top of the page
+   */
+  _buildViewAsBar() {
+    if (document.getElementById('view-as-bar')) return; // already built
+
+    const bar = document.createElement('div');
+    bar.id = 'view-as-bar';
+    bar.style.cssText = `
+      position:fixed; top:0; left:0; right:0; z-index:10000;
+      background:#1a1a2e; color:#fff; padding:0 16px;
+      height:40px; display:flex; align-items:center; gap:12px;
+      font-size:13px; font-family:var(--font,Inter,sans-serif);
+      border-bottom:2px solid #00c8ff; box-shadow:0 2px 8px rgba(0,0,0,0.3);
+    `;
+
+    // Build team pills
+    let pills = '';
+    for (const [key, cfg] of Object.entries(OD_CONFIG.teams)) {
+      pills += `<button class="va-pill" data-team="${key}" onclick="OwnerDev.viewAsTeam('${key}')" style="
+        background:transparent; border:1px solid rgba(255,255,255,0.3); color:#fff;
+        padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600;
+        cursor:pointer; transition:all 0.15s;
+      ">${cfg.icon} ${cfg.label}</button>`;
+    }
+
+    bar.innerHTML = `
+      <span style="font-weight:700;color:#00c8ff;white-space:nowrap;">View As</span>
+      <span style="color:rgba(255,255,255,0.4)">|</span>
+      ${pills}
+      <button class="va-pill va-pill-reset" data-team="off" onclick="OwnerDev.viewAsTeam(null)" style="
+        background:transparent; border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,0.5);
+        padding:4px 12px; border-radius:20px; font-size:12px; font-weight:500;
+        cursor:pointer; margin-left:auto; transition:all 0.15s;
+      ">Reset (${this.state.session?.team || 'maddie'})</button>
+    `;
+
+    document.body.prepend(bar);
+
+    // Push dashboard content down to make room for the bar
+    document.body.style.paddingTop = '40px';
+
+    // Highlight current team pill
+    this._updateViewAsPills();
+  },
+
+  /**
+   * Switch view to a different team
+   */
+  viewAsTeam(teamKey) {
+    this.state.viewAsTeam = teamKey;
+
+    // Update badge in top bar
+    this._renderUserInfo();
+
+    // Update pill highlights
+    this._updateViewAsPills();
+
+    // Re-render the mapping table (changes editable columns)
+    this._renderStats();
+    this.renderMapping();
+
+    // Re-render team view if active
+    if (this.state.activeTab === 'team') {
+      this.renderTeam();
+    }
+
+    // Toast
+    if (teamKey) {
+      const cfg = OD_CONFIG.teams[teamKey];
+      this._toast(`Viewing as ${cfg?.label || teamKey}`, 'success');
+    } else {
+      this._toast('Reset to own view', 'success');
+    }
+  },
+
+  /**
+   * Update View-As pill active states
+   */
+  _updateViewAsPills() {
+    const active = this.state.viewAsTeam;
+    document.querySelectorAll('.va-pill').forEach(pill => {
+      const team = pill.dataset.team;
+      if (team === 'off') {
+        // Reset button: highlighted when no view-as is active
+        pill.style.borderColor = !active ? '#00c8ff' : 'rgba(255,255,255,0.15)';
+        pill.style.color = !active ? '#00c8ff' : 'rgba(255,255,255,0.5)';
+      } else {
+        const isActive = team === active;
+        const cfg = OD_CONFIG.teams[team];
+        pill.style.borderColor = isActive ? (cfg?.color || '#00c8ff') : 'rgba(255,255,255,0.3)';
+        pill.style.background = isActive ? (cfg?.color || '#00c8ff') : 'transparent';
+        pill.style.color = isActive ? '#fff' : 'rgba(255,255,255,0.7)';
+      }
+    });
   }
 };
 

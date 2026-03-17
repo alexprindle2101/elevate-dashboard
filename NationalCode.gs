@@ -3797,12 +3797,21 @@ function odGetCampaignOwners() {
  */
 function odGetNlrWorkbooks() {
   var folder = DriveApp.getFolderById(OD_NLR_FOLDER);
-  var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
   var result = [];
+  odScanFolderForSheets_(folder, result);
+  return { success: true, workbooks: result };
+}
+
+/**
+ * Recursively scan a folder and all subfolders for Google Sheets.
+ * Populates the result array with { id, name, tabs } objects.
+ */
+function odScanFolderForSheets_(folder, result) {
+  // Get sheets in this folder
+  var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
   while (files.hasNext()) {
     var f = files.next();
     var fId = f.getId();
-    // Also grab tab names for each workbook (enables auto-map without extra calls)
     var tabs = [];
     try {
       var ss = SpreadsheetApp.openById(fId);
@@ -3815,7 +3824,11 @@ function odGetNlrWorkbooks() {
     }
     result.push({ id: fId, name: f.getName(), tabs: tabs });
   }
-  return { success: true, workbooks: result };
+  // Recurse into subfolders
+  var subfolders = folder.getFolders();
+  while (subfolders.hasNext()) {
+    odScanFolderForSheets_(subfolders.next(), result);
+  }
 }
 
 /**

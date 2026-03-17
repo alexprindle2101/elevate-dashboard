@@ -8,6 +8,19 @@
 var NC_API_KEY = 'national-dash-2026-secret'; // Must match Script Properties > API_KEY
 
 // External sheet IDs
+// ── Owner Development (OD) Config ──
+var OD_CAMPAIGNS = {
+  'frontier':     { label: 'Frontier',           sheetId: '1OULSC_r8dCW2dlvIGeP6zLtNKANJ3mZMDPyE15tH3gM' },
+  'verizon-fios': { label: 'Verizon Fios',       sheetId: '12J3HBdFQrqq5D7YwWEp93US40vmZz5n9mS-KMKXaXxA' },
+  'att-nds':      { label: 'AT&T NDS/Verizon',   sheetId: '1kcUWR3EKgP-9wDct4vDyuQJ7IuS0cbcetY97dmVTY64' },
+  'att-res':      { label: 'AT&T Residential',   sheetId: '1HvWJYox3JXvxmza63YBWAqKPtUGPFuaV-s-BOfbWGKM' },
+  'rogers':       { label: 'Rogers',             sheetId: '1o1MPKrAzzeaU2JWMODkR9M3uY5rOhIKo-Q64armeTvE' },
+  'leafguard':    { label: 'Leafguard',          sheetId: '' },
+  'lumen':        { label: 'Lumen',              sheetId: '' }
+};
+var OD_NLR_FOLDER = '1hARjh3UH48CWhbYrYBJxFVwgynxapCjG';
+
+// External sheet IDs
 var SHEETS = {
   RECRUITING_WEEKLY:  '1MNLqi8A329444SeZpKbYbcRe3dMxaOPLVdMy-7F1DPk',  // All Campaigns Stats Tracker 2026
   RECRUITING_DAILY:   '1ytTGen_AlzfDPW3HGYU1JKNLz1kfHrrhAFCVnmRS3fg',  // Recruiting Scoreboard Daily
@@ -110,6 +123,53 @@ function doGet(e) {
       return jsonResp(readIndeedCosts(ownerFilter));
     }
 
+    // ── OD: Campaign owners (Column A from each campaign sheet) ──
+    if (action === 'odCampaignOwners') {
+      return jsonResp(odGetCampaignOwners());
+    }
+
+    // ── OD: List NLR workbooks in Drive folder ──
+    if (action === 'odNlrWorkbooks') {
+      return jsonResp(odGetNlrWorkbooks());
+    }
+
+    // ── OD: Get tab names from a spreadsheet ──
+    if (action === 'odNlrTabs') {
+      var sheetId = (e && e.parameter && e.parameter.sheetId) || '';
+      if (!sheetId) return jsonResp({ error: 'sheetId parameter required' });
+      return jsonResp(odGetNlrTabs(sheetId));
+    }
+
+    // ── OD: Get mappings ──
+    if (action === 'odGetMappings') {
+      return jsonResp(odGetMappings());
+    }
+
+    // ── OD: Get users (excludes pinHash) ──
+    if (action === 'odGetUsers') {
+      return jsonResp(odGetUsers());
+    }
+
+    // ── OD: Check if user exists (email only, no PIN) ──
+    if (action === 'odCheckUser') {
+      var email = (e && e.parameter && e.parameter.email) || '';
+      if (!email) return jsonResp({ success: false, message: 'Email is required' });
+      return jsonResp(odCheckUser(email));
+    }
+
+    // ── OD: Login ──
+    if (action === 'odLogin') {
+      var email = (e && e.parameter && e.parameter.email) || '';
+      var pin = (e && e.parameter && e.parameter.pin) || '';
+      if (!email || !pin) return jsonResp({ success: false, message: 'email and pin required' });
+      return jsonResp(odLogin(email, pin));
+    }
+
+    // ── OD: Cam companies from Performance Audit ──
+    if (action === 'odCamCompanies') {
+      return jsonResp(odGetCamCompanies());
+    }
+
     if (owner) {
       return jsonResp(loadOwnerDetail(campaign, owner));
     } else {
@@ -168,6 +228,21 @@ function doPost(e) {
       case 'updateProduction':
         result = updateProductionRow(body.ownerName, body.date,
                    body.productionLW, body.productionGoals);
+        break;
+      case 'odCheckUser':
+        result = odCheckUser(body.email || '');
+        break;
+      case 'odLogin':
+        result = odLogin(body.email || '', body.pin || '', body.createPin || false);
+        break;
+      case 'odSaveMapping':
+        result = odSaveMapping(body);
+        break;
+      case 'odSaveUser':
+        result = odSaveUser(body);
+        break;
+      case 'odDeleteUser':
+        result = odDeleteUser(body);
         break;
       default:
         result = { error: 'unknown action: ' + body.action };
@@ -3625,5 +3700,461 @@ function readNDSProduction() {
   }
 
   return { owners: owners };
+}
+
+// ═══════════════════════════════════════════════════════
+// OWNER DEVELOPMENT (OD) — Helper Functions
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Get or create a tab in the script's bound spreadsheet.
+ * If the tab doesn't exist, creates it with the given headers in row 1.
+ */
+function odGetOrCreateTab(tabName, headers) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(tabName);
+  if (!sheet) {
+    sheet = ss.insertSheet(tabName);
+    if (headers && headers.length) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
+  }
+  return sheet;
+}
+
+/**
+ * SHA-256 hash a PIN string. Returns hex string.
+ */
+function odHashPin(pin) {
+  var raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(pin));
+  return raw.map(function(b) { return ('0' + ((b + 256) % 256).toString(16)).slice(-2); }).join('');
+}
+
+/**
+ * Read all rows from a tab and return an array of objects keyed by header row.
+ */
+function odReadTab(tabName) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(tabName);
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return [];
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    var obj = {};
+    for (var c = 0; c < headers.length; c++) {
+      obj[headers[c]] = data[i][c] !== undefined ? data[i][c] : '';
+    }
+    rows.push(obj);
+  }
+  return rows;
+}
+
+// ═══════════════════════════════════════════════════════
+// OWNER DEVELOPMENT (OD) — doGet Endpoints
+// ═══════════════════════════════════════════════════════
+
+/**
+ * action=odCampaignOwners
+ * For each campaign in OD_CAMPAIGNS, open the sheet, read Column A
+ * after header, ignore the last row. Return owners list per campaign.
+ */
+function odGetCampaignOwners() {
+  var campaigns = {};
+  var keys = Object.keys(OD_CAMPAIGNS);
+  for (var k = 0; k < keys.length; k++) {
+    var key = keys[k];
+    var cfg = OD_CAMPAIGNS[key];
+    if (!cfg.sheetId) continue;
+    try {
+      var ss = SpreadsheetApp.openById(cfg.sheetId);
+      var sheets = ss.getSheets();
+      if (!sheets.length) continue;
+      var firstTab = sheets[0];
+      var data = firstTab.getDataRange().getValues();
+      // Skip header (row 0) and last row
+      var owners = [];
+      for (var i = 1; i < data.length - 1; i++) {
+        var val = String(data[i][0] || '').trim();
+        if (val) owners.push(val);
+      }
+      campaigns[key] = { label: cfg.label, owners: owners };
+    } catch (err) {
+      Logger.log('odCampaignOwners error for ' + key + ': ' + err.message);
+      campaigns[key] = { label: cfg.label, owners: [], error: err.message };
+    }
+  }
+  return { success: true, campaigns: campaigns };
+}
+
+/**
+ * action=odNlrWorkbooks
+ * List all Google Sheets files in the NLR Drive folder.
+ */
+function odGetNlrWorkbooks() {
+  var folder = DriveApp.getFolderById(OD_NLR_FOLDER);
+  var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+  var result = [];
+  while (files.hasNext()) {
+    var f = files.next();
+    result.push({ id: f.getId(), name: f.getName() });
+  }
+  return { success: true, workbooks: result };
+}
+
+/**
+ * action=odNlrTabs (param: sheetId)
+ * Return all tab names from the given spreadsheet.
+ */
+function odGetNlrTabs(sheetId) {
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheets = ss.getSheets();
+  var tabs = [];
+  for (var i = 0; i < sheets.length; i++) {
+    tabs.push(sheets[i].getName());
+  }
+  return { success: true, tabs: tabs };
+}
+
+/**
+ * action=odGetMappings
+ * Read _OD_Mappings tab, return all rows as objects.
+ */
+function odGetMappings() {
+  odGetOrCreateTab('_OD_Mappings', ['campaign', 'ownerName', 'camCompany', 'nlrWorkbookId', 'nlrWorkbookName', 'nlrTab', 'updatedBy', 'updatedAt']);
+  var rows = odReadTab('_OD_Mappings');
+  return { success: true, mappings: rows };
+}
+
+/**
+ * action=odGetUsers
+ * Read _OD_Users tab, return all rows as objects but EXCLUDE pinHash.
+ */
+function odGetUsers() {
+  odGetOrCreateTab('_OD_Users', ['email', 'name', 'team', 'role', 'pinHash', 'dateAdded', 'deactivated']);
+  var rows = odReadTab('_OD_Users');
+  var safe = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    safe.push({
+      email: r.email,
+      name: r.name,
+      team: r.team,
+      role: r.role,
+      dateAdded: r.dateAdded,
+      deactivated: r.deactivated
+    });
+  }
+  return { success: true, users: safe };
+}
+
+/**
+ * action=odCheckUser (param: email)
+ * Check if user exists in _OD_Users. Returns { success, hasPin } or error.
+ */
+function odCheckUser(email) {
+  if (!email) return { success: false, message: 'Email is required' };
+
+  var sheet = odGetOrCreateTab('_OD_Users', ['email', 'name', 'team', 'role', 'pinHash', 'dateAdded', 'deactivated']);
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: false, message: 'Contact your team manager to get added.' };
+
+  var headers = data[0];
+  var emailCol = -1, pinCol = -1, deactCol = -1;
+  for (var c = 0; c < headers.length; c++) {
+    var h = String(headers[c]).trim().toLowerCase();
+    if (h === 'email') emailCol = c;
+    else if (h === 'pinhash') pinCol = c;
+    else if (h === 'deactivated') deactCol = c;
+  }
+  if (emailCol < 0) return { success: false, message: 'Tab misconfigured' };
+
+  var target = email.toString().trim().toLowerCase();
+  for (var i = 1; i < data.length; i++) {
+    var rowEmail = String(data[i][emailCol] || '').trim().toLowerCase();
+    if (rowEmail !== target) continue;
+
+    // Check deactivated
+    if (deactCol >= 0) {
+      var deact = String(data[i][deactCol] || '').trim().toLowerCase();
+      if (deact === 'true' || deact === 'yes') {
+        return { success: false, message: 'Account deactivated' };
+      }
+    }
+
+    var storedHash = (pinCol >= 0) ? String(data[i][pinCol] || '').trim() : '';
+    return { success: true, hasPin: !!storedHash };
+  }
+
+  return { success: false, message: 'Contact your team manager to get added.' };
+}
+
+/**
+ * action=odLogin (params: email, pin, createPin?)
+ * Find user by email (case-insensitive). If createPin is true and no pinHash stored,
+ * set the PIN. Otherwise validate the hash.
+ * Returns flat user fields (email, name, team, role) directly on the response object.
+ */
+function odLogin(email, pin, createPin) {
+  var sheet = odGetOrCreateTab('_OD_Users', ['email', 'name', 'team', 'role', 'pinHash', 'dateAdded', 'deactivated']);
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: false, message: 'No users found' };
+
+  var headers = data[0];
+  var emailCol = -1, pinCol = -1, nameCol = -1, teamCol = -1, roleCol = -1, deactCol = -1;
+  for (var c = 0; c < headers.length; c++) {
+    var h = String(headers[c]).trim().toLowerCase();
+    if (h === 'email') emailCol = c;
+    else if (h === 'pinhash') pinCol = c;
+    else if (h === 'name') nameCol = c;
+    else if (h === 'team') teamCol = c;
+    else if (h === 'role') roleCol = c;
+    else if (h === 'deactivated') deactCol = c;
+  }
+  if (emailCol < 0 || pinCol < 0) return { success: false, message: 'Tab misconfigured' };
+
+  var target = email.toString().trim().toLowerCase();
+  for (var i = 1; i < data.length; i++) {
+    var rowEmail = String(data[i][emailCol] || '').trim().toLowerCase();
+    if (rowEmail !== target) continue;
+
+    // Check deactivated
+    var deact = String(data[i][deactCol] || '').trim().toLowerCase();
+    if (deact === 'true' || deact === 'yes') {
+      return { success: false, message: 'Account deactivated' };
+    }
+
+    var storedHash = String(data[i][pinCol] || '').trim();
+    var inputHash = odHashPin(pin);
+
+    if (!storedHash && createPin) {
+      // First login — set the PIN
+      sheet.getRange(i + 1, pinCol + 1).setValue(inputHash);
+      return {
+        success: true,
+        firstLogin: true,
+        email: String(data[i][emailCol] || '').trim(),
+        name: String(data[i][nameCol] || '').trim(),
+        team: String(data[i][teamCol] || '').trim(),
+        role: String(data[i][roleCol] || '').trim()
+      };
+    }
+
+    if (!storedHash) {
+      // No PIN set but createPin not requested — should not happen in normal flow
+      return { success: false, message: 'PIN not set. Please create a PIN.' };
+    }
+
+    if (inputHash === storedHash) {
+      return {
+        success: true,
+        email: String(data[i][emailCol] || '').trim(),
+        name: String(data[i][nameCol] || '').trim(),
+        team: String(data[i][teamCol] || '').trim(),
+        role: String(data[i][roleCol] || '').trim()
+      };
+    } else {
+      return { success: false, message: 'Incorrect PIN' };
+    }
+  }
+
+  return { success: false, message: 'User not found' };
+}
+
+/**
+ * action=odCamCompanies
+ * Read Performance Audit sheet, get unique values from "Client Name" column.
+ */
+function odGetCamCompanies() {
+  var ss = SpreadsheetApp.openById(SHEETS.PERFORMANCE_AUDIT);
+  var sheets = ss.getSheets();
+  if (!sheets.length) return { success: true, companies: [] };
+
+  var sheet = sheets[0];
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: true, companies: [] };
+
+  // Find "Client Name" column by header text
+  var headers = data[0];
+  var clientCol = -1;
+  for (var c = 0; c < headers.length; c++) {
+    var h = String(headers[c]).trim().toLowerCase();
+    if (h === 'client name') {
+      clientCol = c;
+      break;
+    }
+  }
+  if (clientCol < 0) return { success: true, companies: [] };
+
+  var seen = {};
+  var companies = [];
+  for (var i = 1; i < data.length; i++) {
+    var val = String(data[i][clientCol] || '').trim();
+    if (val && !seen[val]) {
+      seen[val] = true;
+      companies.push(val);
+    }
+  }
+  companies.sort();
+  return { success: true, companies: companies };
+}
+
+// ═══════════════════════════════════════════════════════
+// OWNER DEVELOPMENT (OD) — doPost Endpoints
+// ═══════════════════════════════════════════════════════
+
+/**
+ * action: 'odSaveMapping'
+ * body: { campaign, ownerName, field, value, updatedBy }
+ * Find existing row by campaign+ownerName. Update specific field, or create new row.
+ */
+function odSaveMapping(body) {
+  var campaign = String(body.campaign || '').trim();
+  var ownerName = String(body.ownerName || '').trim();
+  var field = String(body.field || '').trim();
+  var value = body.value !== undefined ? body.value : '';
+  var updatedBy = String(body.updatedBy || '').trim();
+
+  if (!campaign || !ownerName || !field) {
+    return { success: false, message: 'campaign, ownerName, and field are required' };
+  }
+
+  var validFields = ['camCompany', 'nlrWorkbook', 'nlrWorkbookId', 'nlrWorkbookName', 'nlrTab'];
+  if (validFields.indexOf(field) < 0) {
+    return { success: false, message: 'Invalid field. Must be one of: ' + validFields.join(', ') };
+  }
+
+  var tabHeaders = ['campaign', 'ownerName', 'camCompany', 'nlrWorkbookId', 'nlrWorkbookName', 'nlrTab', 'updatedBy', 'updatedAt'];
+  var sheet = odGetOrCreateTab('_OD_Mappings', tabHeaders);
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+
+  // Find column indices
+  var colMap = {};
+  for (var c = 0; c < headers.length; c++) {
+    colMap[String(headers[c]).trim()] = c;
+  }
+
+  var now = new Date().toISOString();
+
+  // Search for existing row by campaign + ownerName
+  var foundRow = -1;
+  for (var i = 1; i < data.length; i++) {
+    var rowCampaign = String(data[i][colMap['campaign']] || '').trim().toLowerCase();
+    var rowOwner = String(data[i][colMap['ownerName']] || '').trim().toLowerCase();
+    if (rowCampaign === campaign.toLowerCase() && rowOwner === ownerName.toLowerCase()) {
+      foundRow = i + 1; // 1-based for sheet API
+      break;
+    }
+  }
+
+  // For 'nlrWorkbook' field, update nlrWorkbookId + nlrWorkbookName + nlrTab together
+  var isNlrWorkbook = (field === 'nlrWorkbook');
+  var nlrWorkbookId = isNlrWorkbook ? String(body.nlrWorkbookId || '') : '';
+  var nlrWorkbookName = isNlrWorkbook ? String(body.nlrWorkbookName || '') : '';
+  var nlrTab = isNlrWorkbook ? String(body.nlrTab || '') : '';
+
+  if (foundRow > 0) {
+    // Update existing row
+    if (isNlrWorkbook) {
+      sheet.getRange(foundRow, colMap['nlrWorkbookId'] + 1).setValue(nlrWorkbookId);
+      sheet.getRange(foundRow, colMap['nlrWorkbookName'] + 1).setValue(nlrWorkbookName);
+      sheet.getRange(foundRow, colMap['nlrTab'] + 1).setValue(nlrTab);
+    } else {
+      sheet.getRange(foundRow, colMap[field] + 1).setValue(value);
+    }
+    sheet.getRange(foundRow, colMap['updatedBy'] + 1).setValue(updatedBy);
+    sheet.getRange(foundRow, colMap['updatedAt'] + 1).setValue(now);
+  } else {
+    // Create new row
+    var newRow = [];
+    for (var c = 0; c < tabHeaders.length; c++) {
+      var col = tabHeaders[c];
+      if (col === 'campaign') newRow.push(campaign);
+      else if (col === 'ownerName') newRow.push(ownerName);
+      else if (isNlrWorkbook && col === 'nlrWorkbookId') newRow.push(nlrWorkbookId);
+      else if (isNlrWorkbook && col === 'nlrWorkbookName') newRow.push(nlrWorkbookName);
+      else if (isNlrWorkbook && col === 'nlrTab') newRow.push(nlrTab);
+      else if (!isNlrWorkbook && col === field) newRow.push(value);
+      else if (col === 'updatedBy') newRow.push(updatedBy);
+      else if (col === 'updatedAt') newRow.push(now);
+      else newRow.push('');
+    }
+    sheet.appendRow(newRow);
+  }
+
+  return { success: true };
+}
+
+/**
+ * action: 'odSaveUser'
+ * body: { email, name, team, role, pin? }
+ * Add or update user in _OD_Users.
+ */
+function odSaveUser(body) {
+  var email = String(body.email || '').trim();
+  var name = String(body.name || '').trim();
+  var team = String(body.team || '').trim();
+  var role = String(body.role || '').trim();
+  var pin = body.pin ? String(body.pin).trim() : '';
+
+  if (!email) return { success: false, message: 'email is required' };
+
+  var tabHeaders = ['email', 'name', 'team', 'role', 'pinHash', 'dateAdded', 'deactivated'];
+  var sheet = odGetOrCreateTab('_OD_Users', tabHeaders);
+  var data = sheet.getDataRange().getValues();
+
+  // Find existing row by email (case-insensitive)
+  var target = email.toLowerCase();
+  var foundRow = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === target) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+
+  if (foundRow > 0) {
+    // Update existing user
+    sheet.getRange(foundRow, 2).setValue(name);   // name
+    sheet.getRange(foundRow, 3).setValue(team);   // team
+    sheet.getRange(foundRow, 4).setValue(role);   // role
+    if (pin) {
+      sheet.getRange(foundRow, 5).setValue(odHashPin(pin)); // pinHash
+    }
+    sheet.getRange(foundRow, 7).setValue('');     // clear deactivated on save
+  } else {
+    // Add new user
+    var pinHash = pin ? odHashPin(pin) : '';
+    var now = new Date().toISOString();
+    sheet.appendRow([email, name, team, role, pinHash, now, '']);
+  }
+
+  return { success: true };
+}
+
+/**
+ * action: 'odDeleteUser'
+ * body: { email }
+ * Soft-delete: set deactivated=true in _OD_Users.
+ */
+function odDeleteUser(body) {
+  var email = String(body.email || '').trim();
+  if (!email) return { success: false, message: 'email is required' };
+
+  var tabHeaders = ['email', 'name', 'team', 'role', 'pinHash', 'dateAdded', 'deactivated'];
+  var sheet = odGetOrCreateTab('_OD_Users', tabHeaders);
+  var data = sheet.getDataRange().getValues();
+
+  var target = email.toLowerCase();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === target) {
+      sheet.getRange(i + 1, 7).setValue('true'); // deactivated column
+      return { success: true };
+    }
+  }
+
+  return { success: false, message: 'User not found' };
 }
 

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Development</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="references/logos/aptel-symbol-black.png" media="(prefers-color-scheme: light)">
+  <link rel="icon" type="image/png" href="references/logos/aptel-symbol-white.png" media="(prefers-color-scheme: dark)">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/owner-dev.css?v=1">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     LOGIN SCREEN
+     ═══════════════════════════════════════════════════════ -->
+<div id="login-screen" class="login-screen" style="display:none">
+  <div class="login-card">
+    <div class="login-logo-wrap"><img src="references/logos/aptel-symbol-black.png" alt="Aptel"></div>
+    <div class="login-step-title">Owner Development</div>
+    <div class="login-step-subtitle">Sign in to manage owner mappings</div>
+
+    <div id="login-email-wrap">
+      <input id="login-email" class="login-input" type="email" placeholder="Enter your email" autocomplete="email">
+    </div>
+
+    <div id="login-pin-wrap" style="display:none">
+      <input id="login-pin" class="login-input login-pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Enter your PIN" autocomplete="off">
+    </div>
+
+    <div id="login-pin-create-wrap" style="display:none">
+      <input id="login-pin-new" class="login-input login-pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Create a 4-6 digit PIN" autocomplete="off">
+      <input id="login-pin-confirm" class="login-input login-pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Confirm your PIN" autocomplete="off">
+    </div>
+
+    <button id="login-btn" class="login-btn">Continue</button>
+    <div id="login-error" class="login-error"></div>
+    <div id="login-back-link" style="display:none">&larr; Use a different email</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     LOADING SCREEN
+     ═══════════════════════════════════════════════════════ -->
+<div id="loading-screen" style="display:none">
+  <img src="references/logos/aptel-full-black.png" alt="Aptel" style="height:40px;width:auto;opacity:0.85">
+  <div class="loading-spinner"></div>
+  <div id="loading-text" style="font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#708090">Loading owner data...</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     MAIN DASHBOARD
+     ═══════════════════════════════════════════════════════ -->
+<div id="dashboard" style="display:none">
+
+  <!-- TOP BAR -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <img src="references/logos/aptel-full-black.png" alt="Aptel" class="top-bar-logo">
+      <span class="top-bar-divider"></span>
+      <span class="top-bar-title">Owner Development</span>
+    </div>
+    <div class="top-bar-right">
+      <span id="user-name" class="top-bar-user">&mdash;</span>
+      <span id="user-team-badge" class="top-bar-team-badge" style="display:none"></span>
+      <button class="btn-logout" onclick="OwnerDev.logout()">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- NAV TABS -->
+  <nav class="nav-tabs">
+    <button class="nav-tab active" data-tab="mapping" onclick="OwnerDev.switchTab('mapping')">Mapping</button>
+    <button id="nav-team-tab" class="nav-tab" data-tab="team" onclick="OwnerDev.switchTab('team')" style="display:none">Team</button>
+  </nav>
+
+  <!-- MAPPING VIEW -->
+  <div id="view-mapping" class="dashboard-content">
+
+    <!-- Campaign Filter Bar -->
+    <div class="filter-bar">
+      <div id="filter-pills" class="filter-pills">
+        <!-- Populated dynamically -->
+      </div>
+      <input type="text" id="search-input" class="filter-search" placeholder="Search owners..." oninput="OwnerDev.filterSearch(this.value)">
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stat-cards">
+      <div class="stat-card">
+        <div class="stat-card-label">Total Owners</div>
+        <div class="stat-card-value" id="stat-total">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Fully Mapped</div>
+        <div class="stat-card-value green" id="stat-mapped">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Partially Mapped</div>
+        <div class="stat-card-value yellow" id="stat-partial">&mdash;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Unmapped</div>
+        <div class="stat-card-value red" id="stat-unmapped">&mdash;</div>
+      </div>
+    </div>
+
+    <!-- Mapping Table -->
+    <div class="mapping-table-wrap">
+      <table class="mapping-table" id="mapping-table">
+        <thead>
+          <tr>
+            <th data-col="campaign" onclick="OwnerDev.sortBy('campaign')">Campaign <span class="sort-arrow">&#x25B2;</span></th>
+            <th data-col="ownerName" onclick="OwnerDev.sortBy('ownerName')">Owner <span class="sort-arrow">&#x25B2;</span></th>
+            <th data-col="camCompany">Cam's Company</th>
+            <th data-col="nlrFile">NLR File</th>
+            <th data-col="nlrTab">NLR Tab</th>
+            <th data-col="status" onclick="OwnerDev.sortBy('status')">Status <span class="sort-arrow">&#x25B2;</span></th>
+          </tr>
+        </thead>
+        <tbody id="mapping-tbody">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+      <div id="mapping-empty" class="empty-state" style="display:none">
+        <div class="empty-state-icon">&#x1F50D;</div>
+        <div class="empty-state-text">No owners match your search</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEAM VIEW -->
+  <div id="view-team" class="dashboard-content team-section">
+    <div class="team-header">
+      <h2 id="team-view-title">Team Members</h2>
+      <span class="team-count" id="team-count"></span>
+    </div>
+
+    <div id="team-members-grid" class="team-members-grid">
+      <!-- Populated dynamically -->
+    </div>
+
+    <div class="add-member-card">
+      <h3>Add Team Member</h3>
+      <div class="add-member-form">
+        <div class="form-row">
+          <input type="email" id="add-email" class="form-input" placeholder="Email address">
+          <input type="text" id="add-name" class="form-input" placeholder="Full name">
+        </div>
+        <div class="form-row">
+          <input type="password" id="add-pin" class="form-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="PIN (4-6 digits)">
+        </div>
+        <button class="btn-add-member" onclick="OwnerDev.addMember()">Add Member</button>
+        <div id="add-member-error" class="login-error" style="text-align:left"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SCRIPTS
+     ═══════════════════════════════════════════════════════ -->
+<script src="js/owner-dev-config.js?v=1"></script>
+<script src="js/owner-dev-app.js?v=1"></script>
+
+</body>
+</html>

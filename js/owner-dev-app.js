@@ -1,0 +1,1083 @@
+// ═══════════════════════════════════════════════════════
+// Owner Development Dashboard — App Controller
+// Multi-team owner mapping tool: Maddie's, Cam's, NLR
+// ═══════════════════════════════════════════════════════
+
+const OwnerDev = {
+
+  // ── State ──
+  state: {
+    session: null,          // { email, name, team, role, loginTime }
+    campaigns: {},          // { 'frontier': { label, owners: ['name1', ...] }, ... }
+    mappings: [],           // [{ campaign, ownerName, camCompany, nlrWorkbookId, nlrWorkbookName, nlrTab }, ...]
+    users: [],              // [{ email, name, team, role }, ...]
+    camCompanies: [],       // ['Company1', ...] for Cam's autocomplete
+    nlrWorkbooks: [],       // [{ id, name }, ...] from NLR Drive folder
+    nlrTabsCache: {},       // { sheetId: ['Tab1', ...] }
+    activeCampaign: 'all',  // filter key
+    searchQuery: '',        // search filter
+    activeTab: 'mapping',   // 'mapping' | 'team'
+    sortCol: 'campaign',    // current sort column
+    sortAsc: true,          // ascending sort
+    _savingCells: new Set() // tracks cells currently saving (prevents double-submit)
+  },
+
+  // ══════════════════════════════════════════════════════
+  // INIT
+  // ══════════════════════════════════════════════════════
+
+  async init() {
+    console.log('[OwnerDev] init');
+    this.state.session = this._getSession();
+
+    if (!this.state.session) {
+      this._showLogin();
+      return;
+    }
+
+    // Populate user info in top bar
+    this._renderUserInfo();
+
+    // Show team tab if manager
+    if (this.state.session.role === 'manager') {
+      document.getElementById('nav-team-tab').style.display = '';
+    }
+
+    // Load data
+    this._showLoading('Loading owner data...');
+    try {
+      await this._loadAllData();
+    } catch (err) {
+      console.error('[OwnerDev] Data load failed:', err);
+      this._toast('Failed to load data. Please refresh.', 'error');
+    }
+    this._hideLoading();
+
+    // Show dashboard
+    document.getElementById('dashboard').style.display = 'block';
+    this._renderFilterPills();
+    this._renderStats();
+    this.renderMapping();
+  },
+
+  // ══════════════════════════════════════════════════════
+  // SESSION
+  // ══════════════════════════════════════════════════════
+
+  _getSession() {
+    try {
+      const raw = localStorage.getItem(OD_CONFIG.sessionKey);
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (Date.now() - s.loginTime > OD_CONFIG.sessionDuration) {
+        localStorage.removeItem(OD_CONFIG.sessionKey);
+        return null;
+      }
+      return s;
+    } catch { return null; }
+  },
+
+  _saveSession(data) {
+    const s = { ...data, loginTime: Date.now() };
+    localStorage.setItem(OD_CONFIG.sessionKey, JSON.stringify(s));
+    return s;
+  },
+
+  logout() {
+    localStorage.removeItem(OD_CONFIG.sessionKey);
+    window.location.reload();
+  },
+
+  // ══════════════════════════════════════════════════════
+  // LOGIN (two-step: email → PIN)
+  // ══════════════════════════════════════════════════════
+
+  _showLogin() {
+    const screen = document.getElementById('login-screen');
+    screen.style.display = 'flex';
+
+    const emailWrap = document.getElementById('login-email-wrap');
+    const pinWrap = document.getElementById('login-pin-wrap');
+    const pinCreateWrap = document.getElementById('login-pin-create-wrap');
+    const emailInput = document.getElementById('login-email');
+    const pinInput = document.getElementById('login-pin');
+    const pinNew = document.getElementById('login-pin-new');
+    const pinConfirm = document.getElementById('login-pin-confirm');
+    const btn = document.getElementById('login-btn');
+    const error = document.getElementById('login-error');
+    const backLink = document.getElementById('login-back-link');
+
+    let loginStep = 'email'; // 'email' | 'pin' | 'pin-create'
+    let loginEmail = '';
+
+    // Reset state
+    emailWrap.style.display = '';
+    pinWrap.style.display = 'none';
+    pinCreateWrap.style.display = 'none';
+    backLink.style.display = 'none';
+    error.textContent = '';
+    btn.textContent = 'Continue';
+    btn.disabled = false;
+
+    const handleSubmit = async () => {
+      error.textContent = '';
+      btn.disabled = true;
+
+      try {
+        if (loginStep === 'email') {
+          // ── Email step: verify user exists ──
+          loginEmail = emailInput.value.trim().toLowerCase();
+          if (!loginEmail) { error.textContent = 'Please enter your email'; btn.disabled = false; return; }
+
+          const res = await this._post('odCheckUser', { email: loginEmail });
+          if (!res.success) {
+            error.textContent = res.message || 'Contact your team manager to get added.';
+            btn.disabled = false;
+            return;
+          }
+
+          // Move to PIN step
+          emailWrap.style.display = 'none';
+          backLink.style.display = '';
+
+          if (res.hasPin) {
+            loginStep = 'pin';
+            pinWrap.style.display = '';
+            btn.textContent = 'Sign In';
+            setTimeout(() => pinInput.focus(), 100);
+          } else {
+            loginStep = 'pin-create';
+            pinCreateWrap.style.display = '';
+            btn.textContent = 'Create PIN & Sign In';
+            setTimeout(() => pinNew.focus(), 100);
+          }
+          btn.disabled = false;
+
+        } else if (loginStep === 'pin') {
+          // ── PIN step: authenticate ──
+          const pin = pinInput.value.trim();
+          if (!pin || pin.length < 4) { error.textContent = 'Enter your 4-6 digit PIN'; btn.disabled = false; return; }
+
+          const res = await this._post('odLogin', { email: loginEmail, pin });
+          if (!res.success) {
+            error.textContent = res.message || 'Invalid PIN.';
+            btn.disabled = false;
+            return;
+          }
+
+          // Login success
+          this.state.session = this._saveSession({
+            email: res.email || loginEmail,
+            name: res.name || loginEmail.split('@')[0],
+            team: res.team,
+            role: res.role || 'member'
+          });
+          screen.style.display = 'none';
+          this.init();
+
+        } else if (loginStep === 'pin-create') {
+          // ── Create PIN step ──
+          const pin1 = pinNew.value.trim();
+          const pin2 = pinConfirm.value.trim();
+          if (!pin1 || pin1.length < 4) { error.textContent = 'PIN must be 4-6 digits'; btn.disabled = false; return; }
+          if (pin1 !== pin2) { error.textContent = 'PINs do not match'; btn.disabled = false; return; }
+
+          const res = await this._post('odLogin', { email: loginEmail, pin: pin1, createPin: true });
+          if (!res.success) {
+            error.textContent = res.message || 'Failed to create PIN.';
+            btn.disabled = false;
+            return;
+          }
+
+          // Login success
+          this.state.session = this._saveSession({
+            email: res.email || loginEmail,
+            name: res.name || loginEmail.split('@')[0],
+            team: res.team,
+            role: res.role || 'member'
+          });
+          screen.style.display = 'none';
+          this.init();
+        }
+      } catch (err) {
+        console.error('[OwnerDev] Login error:', err);
+        error.textContent = 'Connection failed. Please try again.';
+        btn.disabled = false;
+      }
+    };
+
+    // Back link: go back to email step
+    backLink.onclick = () => {
+      loginStep = 'email';
+      emailWrap.style.display = '';
+      pinWrap.style.display = 'none';
+      pinCreateWrap.style.display = 'none';
+      backLink.style.display = 'none';
+      btn.textContent = 'Continue';
+      btn.disabled = false;
+      error.textContent = '';
+      pinInput.value = '';
+      pinNew.value = '';
+      pinConfirm.value = '';
+      setTimeout(() => emailInput.focus(), 100);
+    };
+
+    // Button click + Enter key
+    btn.onclick = handleSubmit;
+    emailInput.onkeydown = e => { if (e.key === 'Enter') handleSubmit(); };
+    pinInput.onkeydown = e => { if (e.key === 'Enter') handleSubmit(); };
+    pinConfirm.onkeydown = e => { if (e.key === 'Enter') handleSubmit(); };
+
+    setTimeout(() => emailInput.focus(), 100);
+  },
+
+  // ══════════════════════════════════════════════════════
+  // API LAYER
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * GET request to Apps Script
+   * @param {string} action - API action name
+   * @param {Object} params - Additional query parameters
+   * @returns {Promise<Object>} parsed JSON response
+   */
+  async _api(action, params = {}) {
+    const url = new URL(OD_CONFIG.appsScriptUrl);
+    url.searchParams.set('key', OD_CONFIG.apiKey);
+    url.searchParams.set('action', action);
+    for (const [k, v] of Object.entries(params)) {
+      url.searchParams.set(k, v);
+    }
+    const res = await this._fetchWithTimeout(
+      fetch(url.toString()).then(r => r.json())
+    );
+    return res;
+  },
+
+  /**
+   * POST request to Apps Script (text/plain to avoid CORS preflight)
+   * @param {string} action - API action name
+   * @param {Object} body - Data to send
+   * @returns {Promise<Object>} parsed JSON response
+   */
+  async _post(action, body = {}) {
+    const res = await this._fetchWithTimeout(
+      fetch(OD_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action, key: OD_CONFIG.apiKey, ...body })
+      }).then(r => r.json())
+    );
+    return res;
+  },
+
+  /**
+   * Fetch with timeout wrapper (default 20s)
+   */
+  _fetchWithTimeout(promise, ms = 20000) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), ms))
+    ]);
+  },
+
+  // ══════════════════════════════════════════════════════
+  // DATA LOADING
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * Fire all data fetches in parallel
+   */
+  async _loadAllData() {
+    const results = await Promise.allSettled([
+      this._api('odCampaignOwners'),
+      this._api('odGetMappings'),
+      this._api('odGetUsers'),
+      this._api('odCamCompanies'),
+      this._api('odNlrWorkbooks')
+    ]);
+
+    // Process campaign owners
+    if (results[0].status === 'fulfilled' && results[0].value.success) {
+      this.state.campaigns = results[0].value.campaigns || {};
+    } else {
+      console.warn('[OwnerDev] Failed to load campaign owners:', results[0].reason || results[0].value);
+      // Fallback: build campaigns from config
+      this.state.campaigns = {};
+      for (const [key, cfg] of Object.entries(OD_CONFIG.campaignSources)) {
+        this.state.campaigns[key] = { label: cfg.label, owners: [] };
+      }
+    }
+
+    // Process mappings
+    if (results[1].status === 'fulfilled' && results[1].value.success) {
+      this.state.mappings = results[1].value.mappings || [];
+    } else {
+      console.warn('[OwnerDev] Failed to load mappings:', results[1].reason || results[1].value);
+      this.state.mappings = [];
+    }
+
+    // Process users
+    if (results[2].status === 'fulfilled' && results[2].value.success) {
+      this.state.users = results[2].value.users || [];
+    } else {
+      console.warn('[OwnerDev] Failed to load users:', results[2].reason || results[2].value);
+      this.state.users = [];
+    }
+
+    // Process Cam's companies
+    if (results[3].status === 'fulfilled' && results[3].value.success) {
+      this.state.camCompanies = results[3].value.companies || [];
+    } else {
+      console.warn('[OwnerDev] Failed to load Cam companies:', results[3].reason || results[3].value);
+      this.state.camCompanies = [];
+    }
+
+    // Process NLR workbooks
+    if (results[4].status === 'fulfilled' && results[4].value.success) {
+      this.state.nlrWorkbooks = results[4].value.workbooks || [];
+    } else {
+      console.warn('[OwnerDev] Failed to load NLR workbooks:', results[4].reason || results[4].value);
+      this.state.nlrWorkbooks = [];
+    }
+
+    console.log('[OwnerDev] Data loaded:', {
+      campaigns: Object.keys(this.state.campaigns).length,
+      mappings: this.state.mappings.length,
+      users: this.state.users.length,
+      camCompanies: this.state.camCompanies.length,
+      nlrWorkbooks: this.state.nlrWorkbooks.length
+    });
+  },
+
+  // ══════════════════════════════════════════════════════
+  // NAVIGATION
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * Switch between Mapping and Team tabs
+   */
+  switchTab(tab) {
+    this.state.activeTab = tab;
+
+    // Update nav tab active state
+    document.querySelectorAll('.nav-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+
+    // Show/hide views
+    document.getElementById('view-mapping').style.display = tab === 'mapping' ? '' : 'none';
+    const teamView = document.getElementById('view-team');
+    teamView.classList.toggle('active', tab === 'team');
+
+    if (tab === 'team') {
+      this.renderTeam();
+    }
+  },
+
+  // ══════════════════════════════════════════════════════
+  // FILTER & SEARCH
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * Set active campaign filter and re-render
+   */
+  filterCampaign(key) {
+    this.state.activeCampaign = key;
+    this._updateFilterPillsActive();
+    this._renderStats();
+    this.renderMapping();
+  },
+
+  /**
+   * Filter by owner name search
+   */
+  filterSearch(query) {
+    this.state.searchQuery = query.trim().toLowerCase();
+    this._renderStats();
+    this.renderMapping();
+  },
+
+  /**
+   * Sort mapping table by column
+   */
+  sortBy(col) {
+    if (this.state.sortCol === col) {
+      this.state.sortAsc = !this.state.sortAsc;
+    } else {
+      this.state.sortCol = col;
+      this.state.sortAsc = true;
+    }
+    this._updateSortArrows();
+    this.renderMapping();
+  },
+
+  // ══════════════════════════════════════════════════════
+  // RENDERING — User Info
+  // ══════════════════════════════════════════════════════
+
+  _renderUserInfo() {
+    const s = this.state.session;
+    if (!s) return;
+
+    document.getElementById('user-name').textContent = s.name || s.email;
+
+    const badge = document.getElementById('user-team-badge');
+    const teamCfg = OD_CONFIG.teams[s.team];
+    if (teamCfg) {
+      badge.style.display = '';
+      badge.style.background = teamCfg.color;
+      badge.textContent = teamCfg.icon + ' ' + teamCfg.label;
+    }
+  },
+
+  // ══════════════════════════════════════════════════════
+  // RENDERING — Filter Pills
+  // ══════════════════════════════════════════════════════
+
+  _renderFilterPills() {
+    const container = document.getElementById('filter-pills');
+    const rows = this._getFilteredRows(true); // all rows (ignore campaign filter for counts)
+
+    // Count owners per campaign
+    const counts = {};
+    let total = 0;
+    for (const row of rows) {
+      counts[row.campaign] = (counts[row.campaign] || 0) + 1;
+      total++;
+    }
+
+    // Build pills
+    let html = `<button class="filter-pill active" onclick="OwnerDev.filterCampaign('all')">All <span class="pill-count">${total}</span></button>`;
+
+    for (const [key, cfg] of Object.entries(OD_CONFIG.campaignSources)) {
+      const count = counts[key] || 0;
+      if (count === 0 && !cfg.sheetId) continue; // skip unconfigured empty campaigns
+      html += `<button class="filter-pill" data-campaign="${key}" onclick="OwnerDev.filterCampaign('${key}')">${cfg.label} <span class="pill-count">${count}</span></button>`;
+    }
+
+    container.innerHTML = html;
+    this._updateFilterPillsActive();
+  },
+
+  _updateFilterPillsActive() {
+    document.querySelectorAll('.filter-pill').forEach(pill => {
+      const key = pill.dataset.campaign || 'all';
+      pill.classList.toggle('active', key === this.state.activeCampaign);
+    });
+  },
+
+  // ══════════════════════════════════════════════════════
+  // RENDERING — Stats
+  // ══════════════════════════════════════════════════════
+
+  _renderStats() {
+    const rows = this._getFilteredRows();
+    let mapped = 0, partial = 0, unmapped = 0;
+
+    for (const row of rows) {
+      const s = this._getRowStatus(row);
+      if (s === 'mapped') mapped++;
+      else if (s === 'partial') partial++;
+      else unmapped++;
+    }
+
+    document.getElementById('stat-total').textContent = rows.length;
+    document.getElementById('stat-mapped').textContent = mapped;
+    document.getElementById('stat-partial').textContent = partial;
+    document.getElementById('stat-unmapped').textContent = unmapped;
+  },
+
+  // ══════════════════════════════════════════════════════
+  // RENDERING — Mapping Table
+  // ══════════════════════════════════════════════════════
+
+  renderMapping() {
+    const rows = this._getFilteredRows();
+    const sorted = this._sortRows(rows);
+    const tbody = document.getElementById('mapping-tbody');
+    const empty = document.getElementById('mapping-empty');
+
+    if (sorted.length === 0) {
+      tbody.innerHTML = '';
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+
+    const team = this.state.session?.team;
+    const isCam = team === 'cam';
+    const isNlr = team === 'nlr';
+
+    let html = '';
+    for (const row of sorted) {
+      const mapping = this._findMapping(row.campaign, row.ownerName);
+      const status = this._getRowStatus(row, mapping);
+      const statusLabel = status === 'mapped' ? 'Mapped' : status === 'partial' ? 'Partial' : 'Unmapped';
+      const statusIcon = status === 'mapped' ? '\u2705' : status === 'partial' ? '\u26A0\uFE0F' : '\u274C';
+      const rowId = this._rowId(row.campaign, row.ownerName);
+      const campaignLabel = OD_CONFIG.campaignSources[row.campaign]?.label || row.campaign;
+
+      html += `<tr data-row-id="${rowId}">`;
+
+      // Campaign pill
+      html += `<td><span class="campaign-pill">${this._esc(campaignLabel)}</span></td>`;
+
+      // Owner name
+      html += `<td><strong>${this._esc(row.ownerName)}</strong></td>`;
+
+      // Cam's Company column
+      if (isCam) {
+        html += `<td class="cell-editable">${this._renderCamSelect(row, mapping)}</td>`;
+      } else {
+        const val = mapping?.camCompany || '';
+        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span style="color:var(--gray-300)">--</span>'}</td>`;
+      }
+
+      // NLR File column
+      if (isNlr) {
+        html += `<td class="cell-editable">${this._renderNlrFileSelect(row, mapping)}</td>`;
+      } else {
+        const val = mapping?.nlrWorkbookName || '';
+        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span style="color:var(--gray-300)">--</span>'}</td>`;
+      }
+
+      // NLR Tab column
+      if (isNlr) {
+        html += `<td class="cell-editable">${this._renderNlrTabSelect(row, mapping)}</td>`;
+      } else {
+        const val = mapping?.nlrTab || '';
+        html += `<td class="cell-readonly">${val ? '<span class="readonly-value">' + this._esc(val) + '</span>' : '<span style="color:var(--gray-300)">--</span>'}</td>`;
+      }
+
+      // Status badge
+      html += `<td><span class="status-badge ${status}">${statusIcon} ${statusLabel}</span></td>`;
+
+      html += `</tr>`;
+    }
+
+    tbody.innerHTML = html;
+  },
+
+  /**
+   * Render Cam's company <select>
+   */
+  _renderCamSelect(row, mapping) {
+    const val = mapping?.camCompany || '';
+    const cellId = `cam-${this._rowId(row.campaign, row.ownerName)}`;
+    const hasVal = val ? ' has-value' : '';
+
+    let opts = `<option value="">-- Select --</option>`;
+    for (const company of this.state.camCompanies) {
+      const sel = company === val ? ' selected' : '';
+      opts += `<option value="${this._esc(company)}"${sel}>${this._esc(company)}</option>`;
+    }
+
+    return `<select id="${cellId}" class="${hasVal}" onchange="OwnerDev._onCamCompanyChange('${this._esc(row.campaign)}','${this._esc(row.ownerName)}',this)">${opts}</select>`;
+  },
+
+  /**
+   * Render NLR workbook file <select>
+   */
+  _renderNlrFileSelect(row, mapping) {
+    const val = mapping?.nlrWorkbookId || '';
+    const cellId = `nlr-file-${this._rowId(row.campaign, row.ownerName)}`;
+    const hasVal = val ? ' has-value' : '';
+
+    let opts = `<option value="">-- Select File --</option>`;
+    for (const wb of this.state.nlrWorkbooks) {
+      const sel = wb.id === val ? ' selected' : '';
+      opts += `<option value="${this._esc(wb.id)}"${sel}>${this._esc(wb.name)}</option>`;
+    }
+
+    return `<select id="${cellId}" class="${hasVal}" onchange="OwnerDev._onNlrFileChange('${this._esc(row.campaign)}','${this._esc(row.ownerName)}',this)">${opts}</select>`;
+  },
+
+  /**
+   * Render NLR tab <select> (disabled until workbook is selected)
+   */
+  _renderNlrTabSelect(row, mapping) {
+    const wbId = mapping?.nlrWorkbookId || '';
+    const val = mapping?.nlrTab || '';
+    const cellId = `nlr-tab-${this._rowId(row.campaign, row.ownerName)}`;
+    const disabled = !wbId ? ' disabled' : '';
+    const hasVal = val ? ' has-value' : '';
+
+    let opts = `<option value="">-- Select Tab --</option>`;
+
+    // If we have cached tabs for this workbook, populate options
+    if (wbId && this.state.nlrTabsCache[wbId]) {
+      for (const tab of this.state.nlrTabsCache[wbId]) {
+        const sel = tab === val ? ' selected' : '';
+        opts += `<option value="${this._esc(tab)}"${sel}>${this._esc(tab)}</option>`;
+      }
+    }
+
+    return `<select id="${cellId}" class="${hasVal}"${disabled} onchange="OwnerDev._onNlrTabChange('${this._esc(row.campaign)}','${this._esc(row.ownerName)}',this)">${opts}</select>`;
+  },
+
+  // ══════════════════════════════════════════════════════
+  // SAVE HANDLERS (auto-save on dropdown change)
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * Handle Cam's Company dropdown change
+   */
+  async _onCamCompanyChange(campaign, ownerName, selectEl) {
+    const cellKey = `cam-${campaign}-${ownerName}`;
+    if (this.state._savingCells.has(cellKey)) return;
+
+    const value = selectEl.value;
+    selectEl.disabled = true;
+    this.state._savingCells.add(cellKey);
+
+    try {
+      const res = await this._post('odSaveMapping', {
+        campaign,
+        ownerName,
+        field: 'camCompany',
+        value,
+        updatedBy: this.state.session.email
+      });
+
+      if (res.success) {
+        // Update local state
+        this._upsertMapping(campaign, ownerName, { camCompany: value });
+        selectEl.classList.toggle('has-value', !!value);
+        this._renderStats();
+        this._toast('Saved', 'success');
+        // Update status badge in same row
+        this._updateRowStatus(campaign, ownerName);
+      } else {
+        this._toast(res.message || 'Save failed', 'error');
+      }
+    } catch (err) {
+      console.error('[OwnerDev] Save error:', err);
+      this._toast('Save failed. Please try again.', 'error');
+    } finally {
+      selectEl.disabled = false;
+      this.state._savingCells.delete(cellKey);
+    }
+  },
+
+  /**
+   * Handle NLR File dropdown change — also fetches tabs for the workbook
+   */
+  async _onNlrFileChange(campaign, ownerName, selectEl) {
+    const cellKey = `nlr-file-${campaign}-${ownerName}`;
+    if (this.state._savingCells.has(cellKey)) return;
+
+    const wbId = selectEl.value;
+    const wbName = selectEl.options[selectEl.selectedIndex]?.text || '';
+    selectEl.disabled = true;
+    this.state._savingCells.add(cellKey);
+
+    // Get the tab select for this row
+    const tabSelectId = `nlr-tab-${this._rowId(campaign, ownerName)}`;
+    const tabSelect = document.getElementById(tabSelectId);
+
+    try {
+      // Save the workbook selection (clear tab when file changes)
+      const res = await this._post('odSaveMapping', {
+        campaign,
+        ownerName,
+        field: 'nlrWorkbook',
+        nlrWorkbookId: wbId,
+        nlrWorkbookName: wbName,
+        nlrTab: '', // clear tab on file change
+        updatedBy: this.state.session.email
+      });
+
+      if (res.success) {
+        this._upsertMapping(campaign, ownerName, {
+          nlrWorkbookId: wbId,
+          nlrWorkbookName: wbName,
+          nlrTab: ''
+        });
+        selectEl.classList.toggle('has-value', !!wbId);
+        this._renderStats();
+        this._toast('File saved', 'success');
+        this._updateRowStatus(campaign, ownerName);
+      } else {
+        this._toast(res.message || 'Save failed', 'error');
+      }
+
+      // Fetch tabs for the selected workbook
+      if (wbId && tabSelect) {
+        tabSelect.disabled = true;
+        tabSelect.innerHTML = '<option value="">Loading tabs...</option>';
+
+        if (!this.state.nlrTabsCache[wbId]) {
+          try {
+            const tabsRes = await this._api('odNlrTabs', { sheetId: wbId });
+            if (tabsRes.success) {
+              this.state.nlrTabsCache[wbId] = tabsRes.tabs || [];
+            } else {
+              this.state.nlrTabsCache[wbId] = [];
+            }
+          } catch (err) {
+            console.error('[OwnerDev] Tab fetch error:', err);
+            this.state.nlrTabsCache[wbId] = [];
+          }
+        }
+
+        // Populate tab dropdown
+        let tabOpts = '<option value="">-- Select Tab --</option>';
+        for (const tab of (this.state.nlrTabsCache[wbId] || [])) {
+          tabOpts += `<option value="${this._esc(tab)}">${this._esc(tab)}</option>`;
+        }
+        tabSelect.innerHTML = tabOpts;
+        tabSelect.disabled = false;
+        tabSelect.classList.remove('has-value');
+      } else if (tabSelect) {
+        tabSelect.innerHTML = '<option value="">-- Select Tab --</option>';
+        tabSelect.disabled = true;
+        tabSelect.classList.remove('has-value');
+      }
+    } catch (err) {
+      console.error('[OwnerDev] Save error:', err);
+      this._toast('Save failed. Please try again.', 'error');
+    } finally {
+      selectEl.disabled = false;
+      this.state._savingCells.delete(cellKey);
+    }
+  },
+
+  /**
+   * Handle NLR Tab dropdown change
+   */
+  async _onNlrTabChange(campaign, ownerName, selectEl) {
+    const cellKey = `nlr-tab-${campaign}-${ownerName}`;
+    if (this.state._savingCells.has(cellKey)) return;
+
+    const value = selectEl.value;
+    selectEl.disabled = true;
+    this.state._savingCells.add(cellKey);
+
+    try {
+      const res = await this._post('odSaveMapping', {
+        campaign,
+        ownerName,
+        field: 'nlrTab',
+        value,
+        updatedBy: this.state.session.email
+      });
+
+      if (res.success) {
+        this._upsertMapping(campaign, ownerName, { nlrTab: value });
+        selectEl.classList.toggle('has-value', !!value);
+        this._renderStats();
+        this._toast('Saved', 'success');
+        this._updateRowStatus(campaign, ownerName);
+      } else {
+        this._toast(res.message || 'Save failed', 'error');
+      }
+    } catch (err) {
+      console.error('[OwnerDev] Save error:', err);
+      this._toast('Save failed. Please try again.', 'error');
+    } finally {
+      selectEl.disabled = false;
+      this.state._savingCells.delete(cellKey);
+    }
+  },
+
+  // ══════════════════════════════════════════════════════
+  // RENDERING — Team Management
+  // ══════════════════════════════════════════════════════
+
+  renderTeam() {
+    const team = this.state.session?.team;
+    if (!team) return;
+
+    const teamCfg = OD_CONFIG.teams[team];
+    const members = this.state.users.filter(u => u.team === team);
+
+    // Title
+    document.getElementById('team-view-title').textContent = (teamCfg?.label || 'Team') + ' Members';
+    document.getElementById('team-count').textContent = members.length + ' member' + (members.length !== 1 ? 's' : '');
+
+    // Member cards
+    const grid = document.getElementById('team-members-grid');
+    if (members.length === 0) {
+      grid.innerHTML = '<div class="empty-state"><div class="empty-state-text">No team members yet</div></div>';
+      return;
+    }
+
+    let html = '';
+    for (const m of members) {
+      const initials = (m.name || m.email).split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+      const roleLabel = m.role === 'manager' ? 'Manager' : 'Member';
+      const isManager = this.state.session.role === 'manager';
+      const isSelf = m.email.toLowerCase() === this.state.session.email.toLowerCase();
+
+      html += `<div class="team-member-card">
+        <div class="team-member-avatar" style="background:${teamCfg?.color || 'var(--gray-400)'}">${initials}</div>
+        <div class="team-member-info">
+          <div class="team-member-name">${this._esc(m.name || m.email)}</div>
+          <div class="team-member-email">${this._esc(m.email)}</div>
+          <span class="team-member-role">${roleLabel}</span>
+        </div>
+        ${isManager && !isSelf ? `<div class="team-member-actions"><button class="btn-remove-member" onclick="OwnerDev.removeMember('${this._esc(m.email)}')">Remove</button></div>` : ''}
+      </div>`;
+    }
+
+    grid.innerHTML = html;
+  },
+
+  /**
+   * Add a new team member
+   */
+  async addMember() {
+    const emailInput = document.getElementById('add-email');
+    const nameInput = document.getElementById('add-name');
+    const pinInput = document.getElementById('add-pin');
+    const error = document.getElementById('add-member-error');
+    error.textContent = '';
+
+    const email = emailInput.value.trim().toLowerCase();
+    const name = nameInput.value.trim();
+    const pin = pinInput.value.trim();
+
+    if (!email) { error.textContent = 'Email is required'; return; }
+    if (!name) { error.textContent = 'Name is required'; return; }
+    if (!pin || pin.length < 4) { error.textContent = 'PIN must be 4-6 digits'; return; }
+
+    const btn = document.querySelector('.btn-add-member');
+    btn.disabled = true;
+
+    try {
+      const res = await this._post('odSaveUser', {
+        email,
+        name,
+        pin,
+        team: this.state.session.team,
+        role: 'member',
+        addedBy: this.state.session.email
+      });
+
+      if (res.success) {
+        this._toast('Member added', 'success');
+        emailInput.value = '';
+        nameInput.value = '';
+        pinInput.value = '';
+
+        // Re-fetch users and re-render
+        try {
+          const usersRes = await this._api('odGetUsers');
+          if (usersRes.success) this.state.users = usersRes.users || [];
+        } catch {}
+        this.renderTeam();
+      } else {
+        error.textContent = res.message || 'Failed to add member';
+      }
+    } catch (err) {
+      console.error('[OwnerDev] Add member error:', err);
+      error.textContent = 'Connection failed. Please try again.';
+    } finally {
+      btn.disabled = false;
+    }
+  },
+
+  /**
+   * Remove (soft delete) a team member
+   */
+  async removeMember(email) {
+    if (!confirm(`Remove ${email} from the team?`)) return;
+
+    try {
+      const res = await this._post('odDeleteUser', {
+        email,
+        deletedBy: this.state.session.email
+      });
+
+      if (res.success) {
+        this._toast('Member removed', 'success');
+        // Re-fetch users and re-render
+        try {
+          const usersRes = await this._api('odGetUsers');
+          if (usersRes.success) this.state.users = usersRes.users || [];
+        } catch {}
+        this.renderTeam();
+      } else {
+        this._toast(res.message || 'Failed to remove member', 'error');
+      }
+    } catch (err) {
+      console.error('[OwnerDev] Remove member error:', err);
+      this._toast('Connection failed. Please try again.', 'error');
+    }
+  },
+
+  // ══════════════════════════════════════════════════════
+  // DATA HELPERS
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * Build flat array of { campaign, ownerName } rows from campaigns state.
+   * Applies campaign filter and search query.
+   * @param {boolean} ignoreFilter - If true, ignore campaign filter (for total counts)
+   */
+  _getFilteredRows(ignoreFilter = false) {
+    const rows = [];
+    for (const [campaignKey, campaign] of Object.entries(this.state.campaigns)) {
+      if (!ignoreFilter && this.state.activeCampaign !== 'all' && campaignKey !== this.state.activeCampaign) continue;
+      for (const ownerName of (campaign.owners || [])) {
+        if (this.state.searchQuery && !ownerName.toLowerCase().includes(this.state.searchQuery)) continue;
+        rows.push({ campaign: campaignKey, ownerName });
+      }
+    }
+    return rows;
+  },
+
+  /**
+   * Find an existing mapping for a campaign+owner
+   */
+  _findMapping(campaign, ownerName) {
+    return this.state.mappings.find(
+      m => m.campaign === campaign && m.ownerName === ownerName
+    ) || null;
+  },
+
+  /**
+   * Upsert mapping in local state
+   */
+  _upsertMapping(campaign, ownerName, updates) {
+    let mapping = this._findMapping(campaign, ownerName);
+    if (mapping) {
+      Object.assign(mapping, updates);
+    } else {
+      mapping = { campaign, ownerName, camCompany: '', nlrWorkbookId: '', nlrWorkbookName: '', nlrTab: '', ...updates };
+      this.state.mappings.push(mapping);
+    }
+  },
+
+  /**
+   * Determine row status: 'mapped' | 'partial' | 'unmapped'
+   */
+  _getRowStatus(row, mapping) {
+    if (!mapping) mapping = this._findMapping(row.campaign, row.ownerName);
+    const hasCam = !!(mapping?.camCompany);
+    const hasNlr = !!(mapping?.nlrTab);
+
+    if (hasCam && hasNlr) return 'mapped';
+    if (hasCam || hasNlr) return 'partial';
+    return 'unmapped';
+  },
+
+  /**
+   * Update just the status badge in an existing row without full re-render
+   */
+  _updateRowStatus(campaign, ownerName) {
+    const rowId = this._rowId(campaign, ownerName);
+    const tr = document.querySelector(`tr[data-row-id="${rowId}"]`);
+    if (!tr) return;
+
+    const row = { campaign, ownerName };
+    const status = this._getRowStatus(row);
+    const statusLabel = status === 'mapped' ? 'Mapped' : status === 'partial' ? 'Partial' : 'Unmapped';
+    const statusIcon = status === 'mapped' ? '\u2705' : status === 'partial' ? '\u26A0\uFE0F' : '\u274C';
+
+    const statusTd = tr.querySelector('td:last-child');
+    if (statusTd) {
+      statusTd.innerHTML = `<span class="status-badge ${status}">${statusIcon} ${statusLabel}</span>`;
+    }
+  },
+
+  /**
+   * Sort rows array by current sort column
+   */
+  _sortRows(rows) {
+    const col = this.state.sortCol;
+    const asc = this.state.sortAsc ? 1 : -1;
+
+    return [...rows].sort((a, b) => {
+      let va, vb;
+      if (col === 'campaign') {
+        va = (OD_CONFIG.campaignSources[a.campaign]?.label || a.campaign).toLowerCase();
+        vb = (OD_CONFIG.campaignSources[b.campaign]?.label || b.campaign).toLowerCase();
+      } else if (col === 'ownerName') {
+        va = a.ownerName.toLowerCase();
+        vb = b.ownerName.toLowerCase();
+      } else if (col === 'status') {
+        const order = { unmapped: 0, partial: 1, mapped: 2 };
+        va = order[this._getRowStatus(a)] ?? 0;
+        vb = order[this._getRowStatus(b)] ?? 0;
+      } else {
+        va = a[col] || '';
+        vb = b[col] || '';
+      }
+      if (va < vb) return -1 * asc;
+      if (va > vb) return 1 * asc;
+      return 0;
+    });
+  },
+
+  /**
+   * Update sort arrows in table header
+   */
+  _updateSortArrows() {
+    document.querySelectorAll('.mapping-table thead th').forEach(th => {
+      const col = th.dataset.col;
+      const arrow = th.querySelector('.sort-arrow');
+      if (!arrow) return;
+
+      if (col === this.state.sortCol) {
+        th.classList.add('sorted');
+        arrow.textContent = this.state.sortAsc ? '\u25B2' : '\u25BC';
+      } else {
+        th.classList.remove('sorted');
+        arrow.textContent = '\u25B2';
+      }
+    });
+  },
+
+  /**
+   * Generate a unique row ID for data attributes
+   */
+  _rowId(campaign, ownerName) {
+    return btoa(campaign + '|' + ownerName).replace(/[^a-zA-Z0-9]/g, '');
+  },
+
+  // ══════════════════════════════════════════════════════
+  // UI HELPERS
+  // ══════════════════════════════════════════════════════
+
+  _showLoading(text) {
+    document.getElementById('loading-text').textContent = text || 'Loading...';
+    document.getElementById('loading-screen').style.display = 'flex';
+  },
+
+  _hideLoading() {
+    document.getElementById('loading-screen').style.display = 'none';
+  },
+
+  /**
+   * Show a brief toast notification
+   */
+  _toast(message, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = type === 'success' ? message + ' \u2713' : message;
+    el.className = 'toast ' + type;
+
+    // Force reflow for animation
+    void el.offsetWidth;
+    el.classList.add('show');
+
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => {
+      el.classList.remove('show');
+    }, 2000);
+  },
+
+  /**
+   * HTML-escape a string
+   */
+  _esc(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+};
+
+// ── Boot ──
+document.addEventListener('DOMContentLoaded', () => OwnerDev.init());

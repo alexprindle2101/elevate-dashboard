@@ -630,7 +630,7 @@ const OwnerDev = {
     const clearBtn = displayVal ? `<span class="sd-clear" onclick="event.stopPropagation();${onClearFn}" title="Clear">&times;</span>` : '';
 
     return `<div class="sd-wrap" id="sd-wrap-${cellId}">
-      <div class="sd-trigger${hasVal}${disabledClass}" onclick="${disabled ? '' : onClickFn}">
+      <div class="sd-trigger${hasVal}${disabledClass}" onclick="if(!this.classList.contains('disabled')){${onClickFn}}">
         <span style="overflow:hidden;text-overflow:ellipsis">${displayVal ? this._esc(displayVal) : placeholder}</span>
         ${clearBtn}
         <span class="sd-arrow">▾</span>

@@ -408,13 +408,35 @@ const OwnerDev = {
       clientToBusinessPairs: this.state.clientToBusinessMap.length
     });
 
-    // Run auto-map on first load for both Cam companies and NLR files
-    let autoTotal = 0;
+    // Run Cam auto-map immediately (data already loaded)
     if (this.state.clientToBusinessMap.length > 0) {
-      autoTotal += await this._autoMapCamCompanies();
+      await this._autoMapCamCompanies();
     }
+
+    // NLR auto-map: if workbooks loaded but tabs not cached yet, fetch with tabs
     if (this.state.nlrWorkbooks.length > 0) {
-      autoTotal += await this._autoMapNlrFiles();
+      // Check if tabs are already cached
+      const hasAnyTabs = this.state.nlrWorkbooks.some(wb => this.state.nlrTabsCache[wb.id]);
+      if (!hasAnyTabs) {
+        // Fetch workbooks WITH tabs (longer timeout — this opens each spreadsheet)
+        try {
+          const fullRes = await this._fetchWithTimeout(
+            this._api('odNlrWorkbooks', { includeTabs: 'true' }),
+            120000 // 2 minute timeout for tab scanning
+          );
+          if (fullRes.success && fullRes.workbooks) {
+            this.state.nlrWorkbooks = fullRes.workbooks;
+            for (const wb of fullRes.workbooks) {
+              if (wb.tabs && wb.tabs.length) {
+                this.state.nlrTabsCache[wb.id] = wb.tabs;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[OwnerDev] Tab fetch timed out, NLR tab auto-map skipped:', err.message);
+        }
+      }
+      await this._autoMapNlrFiles();
     }
   },
 

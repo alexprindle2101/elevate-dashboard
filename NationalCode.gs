@@ -129,8 +129,10 @@ function doGet(e) {
     }
 
     // ── OD: List NLR workbooks in Drive folder ──
+    // ?includeTabs=true to also fetch tab names (slower — opens each spreadsheet)
     if (action === 'odNlrWorkbooks') {
-      return jsonResp(odGetNlrWorkbooks());
+      var includeTabs = (e && e.parameter && e.parameter.includeTabs) === 'true';
+      return jsonResp(odGetNlrWorkbooks(includeTabs));
     }
 
     // ── OD: Get tab names from a spreadsheet ──
@@ -3795,39 +3797,42 @@ function odGetCampaignOwners() {
  * action=odNlrWorkbooks
  * List all Google Sheets files in the NLR Drive folder.
  */
-function odGetNlrWorkbooks() {
+function odGetNlrWorkbooks(includeTabs) {
   var folder = DriveApp.getFolderById(OD_NLR_FOLDER);
   var result = [];
-  odScanFolderForSheets_(folder, result);
+  odScanFolderForSheets_(folder, result, !!includeTabs);
   return { success: true, workbooks: result };
 }
 
 /**
  * Recursively scan a folder and all subfolders for Google Sheets.
- * Populates the result array with { id, name, tabs } objects.
+ * @param {Folder} folder - Drive folder to scan
+ * @param {Array} result - accumulator for { id, name, tabs? } objects
+ * @param {boolean} includeTabs - if true, open each sheet and read tab names (slow)
  */
-function odScanFolderForSheets_(folder, result) {
-  // Get sheets in this folder
+function odScanFolderForSheets_(folder, result, includeTabs) {
   var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
   while (files.hasNext()) {
     var f = files.next();
     var fId = f.getId();
-    var tabs = [];
-    try {
-      var ss = SpreadsheetApp.openById(fId);
-      var sheets = ss.getSheets();
-      for (var i = 0; i < sheets.length; i++) {
-        tabs.push(sheets[i].getName());
-      }
-    } catch (e) {
-      // If we can't open it, just return empty tabs
+    var entry = { id: fId, name: f.getName() };
+    if (includeTabs) {
+      var tabs = [];
+      try {
+        var ss = SpreadsheetApp.openById(fId);
+        var sheets = ss.getSheets();
+        for (var i = 0; i < sheets.length; i++) {
+          tabs.push(sheets[i].getName());
+        }
+      } catch (e) {}
+      entry.tabs = tabs;
     }
-    result.push({ id: fId, name: f.getName(), tabs: tabs });
+    result.push(entry);
   }
   // Recurse into subfolders
   var subfolders = folder.getFolders();
   while (subfolders.hasNext()) {
-    odScanFolderForSheets_(subfolders.next(), result);
+    odScanFolderForSheets_(subfolders.next(), result, includeTabs);
   }
 }
 

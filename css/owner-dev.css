@@ -91,6 +91,7 @@ input, select, textarea { font-family: inherit; }
 }
 .login-input:focus { border-color: var(--teal); }
 .login-pin-input { text-align: center; letter-spacing: 8px; font-size: 18px; }
+.login-pin-input::placeholder { letter-spacing: normal; font-size: 14px; }
 .login-btn {
   display: block; width: 100%;
   padding: 12px;

@@ -526,10 +526,13 @@ const OwnerDev = {
    */
   async _autoMapNlrFiles() {
     const workbooks = this.state.nlrWorkbooks;
-    if (!workbooks.length) return 0;
+    if (!workbooks.length) { console.log('[OwnerDev] NLR auto-map: no workbooks loaded'); return 0; }
+
+    console.log('[OwnerDev] NLR auto-map: checking', workbooks.length, 'workbooks:', workbooks.map(w => w.name));
 
     let autoMapped = 0;
     const toSave = [];
+    const unmatched = [];
 
     for (const [campaignKey, campaign] of Object.entries(this.state.campaigns)) {
       for (const ownerName of (campaign.owners || [])) {
@@ -539,10 +542,27 @@ const OwnerDev = {
         // Find a workbook whose filename fuzzy-matches this owner name
         let matchedWb = null;
         for (const wb of workbooks) {
+          // Try matching owner name against workbook filename
           if (this._namesMatch(ownerName, wb.name)) {
             matchedWb = wb;
             break;
           }
+          // Also try: does the workbook name CONTAIN the owner name or vice versa?
+          const normOwner = this._normName(ownerName);
+          const normWb = this._normName(wb.name);
+          if (normOwner && normWb) {
+            // Check if any owner name token (2+ chars) appears in the workbook name
+            const ownerTokens = normOwner.split(' ').filter(t => t.length >= 2);
+            const matchCount = ownerTokens.filter(t => normWb.includes(t)).length;
+            if (matchCount >= 2 || (ownerTokens.length === 1 && matchCount === 1 && normWb.includes(normOwner))) {
+              matchedWb = wb;
+              break;
+            }
+          }
+        }
+
+        if (!matchedWb) {
+          unmatched.push(ownerName);
         }
 
         if (matchedWb) {
@@ -567,6 +587,10 @@ const OwnerDev = {
           autoMapped++;
         }
       }
+    }
+
+    if (unmatched.length > 0) {
+      console.log(`[OwnerDev] NLR unmatched owners (${unmatched.length}):`, unmatched.slice(0, 20));
     }
 
     // Save to backend

@@ -85,6 +85,12 @@ function doGet(e) {
       return jsonResp(readOnlinePresence());
     }
 
+    // ── Mapped headcount: reads directly from NLR workbooks via _OD_Mappings ──
+    if (action === 'mappedHeadcount') {
+      var campaignFilter = (e.parameter.campaign) || '';
+      return jsonResp(readMappedHeadcount(campaignFilter));
+    }
+
     // ── B2B headcount/production data (local copy in _B2B_Headcount tab) ──
     if (action === 'b2bHeadcount') {
       return jsonResp(readLocalHeadcount());
@@ -2223,6 +2229,102 @@ function readLocalHeadcount() {
     }
     owners[name].trend.push(entry);
     owners[name].current = entry; // Last row wins as "current"
+  }
+
+  return { owners: owners };
+}
+
+// ══════════════════════════════════════════════════
+// READ MAPPED HEADCOUNT — reads from NLR workbooks via _OD_Mappings
+// Each owner's mapping has nlrWorkbookId + nlrTab pointing to their
+// specific spreadsheet and tab. Reads Section 1 health data directly.
+// Returns same format as readLocalHeadcount() for frontend compatibility.
+// ══════════════════════════════════════════════════
+
+function readMappedHeadcount(campaignFilter) {
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    return { error: 'Cannot open national sheet: ' + err.message, owners: {} };
+  }
+
+  // Read _OD_Mappings
+  var mapTab = ss.getSheetByName('_OD_Mappings');
+  if (!mapTab) return { owners: {} };
+  var mapData = mapTab.getDataRange().getValues();
+  if (mapData.length < 2) return { owners: {} };
+
+  var mapHeaders = mapData[0].map(function(h) { return String(h).toLowerCase().trim(); });
+  var colCampaign    = findCol(mapHeaders, ['campaign']);
+  var colOwnerName   = findCol(mapHeaders, ['ownername', 'owner']);
+  var colWorkbookId  = findCol(mapHeaders, ['nlrworkbookid']);
+  var colNlrTab      = findCol(mapHeaders, ['nlrtab']);
+
+  if (colOwnerName < 0 || colWorkbookId < 0 || colNlrTab < 0) {
+    return { error: 'Missing columns in _OD_Mappings', owners: {} };
+  }
+
+  var owners = {};
+  var openedSheets = {}; // cache: sheetId → SpreadsheetApp object
+
+  for (var i = 1; i < mapData.length; i++) {
+    var row = mapData[i];
+    var campaign = String(row[colCampaign] || '').trim().toLowerCase();
+    var ownerName = String(row[colOwnerName] || '').trim();
+    var workbookId = String(row[colWorkbookId] || '').trim();
+    var tabName = String(row[colNlrTab] || '').trim();
+
+    if (!ownerName || !workbookId || !tabName) continue;
+    if (campaignFilter && campaign !== campaignFilter.toLowerCase()) continue;
+
+    try {
+      // Open workbook (cached)
+      if (!openedSheets[workbookId]) {
+        openedSheets[workbookId] = SpreadsheetApp.openById(workbookId);
+      }
+      var wb = openedSheets[workbookId];
+      var tab = wb.getSheetByName(tabName);
+      if (!tab) {
+        Logger.log('readMappedHeadcount: tab "' + tabName + '" not found in ' + workbookId + ' for ' + ownerName);
+        continue;
+      }
+
+      var data = tab.getDataRange().getValues();
+      if (data.length < 2) continue;
+
+      // Find Section 1 (health data) using same pattern as consolidation
+      var sections = findSections(data);
+      var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, tab.getDataRange().getDisplayValues());
+
+      if (healthRows.length === 0) continue;
+
+      // Build owner entry in same format as readLocalHeadcount
+      owners[ownerName] = { current: null, trend: [] };
+      for (var h = 0; h < healthRows.length; h++) {
+        var hr = healthRows[h];
+        // Parse slash-separated production/goals
+        var prodParts = _splitSlashValues(hr.productionRaw);
+        var goalParts = _splitSlashValues(hr.goalsRaw);
+        var totalProd = 0, totalGoal = 0;
+        for (var p = 0; p < prodParts.length; p++) totalProd += prodParts[p];
+        for (var p = 0; p < goalParts.length; p++) totalGoal += goalParts[p];
+
+        var entry = {
+          date:            formatDate(hr.date),
+          active:          hr.active || 0,
+          leaders:         hr.leaders || 0,
+          dist:            hr.dist || 0,
+          training:        hr.training || 0,
+          productionLW:    totalProd,
+          productionGoals: totalGoal
+        };
+        owners[ownerName].trend.push(entry);
+        owners[ownerName].current = entry;
+      }
+    } catch (err) {
+      Logger.log('readMappedHeadcount error for ' + ownerName + ': ' + err.message);
+    }
   }
 
   return { owners: owners };

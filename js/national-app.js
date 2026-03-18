@@ -243,19 +243,21 @@ const NationalApp = {
 
     const hasApi = !!NATIONAL_CONFIG.appsScriptUrl;
     const hasNational = hasApi && NATIONAL_CONFIG.sheets.national && NATIONAL_CONFIG.sheets.national.id;
-    const isB2B = campaignKey === 'att-b2b';
-    const isNDS = campaignKey.indexOf('nds') >= 0 || campaignKey.indexOf('NDS') >= 0;
 
     // ── Fire ALL independent fetches in parallel (each with 20s timeout) ──
     const fetchPromises = {};
     if (hasNational) fetchPromises.recruiting = this._fetchWithTimeout(this._fetchRecruitingFromSheet(campaignKey));
     if (hasApi)      fetchPromises.audit      = this._fetchWithTimeout(this._fetchOnlinePresence());
     if (hasApi)      fetchPromises.camMapping  = this._fetchWithTimeout(this._fetchOwnerCamMapping());
-    // NLR headcount/production enrichment — run for ALL campaigns (not just B2B/NDS)
-    if (hasApi) fetchPromises.headcount  = this._fetchWithTimeout(this._fetchB2BHeadcount());
-    if (hasApi) fetchPromises.production = this._fetchWithTimeout(this._fetchB2BProduction());
-    if (hasApi) fetchPromises.ndsHeadcount  = this._fetchWithTimeout(this._fetchNDSHeadcount());
-    if (hasApi) fetchPromises.ndsProduction = this._fetchWithTimeout(this._fetchNDSProduction());
+    // NLR headcount enrichment — mapped workbooks (works for all campaigns)
+    if (hasApi) fetchPromises.mappedHeadcount = this._fetchWithTimeout(this._fetchMappedHeadcount(campaignKey), 45000);
+    // Legacy B2B/NDS enrichment (still needed for campaigns using local tabs)
+    const isB2B = campaignKey === 'att-b2b';
+    const isNDS = campaignKey.indexOf('nds') >= 0 || campaignKey.indexOf('NDS') >= 0;
+    if (isB2B && hasApi) fetchPromises.headcount  = this._fetchWithTimeout(this._fetchB2BHeadcount());
+    if (isB2B && hasApi) fetchPromises.production = this._fetchWithTimeout(this._fetchB2BProduction());
+    if (isNDS && hasApi) fetchPromises.ndsHeadcount  = this._fetchWithTimeout(this._fetchNDSHeadcount());
+    if (isNDS && hasApi) fetchPromises.ndsProduction = this._fetchWithTimeout(this._fetchNDSProduction());
     // Indeed/recruiting costs excluded from initial load — fetched only via Import button
 
     const keys = Object.keys(fetchPromises);
@@ -291,6 +293,13 @@ const NationalApp = {
       this._mapAuditToOwners(results.audit.businesses, this.state.camMapping || null);
     }
 
+    // Mapped headcount from NLR workbooks (works for all campaigns)
+    if (results.mappedHeadcount && results.mappedHeadcount.owners && Object.keys(results.mappedHeadcount.owners).length) {
+      console.log('[NationalApp] Enriching with mapped headcount:', Object.keys(results.mappedHeadcount.owners).length, 'owners');
+      this._enrichOwnersWithNLR(results.mappedHeadcount.owners);
+    }
+
+    // Legacy B2B/NDS headcount enrichment
     if (results.headcount && results.headcount.owners && Object.keys(results.headcount.owners).length) {
       this._enrichOwnersWithNLR(results.headcount.owners);
     }
@@ -427,6 +436,19 @@ const NationalApp = {
     const url = NATIONAL_CONFIG.appsScriptUrl +
       '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
       '&action=onlinePresence' +
+      '&_t=' + Date.now();
+    const resp = await fetch(url);
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
+
+  // ── Fetch mapped headcount from NLR workbooks via _OD_Mappings ──
+  async _fetchMappedHeadcount(campaignKey) {
+    const url = NATIONAL_CONFIG.appsScriptUrl +
+      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+      '&action=mappedHeadcount' +
+      '&campaign=' + encodeURIComponent(campaignKey) +
       '&_t=' + Date.now();
     const resp = await fetch(url);
     const result = await resp.json();

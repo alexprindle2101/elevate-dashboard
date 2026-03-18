@@ -2286,7 +2286,7 @@ function readOwnerNlrData(ownerName, campaignFilter) {
     return { mapped: false, owner: ownerName };
   }
 
-  // Open the single NLR workbook and read the mapped tab
+  // Open the mapped workbook and read the mapped tab directly
   try {
     var wb = SpreadsheetApp.openById(workbookId);
     var tab = wb.getSheetByName(tabName);
@@ -2295,104 +2295,80 @@ function readOwnerNlrData(ownerName, campaignFilter) {
     var data = tab.getDataRange().getValues();
     if (data.length < 2) return { mapped: true, owner: ownerName, trend: [] };
 
-    // Parse the tab — detect format from data structure
-    // Format 1: "WEEK OF X/XX" weekly sections with ad-level rows
-    // Format 2: Standard health rows (Dates, Active, Leaders, etc.)
-    var row0 = String(data[0][0] || '').trim().toLowerCase();
-    var isWeeklyFormat = row0.indexOf('week of') >= 0 || row0.indexOf('week') >= 0;
+    // Parse weekly sections: "WEEK OF X/XX" header, column headers, then data rows
+    var weeks = [];
+    var currentWeek = null;
+    var colHeaders = null;
 
-    if (isWeeklyFormat) {
-      // Weekly sections format (e.g., Indeed Tracking)
-      // Structure: "WEEK OF X/XX" header row, column header row, then data rows
-      var weeks = [];
-      var currentWeek = null;
-      var colHeaders = null;
+    for (var i = 0; i < data.length; i++) {
+      var cell0 = String(data[i][0] || '').trim();
+      var cell0Lower = cell0.toLowerCase();
 
-      for (var i = 0; i < data.length; i++) {
-        var cell0 = String(data[i][0] || '').trim();
-        var cell0Lower = cell0.toLowerCase();
+      // Detect week header rows
+      var dateMatch = cell0.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
+      if (cell0Lower.indexOf('week') >= 0 && dateMatch) {
+        if (currentWeek && currentWeek.rows.length > 0) weeks.push(currentWeek);
+        currentWeek = { date: dateMatch[1], rows: [] };
+        colHeaders = null;
+        continue;
+      }
 
-        // Detect week header rows: "WEEK OF X/XX" or similar date pattern
-        if (cell0Lower.indexOf('week of') >= 0 || cell0Lower.indexOf('week ending') >= 0) {
-          // Save previous week
-          if (currentWeek && currentWeek.rows.length > 0) weeks.push(currentWeek);
-          // Extract date from header (e.g., "WEEK OF 1/26" → "1/26")
-          var dateMatch = cell0.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
-          currentWeek = { date: dateMatch ? dateMatch[1] : cell0, rows: [] };
-          colHeaders = null;
-          continue;
+      // Detect column header row — any row where multiple cells look like text headers
+      if (!colHeaders && currentWeek) {
+        var textCells = 0;
+        for (var tc = 0; tc < Math.min(data[i].length, 10); tc++) {
+          var v = String(data[i][tc] || '').trim();
+          if (v.length > 1 && isNaN(Number(v))) textCells++;
         }
-
-        // Detect column header row (contains known column names)
-        if (!colHeaders && currentWeek && (cell0Lower === 'indeed account' || cell0Lower === 'ad title' ||
-            cell0Lower === 'posted by' || cell0Lower === 'account')) {
+        if (textCells >= 3) {
           colHeaders = data[i].map(function(h) { return String(h).toLowerCase().trim(); });
           continue;
         }
+      }
 
-        // Data row — accumulate under current week
-        if (currentWeek && colHeaders && cell0 !== '') {
-          var rowObj = {};
-          for (var c = 0; c < colHeaders.length; c++) {
-            if (colHeaders[c]) rowObj[colHeaders[c]] = data[i][c];
-          }
-          currentWeek.rows.push(rowObj);
+      // Data row
+      if (currentWeek && colHeaders && cell0 !== '') {
+        var rowObj = {};
+        for (var c = 0; c < colHeaders.length; c++) {
+          if (colHeaders[c]) rowObj[colHeaders[c]] = data[i][c];
         }
+        currentWeek.rows.push(rowObj);
       }
-      // Push last week
-      if (currentWeek && currentWeek.rows.length > 0) weeks.push(currentWeek);
-
-      // Aggregate each week into summary
-      var trend = [];
-      for (var w = 0; w < weeks.length; w++) {
-        var wk = weeks[w];
-        var summary = { date: wk.date, totalSpend: 0, applies: 0, seconds: 0, newStarts: 0, ads: wk.rows.length };
-        for (var r = 0; r < wk.rows.length; r++) {
-          var row = wk.rows[r];
-          summary.totalSpend += num(row['total spend']);
-          summary.applies += num(row['applies']);
-          summary.seconds += num(row['2nds']);
-          summary.newStarts += num(row['new starts']);
-        }
-        summary.cpa = summary.applies > 0 ? Math.round(summary.totalSpend / summary.applies * 100) / 100 : 0;
-        trend.push(summary);
-      }
-
-      return { mapped: true, owner: ownerName, format: 'indeed', trend: trend };
-
-    } else {
-      // Standard health rows format (Dates, Active, Leaders, etc.)
-      var sections = findSections(data);
-      var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End,
-        tab.getDataRange().getDisplayValues());
-
-      if (healthRows.length === 0) {
-        return { mapped: true, owner: ownerName, trend: [] };
-      }
-
-      var trend = [];
-      for (var h = 0; h < healthRows.length; h++) {
-        var hr = healthRows[h];
-        var prodParts = _splitSlashValues(hr.productionRaw);
-        var goalParts = _splitSlashValues(hr.goalsRaw);
-        var totalProd = 0, totalGoal = 0;
-        for (var p = 0; p < prodParts.length; p++) totalProd += prodParts[p];
-        for (var p = 0; p < goalParts.length; p++) totalGoal += goalParts[p];
-
-        trend.push({
-          date:            formatDate(hr.date),
-          active:          hr.active || 0,
-          leaders:         hr.leaders || 0,
-          dist:            hr.dist || 0,
-          training:        hr.training || 0,
-          productionLW:    totalProd,
-          productionGoals: totalGoal
-        });
-      }
-
-      var current = trend.length > 0 ? trend[trend.length - 1] : null;
-      return { mapped: true, owner: ownerName, current: current, trend: trend };
     }
+    if (currentWeek && currentWeek.rows.length > 0) weeks.push(currentWeek);
+
+    // Aggregate each week — read ALL numeric columns dynamically
+    var trend = [];
+    for (var w = 0; w < weeks.length; w++) {
+      var wk = weeks[w];
+      var summary = { date: wk.date, ads: wk.rows.length };
+
+      // Auto-detect numeric columns from first row
+      if (wk.rows.length > 0 && colHeaders) {
+        for (var ci = 0; ci < colHeaders.length; ci++) {
+          var colName = colHeaders[ci];
+          if (!colName) continue;
+          // Sum numeric columns across all rows
+          var colTotal = 0;
+          var isNumeric = false;
+          for (var ri = 0; ri < wk.rows.length; ri++) {
+            var val = wk.rows[ri][colName];
+            if (typeof val === 'number' || (typeof val === 'string' && !isNaN(Number(val)) && val.trim() !== '')) {
+              colTotal += Number(val) || 0;
+              isNumeric = true;
+            }
+          }
+          if (isNumeric) {
+            // Normalize column name to camelCase key
+            var key = colName.replace(/[^a-z0-9]+/g, ' ').trim().replace(/ ([a-z])/g, function(m, c) { return c.toUpperCase(); });
+            summary[key] = Math.round(colTotal * 100) / 100;
+          }
+        }
+      }
+      trend.push(summary);
+    }
+
+    return { mapped: true, owner: ownerName, trend: trend };
   } catch (err) {
     return { error: 'Failed to read NLR workbook: ' + err.message };
   }

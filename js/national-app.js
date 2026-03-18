@@ -1248,6 +1248,21 @@ const NationalApp = {
       this.state.campaignTotals = cached.campaignTotals || {};
       this.renderCampaignOverview();
       this.renderOwnersList();
+
+      // Fetch camMapping + audit in background (not cached)
+      Promise.allSettled([
+        this._fetchOwnerCamMapping(),
+        this._fetchOnlinePresence()
+      ]).then(([camRes, auditRes]) => {
+        if (camRes.status === 'fulfilled' && camRes.value) {
+          this.state.camMapping = camRes.value.mapping || camRes.value;
+        }
+        if (auditRes.status === 'fulfilled' && auditRes.value?.businesses?.length) {
+          this.state.allCompanyNames = auditRes.value.allCompanyNames || [];
+          this._cachedAuditBusinesses = auditRes.value.businesses;
+          this._mapAuditToOwners(auditRes.value.businesses, this.state.camMapping || null);
+        }
+      });
       return;
     }
 

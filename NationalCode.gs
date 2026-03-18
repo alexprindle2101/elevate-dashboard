@@ -85,10 +85,11 @@ function doGet(e) {
       return jsonResp(readOnlinePresence());
     }
 
-    // ── Mapped headcount: reads directly from NLR workbooks via _OD_Mappings ──
-    if (action === 'mappedHeadcount') {
-      var campaignFilter = (e.parameter.campaign) || '';
-      return jsonResp(readMappedHeadcount(campaignFilter));
+    // ── Per-owner NLR data: reads single owner's mapped NLR workbook ──
+    if (action === 'ownerNlrData') {
+      var ownerParam = (e.parameter.owner) || '';
+      var campaignParam = (e.parameter.campaign) || '';
+      return jsonResp(readOwnerNlrData(ownerParam, campaignParam));
     }
 
     // ── B2B headcount/production data (local copy in _B2B_Headcount tab) ──
@@ -2235,25 +2236,27 @@ function readLocalHeadcount() {
 }
 
 // ══════════════════════════════════════════════════
-// READ MAPPED HEADCOUNT — reads from NLR workbooks via _OD_Mappings
-// Each owner's mapping has nlrWorkbookId + nlrTab pointing to their
-// specific spreadsheet and tab. Reads Section 1 health data directly.
-// Returns same format as readLocalHeadcount() for frontend compatibility.
+// OWNER NLR DATA — lazy load single owner from mapped NLR workbook
+// Reads _OD_Mappings to find owner's nlrWorkbookId + nlrTab,
+// opens just that one spreadsheet/tab, extracts health data.
+// Called when user clicks on an individual owner.
 // ══════════════════════════════════════════════════
 
-function readMappedHeadcount(campaignFilter) {
+function readOwnerNlrData(ownerName, campaignFilter) {
+  if (!ownerName) return { error: 'ownerName required' };
+
   var ss;
   try {
     ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
   } catch (err) {
-    return { error: 'Cannot open national sheet: ' + err.message, owners: {} };
+    return { error: 'Cannot open national sheet: ' + err.message };
   }
 
-  // Read _OD_Mappings
+  // Find this owner's mapping in _OD_Mappings
   var mapTab = ss.getSheetByName('_OD_Mappings');
-  if (!mapTab) return { owners: {} };
+  if (!mapTab) return { error: '_OD_Mappings not found' };
   var mapData = mapTab.getDataRange().getValues();
-  if (mapData.length < 2) return { owners: {} };
+  if (mapData.length < 2) return { error: '_OD_Mappings empty' };
 
   var mapHeaders = mapData[0].map(function(h) { return String(h).toLowerCase().trim(); });
   var colCampaign    = findCol(mapHeaders, ['campaign']);
@@ -2262,72 +2265,65 @@ function readMappedHeadcount(campaignFilter) {
   var colNlrTab      = findCol(mapHeaders, ['nlrtab']);
 
   if (colOwnerName < 0 || colWorkbookId < 0 || colNlrTab < 0) {
-    return { error: 'Missing columns in _OD_Mappings', owners: {} };
+    return { error: 'Missing columns in _OD_Mappings' };
   }
 
-  var owners = {};
-  var openedSheets = {}; // cache: sheetId → SpreadsheetApp object
-
+  // Find matching row (case-insensitive)
+  var targetLower = ownerName.toLowerCase();
+  var workbookId = '', tabName = '';
   for (var i = 1; i < mapData.length; i++) {
     var row = mapData[i];
+    var name = String(row[colOwnerName] || '').trim();
     var campaign = String(row[colCampaign] || '').trim().toLowerCase();
-    var ownerName = String(row[colOwnerName] || '').trim();
-    var workbookId = String(row[colWorkbookId] || '').trim();
-    var tabName = String(row[colNlrTab] || '').trim();
-
-    if (!ownerName || !workbookId || !tabName) continue;
+    if (name.toLowerCase() !== targetLower) continue;
     if (campaignFilter && campaign !== campaignFilter.toLowerCase()) continue;
-
-    try {
-      // Open workbook (cached)
-      if (!openedSheets[workbookId]) {
-        openedSheets[workbookId] = SpreadsheetApp.openById(workbookId);
-      }
-      var wb = openedSheets[workbookId];
-      var tab = wb.getSheetByName(tabName);
-      if (!tab) {
-        Logger.log('readMappedHeadcount: tab "' + tabName + '" not found in ' + workbookId + ' for ' + ownerName);
-        continue;
-      }
-
-      var data = tab.getDataRange().getValues();
-      if (data.length < 2) continue;
-
-      // Find Section 1 (health data) using same pattern as consolidation
-      var sections = findSections(data);
-      var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, tab.getDataRange().getDisplayValues());
-
-      if (healthRows.length === 0) continue;
-
-      // Build owner entry in same format as readLocalHeadcount
-      owners[ownerName] = { current: null, trend: [] };
-      for (var h = 0; h < healthRows.length; h++) {
-        var hr = healthRows[h];
-        // Parse slash-separated production/goals
-        var prodParts = _splitSlashValues(hr.productionRaw);
-        var goalParts = _splitSlashValues(hr.goalsRaw);
-        var totalProd = 0, totalGoal = 0;
-        for (var p = 0; p < prodParts.length; p++) totalProd += prodParts[p];
-        for (var p = 0; p < goalParts.length; p++) totalGoal += goalParts[p];
-
-        var entry = {
-          date:            formatDate(hr.date),
-          active:          hr.active || 0,
-          leaders:         hr.leaders || 0,
-          dist:            hr.dist || 0,
-          training:        hr.training || 0,
-          productionLW:    totalProd,
-          productionGoals: totalGoal
-        };
-        owners[ownerName].trend.push(entry);
-        owners[ownerName].current = entry;
-      }
-    } catch (err) {
-      Logger.log('readMappedHeadcount error for ' + ownerName + ': ' + err.message);
-    }
+    workbookId = String(row[colWorkbookId] || '').trim();
+    tabName = String(row[colNlrTab] || '').trim();
+    break;
   }
 
-  return { owners: owners };
+  if (!workbookId || !tabName) {
+    return { mapped: false, owner: ownerName };
+  }
+
+  // Open the single NLR workbook and read health data
+  try {
+    var wb = SpreadsheetApp.openById(workbookId);
+    var tab = wb.getSheetByName(tabName);
+    if (!tab) return { error: 'Tab "' + tabName + '" not found in workbook' };
+
+    var data = tab.getDataRange().getValues();
+    if (data.length < 2) return { mapped: true, owner: ownerName, trend: [] };
+
+    var sections = findSections(data);
+    var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End,
+      tab.getDataRange().getDisplayValues());
+
+    var trend = [];
+    for (var h = 0; h < healthRows.length; h++) {
+      var hr = healthRows[h];
+      var prodParts = _splitSlashValues(hr.productionRaw);
+      var goalParts = _splitSlashValues(hr.goalsRaw);
+      var totalProd = 0, totalGoal = 0;
+      for (var p = 0; p < prodParts.length; p++) totalProd += prodParts[p];
+      for (var p = 0; p < goalParts.length; p++) totalGoal += goalParts[p];
+
+      trend.push({
+        date:            formatDate(hr.date),
+        active:          hr.active || 0,
+        leaders:         hr.leaders || 0,
+        dist:            hr.dist || 0,
+        training:        hr.training || 0,
+        productionLW:    totalProd,
+        productionGoals: totalGoal
+      });
+    }
+
+    var current = trend.length > 0 ? trend[trend.length - 1] : null;
+    return { mapped: true, owner: ownerName, current: current, trend: trend };
+  } catch (err) {
+    return { error: 'Failed to read NLR workbook: ' + err.message };
+  }
 }
 
 // ══════════════════════════════════════════════════

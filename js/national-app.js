@@ -249,8 +249,6 @@ const NationalApp = {
     if (hasNational) fetchPromises.recruiting = this._fetchWithTimeout(this._fetchRecruitingFromSheet(campaignKey));
     if (hasApi)      fetchPromises.audit      = this._fetchWithTimeout(this._fetchOnlinePresence());
     if (hasApi)      fetchPromises.camMapping  = this._fetchWithTimeout(this._fetchOwnerCamMapping());
-    // NLR headcount enrichment — mapped workbooks (works for all campaigns)
-    if (hasApi) fetchPromises.mappedHeadcount = this._fetchWithTimeout(this._fetchMappedHeadcount(campaignKey), 45000);
     // Legacy B2B/NDS enrichment (still needed for campaigns using local tabs)
     const isB2B = campaignKey === 'att-b2b';
     const isNDS = campaignKey.indexOf('nds') >= 0 || campaignKey.indexOf('NDS') >= 0;
@@ -291,12 +289,6 @@ const NationalApp = {
       this.state.allCompanyNames = results.audit.allCompanyNames || [];
       this._cachedAuditBusinesses = results.audit.businesses;
       this._mapAuditToOwners(results.audit.businesses, this.state.camMapping || null);
-    }
-
-    // Mapped headcount from NLR workbooks (works for all campaigns)
-    if (results.mappedHeadcount && results.mappedHeadcount.owners && Object.keys(results.mappedHeadcount.owners).length) {
-      console.log('[NationalApp] Enriching with mapped headcount:', Object.keys(results.mappedHeadcount.owners).length, 'owners');
-      this._enrichOwnersWithNLR(results.mappedHeadcount.owners);
     }
 
     // Legacy B2B/NDS headcount enrichment
@@ -443,17 +435,65 @@ const NationalApp = {
     return result;
   },
 
-  // ── Fetch mapped headcount from NLR workbooks via _OD_Mappings ──
-  async _fetchMappedHeadcount(campaignKey) {
-    const url = NATIONAL_CONFIG.appsScriptUrl +
-      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
-      '&action=mappedHeadcount' +
-      '&campaign=' + encodeURIComponent(campaignKey) +
-      '&_t=' + Date.now();
-    const resp = await fetch(url);
-    const result = await resp.json();
-    if (result.error) throw new Error(result.error);
-    return result;
+  // ── Lazy-load single owner's NLR data from mapped workbook ──
+  async _fetchOwnerNlrData(owner) {
+    owner._nlrFetched = true; // prevent duplicate fetches
+    try {
+      const url = NATIONAL_CONFIG.appsScriptUrl +
+        '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+        '&action=ownerNlrData' +
+        '&owner=' + encodeURIComponent(owner.name) +
+        '&campaign=' + encodeURIComponent(this.state.campaign || '') +
+        '&_t=' + Date.now();
+      const resp = await fetch(url);
+      const result = await resp.json();
+
+      if (result.error) {
+        console.warn('[NationalApp] NLR data error for', owner.name, ':', result.error);
+        return;
+      }
+      if (!result.mapped) {
+        console.log('[NationalApp] No NLR mapping for', owner.name);
+        return;
+      }
+      if (!result.current) {
+        console.log('[NationalApp] NLR mapped but no data for', owner.name);
+        return;
+      }
+
+      // Enrich owner with NLR headcount data
+      console.log('[NationalApp] NLR data loaded for', owner.name, ':', result.trend?.length, 'weeks');
+      owner.headcount.active = result.current.active || 0;
+      owner.headcount.leaders = result.current.leaders || 0;
+      owner.headcount.training = result.current.training || 0;
+
+      // Rebuild headcount history from NLR trend
+      if (result.trend && result.trend.length) {
+        owner.headcountHistory = result.trend.map(t => ({
+          date: t.date,
+          active: t.active || 0,
+          leaders: t.leaders || 0,
+          training: t.training || 0
+        }));
+      }
+
+      // Recalculate recruiting projected values with updated leader count
+      if (owner.headcount.leaders && owner.recruiting && owner.recruiting.rows.length) {
+        owner.recruiting.leaders = owner.headcount.leaders;
+        const actuals = owner.recruiting.rows.map(r => r.values);
+        owner.recruiting.rows = this._buildRows(owner.headcount.leaders, actuals);
+      }
+
+      // Re-render if this owner is still selected
+      if (this.state.selectedOwner === owner) {
+        this.renderHealthTab(owner);
+        if (this.state.currentTab === 'recruiting') {
+          this.renderRecruitingTab(owner);
+        }
+      }
+    } catch (err) {
+      console.warn('[NationalApp] NLR fetch failed for', owner.name, ':', err.message);
+    }
   },
 
   // ── Fetch B2B headcount/production from local _B2B_Headcount tab ──
@@ -1532,6 +1572,11 @@ const NationalApp = {
 
     this.renderHealthTab(owner);
     this._showTab('health');
+
+    // Lazy-load NLR data for this specific owner (non-blocking)
+    if (!owner._nlrFetched) {
+      this._fetchOwnerNlrData(owner);
+    }
   },
 
   closeOwnerDetail() {

@@ -2354,18 +2354,17 @@ function readOwnerNlrData(ownerName, campaignFilter) {
     }
     if (currentWeek && currentWeek.rows.length > 0) weeks.push(currentWeek);
 
-    // Aggregate each week — read ALL numeric columns dynamically
+    // Aggregate each week + include individual ad rows for breakdown
     var trend = [];
     for (var w = 0; w < weeks.length; w++) {
       var wk = weeks[w];
-      var summary = { date: wk.date, ads: wk.rows.length };
+      var summary = { date: wk.date, numAds: wk.rows.length, ads: [] };
 
       // Auto-detect numeric columns from first row
       if (wk.rows.length > 0 && colHeaders) {
         for (var ci = 0; ci < colHeaders.length; ci++) {
           var colName = colHeaders[ci];
           if (!colName) continue;
-          // Sum numeric columns across all rows
           var colTotal = 0;
           var isNumeric = false;
           for (var ri = 0; ri < wk.rows.length; ri++) {
@@ -2376,11 +2375,30 @@ function readOwnerNlrData(ownerName, campaignFilter) {
             }
           }
           if (isNumeric) {
-            // Normalize column name to camelCase key
             var key = colName.replace(/[^a-z0-9]+/g, ' ').trim().replace(/ ([a-z])/g, function(m, c) { return c.toUpperCase(); });
             summary[key] = Math.round(colTotal * 100) / 100;
           }
         }
+      }
+
+      // Include individual ad rows for the Ad Breakdown table
+      for (var ai = 0; ai < wk.rows.length; ai++) {
+        var r = wk.rows[ai];
+        var adSpend = num(r['total spend']);
+        var adApplies = num(r['applies']);
+        var adNS = num(r['new starts']);
+        summary.ads.push({
+          account:   String(r['indeed account'] || '').trim(),
+          adTitle:   String(r['ad title'] || '').trim(),
+          location:  String(r['current location'] || '').trim(),
+          spend:     adSpend,
+          applies:   adApplies,
+          seconds:   num(r['2nds']),
+          newStarts: adNS,
+          cpa:       adApplies > 0 ? Math.round(adSpend / adApplies * 100) / 100 : 0,
+          cpns:      adNS > 0 ? Math.round(adSpend / adNS * 100) / 100 : 0,
+          plan:      String(r['plan'] || r['action'] || '').trim()
+        });
       }
       trend.push(summary);
     }

@@ -2735,7 +2735,8 @@ const NationalApp = {
       totalNewStarts: w.newStarts || 0,
       cpa: w.cpa || 0,
       cpns: w.cpns || 0,
-      numAds: w.ads || 0
+      numAds: w.numAds || w.ads?.length || 0,
+      ads: w.ads || []
     }));
 
     // Use NLR data already fetched by _fetchOwnerNlrData

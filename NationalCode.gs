@@ -2296,8 +2296,23 @@ function readOwnerNlrData(ownerName, campaignFilter) {
     if (data.length < 2) return { mapped: true, owner: ownerName, trend: [] };
 
     var sections = findSections(data);
+    // Return debug info about what we found
+    var headers0 = data[0] ? data[0].map(function(h) { return String(h).trim(); }) : [];
     var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End,
       tab.getDataRange().getDisplayValues());
+
+    if (healthRows.length === 0) {
+      return {
+        mapped: true, owner: ownerName, trend: [],
+        _debug: {
+          tabName: tabName,
+          totalRows: data.length,
+          headers: headers0.slice(0, 15),
+          sections: sections,
+          sampleRow: data.length > 1 ? data[1].slice(0, 10).map(function(v) { return String(v).substring(0, 30); }) : []
+        }
+      };
+    }
 
     var trend = [];
     for (var h = 0; h < healthRows.length; h++) {

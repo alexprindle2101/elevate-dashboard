@@ -457,7 +457,7 @@ const NationalApp = {
         return;
       }
       if (!result.current) {
-        console.log('[NationalApp] NLR mapped but no data for', owner.name);
+        console.log('[NationalApp] NLR mapped but no data for', owner.name, result._debug || '');
         return;
       }
 

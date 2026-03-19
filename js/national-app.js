@@ -1737,7 +1737,7 @@ const NationalApp = {
       goalFieldsHtml = `
         <div class="goal-field">
           <label class="goal-field-label">Total Units</label>
-          <input type="number" class="goal-input" id="goal-total-${ownerIdx}" value="${goals.totalUnits || ''}" min="0"
+          <input type="number" class="goal-input" id="goal-total-${ownerIdx}" value="" min="0"
             placeholder="—"
             onchange="NationalApp._updateGoal(${ownerIdx}, 'totalUnits', this.value)">
         </div>`;

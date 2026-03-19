@@ -4753,15 +4753,8 @@ function consolidateCampaign_(campaignKey, campaign, destSS) {
       // Pass displayData so slash-separated values like "90/6" are read as text
       var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, displayData);
 
-      // Extract recruiting rows (Section 2 — transposed): [{date, metrics[12]}]
-      // Fallback: if transposed Section 2 yields nothing, try horizontal columns in Section 1
-      var recruitingRows = [];
-      if (sections.section2Start >= 0) {
-        recruitingRows = extractRecruitingRows_(data, sections.section2Start, sections.section2End);
-      }
-      if (recruitingRows.length === 0) {
-        recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End);
-      }
+      // Extract recruiting rows from Section 1 (horizontal — inline with health, same row per week)
+      var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End);
       Logger.log('consolidateCampaign_ ' + ownerName + ': s2Start=' + sections.section2Start + ', recruitingRows=' + recruitingRows.length + ', healthRows=' + healthRows.length);
 
       // Merge by date → flat output rows (campaign-aware product splitting)
@@ -5249,7 +5242,11 @@ function _fuzzyFindTab_(ownerName, allTabNames, tabByName) {
 function _normalizeDateKey_(d) {
   if (!d) return '';
   if (!(d instanceof Date)) d = new Date(d);
-  return ('0' + (d.getMonth() + 1)).slice(-2) + '/' + ('0' + d.getDate()).slice(-2) + '/' + d.getFullYear();
+  // Snap to Monday of the same ISO week so Sat/Sun/Mon all land in the same bucket
+  var day = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  var offset = day === 0 ? -6 : 1 - day; // Sun→prev Mon, Sat→prev Mon, Mon→0
+  var mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset);
+  return ('0' + (mon.getMonth() + 1)).slice(-2) + '/' + ('0' + mon.getDate()).slice(-2) + '/' + mon.getFullYear();
 }
 
 /**
@@ -5670,4 +5667,38 @@ function TEST_lumen_refresh() {
   Logger.log('OD_CAMPAIGNS.lumen = ' + JSON.stringify(OD_CAMPAIGNS['lumen']));
   var result = refreshSingleCampaign('lumen');
   Logger.log('Result: ' + JSON.stringify(result));
+}
+
+// Debug: show raw dates from Angel Padilla's health + recruiting sections
+function TEST_angel_dates() {
+  var ss = SpreadsheetApp.openById('1P4DYlcV1hgNkaAapk3tWD7ytcRXw4K1n7R6EMKPCoSA');
+  var tab = ss.getSheetByName('Angel');
+  if (!tab) { Logger.log('No Angel tab'); return; }
+  var data = tab.getDataRange().getValues();
+  var sections = findSections(data);
+  Logger.log('Sections: ' + JSON.stringify(sections));
+
+  // Health dates
+  var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, tab.getDataRange().getDisplayValues());
+  Logger.log('Health rows: ' + healthRows.length);
+  for (var i = 0; i < Math.min(healthRows.length, 5); i++) {
+    var h = healthRows[i];
+    var d = h.date;
+    Logger.log('Health[' + i + '] date=' + d + ' type=' + typeof d + ' isDate=' + (d instanceof Date) + ' key=' + _normalizeDateKey_(d));
+  }
+
+  // Recruiting dates
+  var recruitingRows = [];
+  if (sections.section2Start >= 0) {
+    recruitingRows = extractRecruitingRows_(data, sections.section2Start, sections.section2End);
+  }
+  if (recruitingRows.length === 0) {
+    recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End);
+  }
+  Logger.log('Recruiting rows: ' + recruitingRows.length);
+  for (var i = 0; i < Math.min(recruitingRows.length, 5); i++) {
+    var r = recruitingRows[i];
+    var d = r.date;
+    Logger.log('Recruit[' + i + '] date=' + d + ' type=' + typeof d + ' isDate=' + (d instanceof Date) + ' key=' + _normalizeDateKey_(d));
+  }
 }

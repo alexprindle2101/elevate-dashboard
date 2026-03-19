@@ -1206,6 +1206,9 @@ const NationalApp = {
           <div class="campaign-card-label">${this._esc(label)}</div>
           ${variantHtml}
           ${ownerCount ? `<div class="campaign-card-owners">${ownerCount} owner${ownerCount !== 1 ? 's' : ''}</div>` : ''}
+          <button class="campaign-card-refresh" data-campaign="${key}"
+            onclick="event.stopPropagation(); NationalApp.refreshSingleFromLanding('${key}', this)"
+            title="Refresh ${this._esc(label)} only">&#x21bb;</button>
         </div>`;
     }).join('');
 
@@ -1341,6 +1344,10 @@ const NationalApp = {
     }
   },
 
+  _clearCoachCampaignCache(campaignKey) {
+    try { localStorage.removeItem('coach_cache_' + campaignKey); } catch (e) {}
+  },
+
   _clearAllCoachCaches() {
     const toRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -1362,6 +1369,9 @@ const NationalApp = {
       return;
     }
 
+    const campaignKey = this.state.campaign;
+    if (!campaignKey) { alert('No campaign selected.'); return; }
+
     const btn = document.getElementById('btn-import-recruiting');
     const status = document.getElementById('import-status');
 
@@ -1369,44 +1379,24 @@ const NationalApp = {
     if (status) { status.textContent = ''; status.className = 'import-status'; }
 
     try {
-      // Step 1: Refresh consolidated data from source spreadsheets
-      const resp = await this._fetchWithTimeout(
-        fetch(NATIONAL_CONFIG.appsScriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            key: NATIONAL_CONFIG.apiKey,
-            action: 'refreshCampaigns'
-          })
-        }),
-        120000 // 120s — reads multiple source spreadsheets
-      );
+      const result = await this._refreshCampaign(campaignKey, 60000);
 
-      const result = await resp.json();
-      if (result.error) throw new Error(result.error);
-
-      // Step 2: Clear all caches and reload campaign data
-      this._allCampaignsData = null;
-      this._clearAllCoachCaches();
-      this._coachInitDone = false;
-      const campaignKey = this.state.campaign || 'att-b2b';
+      // Clear cache for this campaign only, then reload
+      this._clearCoachCampaignCache(campaignKey);
+      if (this._allCampaignsData) delete this._allCampaignsData[campaignKey];
       await this.loadCampaignData(campaignKey);
 
       // Re-render dashboard
       this.renderCampaignOverview();
       this.renderOwnersList();
 
-      // Show success summary
-      const results = result.results || {};
-      const successCount = Object.values(results).filter(r => r.ok).length;
-      const totalRows = Object.values(results).reduce((sum, r) => sum + (r.rows || 0), 0);
-      const msg = `Refreshed ${successCount} campaigns (${totalRows} rows)`;
+      const msg = `Refreshed ${campaignKey} (${result.rows || 0} rows)`;
       if (status) {
         status.textContent = msg;
         status.className = 'import-status import-success';
         setTimeout(() => { status.textContent = ''; status.className = 'import-status'; }, 6000);
       }
-      console.log('[NationalApp] Refresh successful:', result);
+      console.log('[NationalApp] Single campaign refresh:', result);
 
     } catch (err) {
       console.error('[NationalApp] Refresh failed:', err);
@@ -1420,9 +1410,69 @@ const NationalApp = {
   },
 
   /**
+   * Refresh a single campaign via the backend.
+   * @param {string} campaignKey - e.g. 'lumen', 'frontier'
+   * @param {number} [timeout=60000] - Fetch timeout in ms
+   * @returns {Promise<Object>} Backend response
+   */
+  async _refreshCampaign(campaignKey, timeout) {
+    const resp = await this._fetchWithTimeout(
+      fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'refreshCampaign',
+          campaign: campaignKey
+        })
+      }),
+      timeout || 60000
+    );
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
+    if (!result.ok) throw new Error(result.error || 'Refresh failed');
+    return result;
+  },
+
+  /**
    * Refresh all campaign data from the landing page.
    * Same as importLatestRecruiting but targets landing page UI elements
    * and reloads the landing page when done.
+   */
+  /**
+   * Refresh a single campaign from the landing page (per-card refresh button).
+   */
+  async refreshSingleFromLanding(campaignKey, btnEl) {
+    if (!NATIONAL_CONFIG.appsScriptUrl) return;
+
+    const originalText = btnEl.textContent;
+    btnEl.disabled = true;
+    btnEl.textContent = '...';
+    btnEl.classList.add('spinning');
+
+    try {
+      await this._refreshCampaign(campaignKey, 60000);
+      this._clearCoachCampaignCache(campaignKey);
+      if (this._allCampaignsData) delete this._allCampaignsData[campaignKey];
+
+      // Reload all campaign data and re-render landing
+      await this.loadCampaignData(campaignKey);
+      this._showLandingPage();
+
+      console.log('[NationalApp] Single refresh done:', campaignKey);
+    } catch (err) {
+      console.error('[NationalApp] Single refresh failed:', campaignKey, err);
+      alert('Refresh failed for ' + campaignKey + ': ' + err.message);
+    } finally {
+      // Button may be gone after re-render, but safety first
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = originalText; btnEl.classList.remove('spinning'); }
+    }
+  },
+
+  /**
+   * Refresh all campaigns sequentially from the landing page.
+   * Each campaign is refreshed individually so a failure in one
+   * doesn't block the others, and total execution time is bounded.
    */
   async refreshAllFromLanding() {
     if (!NATIONAL_CONFIG.appsScriptUrl) {
@@ -1433,57 +1483,53 @@ const NationalApp = {
     const btn = document.getElementById('btn-refresh-all');
     const status = document.getElementById('landing-refresh-status');
 
+    // Gather all campaign keys that have sheetIds
+    const allKeys = Object.keys(this._allCampaignsData || {});
+    const configKeys = Object.keys(NATIONAL_CONFIG.campaigns || {});
+    const keys = [...new Set([...allKeys, ...configKeys])];
+
     if (btn) { btn.disabled = true; btn.textContent = 'Refreshing...'; }
-    if (status) { status.textContent = 'Pulling data from all campaign spreadsheets...'; status.className = 'import-status'; }
+    if (status) { status.textContent = `Refreshing 0/${keys.length} campaigns...`; status.className = 'import-status'; }
+
+    let successCount = 0;
+    let totalRows = 0;
+    const errors = [];
+
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      if (status) status.textContent = `Refreshing ${i + 1}/${keys.length}: ${key}...`;
+
+      try {
+        const result = await this._refreshCampaign(key, 60000);
+        successCount++;
+        totalRows += result.rows || 0;
+      } catch (err) {
+        console.warn('[NationalApp] Refresh failed for', key, err.message);
+        errors.push(key);
+      }
+    }
+
+    // Clear all caches and reload
+    this._allCampaignsData = null;
+    this._clearAllCoachCaches();
+    this._coachInitDone = false;
 
     try {
-      const resp = await this._fetchWithTimeout(
-        fetch(NATIONAL_CONFIG.appsScriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            key: NATIONAL_CONFIG.apiKey,
-            action: 'refreshCampaigns'
-          })
-        }),
-        180000 // 3 min — full historic pull from all spreadsheets
-      );
+      await this.loadCampaignData('att-b2b');
+    } catch (e) { /* landing page will show whatever loaded */ }
 
-      const result = await resp.json();
-      if (result.error) throw new Error(result.error);
+    this._showLandingPage();
 
-      // Show success summary
-      const results = result.results || {};
-      const successCount = Object.values(results).filter(r => r.ok).length;
-      const totalRows = Object.values(results).reduce((sum, r) => sum + (r.rows || 0), 0);
-
-      if (status) {
-        status.textContent = `Done! ${successCount} campaigns, ${totalRows} rows. Reloading...`;
-        status.className = 'import-status import-success';
-      }
-
-      // Clear all caches and reload everything
-      this._allCampaignsData = null;
-      this._clearAllCoachCaches();
-      this._coachInitDone = false;
-      await this.loadCampaignData('att-b2b'); // re-fetches all campaigns
-      this._showLandingPage();
-
-      if (status) {
-        status.textContent = `Refreshed ${successCount} campaigns (${totalRows} rows)`;
-        setTimeout(() => { status.textContent = ''; status.className = 'import-status'; }, 8000);
-      }
-
-      console.log('[NationalApp] Full refresh from landing:', result);
-    } catch (err) {
-      console.error('[NationalApp] Landing refresh failed:', err);
-      if (status) {
-        status.textContent = 'Refresh failed: ' + err.message;
-        status.className = 'import-status import-error';
-      }
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Refresh All Data'; }
+    if (status) {
+      const errMsg = errors.length ? ` (${errors.length} failed: ${errors.join(', ')})` : '';
+      status.textContent = `Refreshed ${successCount}/${keys.length} campaigns (${totalRows} rows)${errMsg}`;
+      status.className = errors.length ? 'import-status import-error' : 'import-status import-success';
+      setTimeout(() => { status.textContent = ''; status.className = 'import-status'; }, 8000);
     }
+
+    console.log('[NationalApp] Full refresh from landing:', { successCount, totalRows, errors });
+
+    if (btn) { btn.disabled = false; btn.textContent = 'Refresh All Data'; }
   },
 
   // (Bulk importCosts removed — costs now lazy-load per-owner when Recruiting tab opens)

@@ -74,6 +74,10 @@ function doGet(e) {
     if (action === 'refreshCampaigns') {
       return jsonResp(refreshAllCampaigns());
     }
+    if (action === 'refreshCampaign') {
+      var campaignKey = e.parameter.campaign;
+      return jsonResp(refreshSingleCampaign(campaignKey));
+    }
 
     // ── Owner → Cam Company mapping from _OwnerCamMapping tab ──
     if (action === 'ownerCamMapping') {
@@ -225,6 +229,9 @@ function doPost(e) {
         break;
       case 'refreshCampaigns':
         result = refreshAllCampaigns();
+        break;
+      case 'refreshCampaign':
+        result = refreshSingleCampaign(body.campaign);
         break;
       case 'claimCompany':
         result = claimCompany(body.ownerName, body.companyName);
@@ -4588,6 +4595,34 @@ function refreshAllCampaigns() {
   }
 
   return { ok: true, results: results, timestamp: new Date().toISOString() };
+}
+
+/**
+ * Refresh a single campaign by key. Much faster than refreshAllCampaigns
+ * since it only opens one source spreadsheet.
+ * @param {string} campaignKey - e.g. 'lumen', 'leafguard', 'frontier'
+ */
+function refreshSingleCampaign(campaignKey) {
+  if (!campaignKey) return { ok: false, error: 'campaign key is required' };
+
+  var campaign = OD_CAMPAIGNS[campaignKey];
+  if (!campaign) return { ok: false, error: 'Unknown campaign: ' + campaignKey };
+  if (!campaign.sheetId) return { ok: false, error: 'No sheetId configured for ' + campaignKey };
+
+  var destSS;
+  try {
+    destSS = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    return { ok: false, error: 'Cannot open consolidated sheet: ' + err.message };
+  }
+
+  try {
+    var count = consolidateCampaign_(campaignKey, campaign, destSS);
+    return { ok: true, campaign: campaignKey, rows: count, timestamp: new Date().toISOString() };
+  } catch (err) {
+    Logger.log('refreshSingleCampaign error for ' + campaignKey + ': ' + err.message + '\n' + err.stack);
+    return { ok: false, campaign: campaignKey, error: err.message };
+  }
 }
 
 /**

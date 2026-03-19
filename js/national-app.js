@@ -2294,9 +2294,10 @@ const NationalApp = {
     }
     const hasProducts = tableProductNames.length > 0;
 
-    const tableRows = hist.map((r, i) => {
-      const origIdx = n - 1 - i;
-      const prev = i < n - 1 ? hist[i + 1] : null;
+    const tableRows = hist.filter(r => (r.tA || 0) > 0 || (r.tG || 0) > 0).map((r, i, arr) => {
+      const origIdx = hist.indexOf(r);
+      const realOrigIdx = n - 1 - origIdx;
+      const prev = i < arr.length - 1 ? arr[i + 1] : null;
       const arrow = this._trendArrow(r.tA, prev?.tA);
       const pct = r.tG > 0 ? Math.round((r.tA / r.tG) * 100) : 0;
       const pctClass = pct >= 100 ? 'pct-green' : pct >= 80 ? 'pct-yellow' : pct >= 60 ? 'pct-orange' : 'pct-red';
@@ -2312,10 +2313,10 @@ const NationalApp = {
       return `<tr>
         <td class="bold">${this._esc(r.date)}</td>
         ${productCells}
-        <td class="num">${hasProducts ? (r.tA || 0) : `<input type="number" class="hc-edit-input" value="${r.tA || 0}" min="0"
-          onchange="NationalApp._onProdTableEdit(${ownerIdx},${origIdx},'tA',this.value)">`}${arrow}</td>
-        <td class="num">${hasProducts ? (r.tG || 0) : `<input type="number" class="hc-edit-input" value="${r.tG || 0}" min="0"
-          onchange="NationalApp._onProdTableEdit(${ownerIdx},${origIdx},'tG',this.value)">`}</td>
+        ${!hasProducts ? `<td class="num"><input type="number" class="hc-edit-input" value="${r.tA || 0}" min="0"
+          onchange="NationalApp._onProdTableEdit(${ownerIdx},${realOrigIdx},'tA',this.value)">${arrow}</td>
+        <td class="num"><input type="number" class="hc-edit-input" value="${r.tG || 0}" min="0"
+          onchange="NationalApp._onProdTableEdit(${ownerIdx},${realOrigIdx},'tG',this.value)"></td>` : ''}
         <td class="num"><span class="prod-pct-badge ${pctClass}">${pct}%</span></td>
       </tr>`;
     }).join('');
@@ -2332,7 +2333,7 @@ const NationalApp = {
       <div class="data-table-wrap trend-scroll">
         <table class="data-table">
           <thead><tr>
-            <th>Week</th>${productHeaders}<th class="num">${hasProducts ? 'Total' : 'Actual'}</th><th class="num">${hasProducts ? 'Total Goal' : 'Goal'}</th><th class="num">%</th>
+            <th>Week</th>${productHeaders}${!hasProducts ? '<th class="num">Actual</th><th class="num">Goal</th>' : ''}<th class="num">%</th>
           </tr></thead>
           <tbody>${tableRows}</tbody>
         </table>

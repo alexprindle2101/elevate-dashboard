@@ -1871,6 +1871,8 @@ const NationalApp = {
     if (!rawHist.length) { trendEl.style.display = 'none'; return; }
     trendEl.style.display = '';
 
+    const isLeafGuard = this.state.campaign === 'leafguard';
+
     // Reverse so newest week is on the LEFT, skip all-zero weeks
     const hist = [...rawHist].filter(r => (r.active || 0) > 0 || (r.leaders || 0) > 0 || (r.training || 0) > 0).reverse();
     const n = hist.length;
@@ -1920,7 +1922,6 @@ const NationalApp = {
     const displayW = needsScroll ? REF_W : (YAXIS_W + barAreaW);
 
     // ── Build table (back side) ──
-    const isLeafGuard = this.state.campaign === 'leafguard';
     const tableRows = hist.map((r, i) => {
       const origIdx = n - 1 - i;
       const prev = i < n - 1 ? hist[i + 1] : null;

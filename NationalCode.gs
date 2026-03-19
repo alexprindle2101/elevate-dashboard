@@ -4544,7 +4544,7 @@ var CAMPAIGN_PROD_COLUMNS = {
   },
   'rogers': {
     'Units':     { prod: ['production lw', 'production'], goal: ['production goals', 'production goal', 'goals'] },
-    'Mobility':  { prod: ['mobility'], goal: [] }
+    'Mobility':  { prod: ['mobility', 'mobilty'], goal: [] }
   }
 };
 

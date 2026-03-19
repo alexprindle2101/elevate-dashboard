@@ -1736,7 +1736,17 @@ const NationalApp = {
     let prodCardsHtml = '';
     const productEntries = prod.products || {};
     const productNames = Object.keys(productEntries);
-    if (productNames.length > 0) {
+    if (this.state.campaign === 'leafguard' && productNames.length >= 4) {
+      // LeafGuard: 2 combined cards
+      // Card 1: Gross Sales (main) + Personal Prod (sub)
+      const gs = productEntries['Gross Sales'] || { actual: 0, goal: 0 };
+      const pp = productEntries['Personal Prod'] || { actual: 0, goal: 0 };
+      // Card 2: Gross Leads (main) + Number of Sales (sub)
+      const gl = productEntries['Gross Leads'] || { actual: 0, goal: 0 };
+      const ns = productEntries['Number of Sales'] || { actual: 0, goal: 0 };
+      prodCardsHtml = this._prodCardCombined('Gross Sales', gs.actual, gs.goal, 'Personal Prod', pp.actual)
+                    + this._prodCardCombined('Gross Leads', gl.actual, gl.goal, 'Number of Sales', ns.actual);
+    } else if (productNames.length > 0) {
       // Show per-product cards only (no total)
       for (const pName of productNames) {
         const pData = productEntries[pName];
@@ -2891,6 +2901,22 @@ const NationalApp = {
         <div class="prod-card-label">${label}</div>
         <div class="prod-card-actual">${actual}</div>
         <div class="prod-card-goal">goal ${goal}</div>
+      </div>`;
+  },
+
+  // ── Combined production card (main metric + sub metric underneath) ──
+  _prodCardCombined(mainLabel, mainActual, mainGoal, subLabel, subActual) {
+    const pct = mainGoal ? Math.round((mainActual / mainGoal) * 100) : 0;
+    const goalLine = mainGoal ? `<div class="prod-card-goal">goal ${mainGoal.toLocaleString()}</div>` : '';
+    return `
+      <div class="prod-card ${this._pctClass(pct)}">
+        <div class="prod-card-label">${mainLabel}</div>
+        <div class="prod-card-actual">${mainActual.toLocaleString()}</div>
+        ${goalLine}
+        <div class="prod-card-sub">
+          <span class="prod-card-sub-label">${subLabel}</span>
+          <span class="prod-card-sub-value">${subActual.toLocaleString()}</span>
+        </div>
       </div>`;
   },
 

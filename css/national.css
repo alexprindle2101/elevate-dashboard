@@ -981,6 +981,27 @@ input, select, textarea { font-family: inherit; }
   color: var(--gray-400);
   margin-top: 6px;
 }
+.prod-card-sub {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(0,0,0,0.12);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.prod-card-sub-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  letter-spacing: 0.03em;
+}
+.prod-card-sub-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--gray-700, #1a3a52);
+}
 
 /* ── Goals Grid ── */
 .goals-grid {

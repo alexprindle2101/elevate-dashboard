@@ -1620,10 +1620,10 @@ const NationalApp = {
     document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
     document.querySelector('.detail-tab[data-tab="health"]').classList.add('active');
 
-    // Only show Sales tab for AT&T B2B (hide for all other campaigns)
-    const showSales = this.state.campaign === 'att-b2b';
+    // Hide Sales tab for specific campaigns
+    const hideSales = ['frontier', 'verizon-fios', 'leafguard', 'lumen'];
     const salesTab = document.querySelector('.detail-tab[data-tab="sales"]');
-    if (salesTab) salesTab.style.display = showSales ? '' : 'none';
+    if (salesTab) salesTab.style.display = hideSales.includes(this.state.campaign) ? 'none' : '';
 
     this.renderHealthTab(owner);
     this._showTab('health');

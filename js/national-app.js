@@ -954,11 +954,15 @@ const NationalApp = {
         const health = ownerData && (ownerData.health || null);
         if (health) {
           const h = health;
-          latestHealth = h; // keep overwriting — last one is most recent
+          // Only use as latestHealth if it has meaningful data (skip weeks with no data entered)
+          if ((h.active || 0) > 0 || (h.leaders || 0) > 0 || (h.training || 0) > 0) {
+            latestHealth = h;
+          }
           if ((h.leaders || 0) > 0) lastNonZeroLeaders = h.leaders;
           const hcActive = h.active || 0, hcLeaders = h.leaders || 0, hcTraining = h.training || 0;
+          const hcClosers = h.closers || 0, hcLeadGen = h.leadGen || 0;
           if (hcActive > 0 || hcLeaders > 0 || hcTraining > 0) {
-            hcHistory.push({ date: allWeeksChron[wi].tabName, active: hcActive, leaders: hcLeaders, training: hcTraining });
+            hcHistory.push({ date: allWeeksChron[wi].tabName, active: hcActive, leaders: hcLeaders, training: hcTraining, closers: hcClosers, leadGen: hcLeadGen });
           }
           // Production history — handle both old format (single numbers) and new format (per-product objects)
           const prod = h.production;
@@ -1014,6 +1018,8 @@ const NationalApp = {
         headcount: {
           active: latestHealth.active || 0,
           leaders: latestHealth.leaders || 0,
+          closers: latestHealth.closers || 0,
+          leadGen: latestHealth.leadGen || 0,
           training: latestHealth.training || 0
         },
         headcountHistory: hcHistory,
@@ -1888,11 +1894,27 @@ const NationalApp = {
     const displayW = needsScroll ? REF_W : (YAXIS_W + barAreaW);
 
     // ── Build table (back side) ──
+    const isLeafGuard = this.state.campaign === 'leafguard';
     const tableRows = hist.map((r, i) => {
       const origIdx = n - 1 - i;
       const prev = i < n - 1 ? hist[i + 1] : null;
-      const dist = Math.max((r.active || 0) - (r.leaders || 0), 0);
       const arrow = this._trendArrow(r.active, prev?.active);
+      if (isLeafGuard) {
+        const leadGen = Math.max((r.active || 0) - (r.closers || 0), 0);
+        return `<tr>
+          <td class="bold">${this._esc(r.date)}</td>
+          <td class="num"><input type="number" class="hc-edit-input" value="${r.active || 0}" min="0"
+            onchange="NationalApp._onHcTableEdit(${ownerIdx},${origIdx},'active',this.value)">${arrow}</td>
+          <td class="num"><input type="number" class="hc-edit-input" value="${r.closers || 0}" min="0"
+            onchange="NationalApp._onHcTableEdit(${ownerIdx},${origIdx},'closers',this.value)"></td>
+          <td class="num hc-dist-cell">${leadGen}</td>
+          <td class="num"><input type="number" class="hc-edit-input" value="${r.leaders || 0}" min="0"
+            onchange="NationalApp._onHcTableEdit(${ownerIdx},${origIdx},'leaders',this.value)"></td>
+          <td class="num"><input type="number" class="hc-edit-input" value="${r.training || 0}" min="0"
+            onchange="NationalApp._onHcTableEdit(${ownerIdx},${origIdx},'training',this.value)"></td>
+        </tr>`;
+      }
+      const dist = Math.max((r.active || 0) - (r.leaders || 0), 0);
       return `<tr>
         <td class="bold">${this._esc(r.date)}</td>
         <td class="num"><input type="number" class="hc-edit-input" value="${r.active || 0}" min="0"
@@ -1907,11 +1929,15 @@ const NationalApp = {
       </tr>`;
     }).join('');
 
+    const tableHeaders = isLeafGuard
+      ? '<th>Week</th><th class="num">Active</th><th class="num">Closers</th><th class="num">Lead Gen</th><th class="num">Leaders</th><th class="num">Training</th>'
+      : '<th>Week</th><th class="num">Active</th><th class="num">Leaders</th><th class="num">Dist</th><th class="num">Training</th>';
+
     const tableHtml = `
       <div class="data-table-wrap trend-scroll">
         <table class="data-table">
           <thead><tr>
-            <th>Week</th><th class="num">Active</th><th class="num">Leaders</th><th class="num">Dist</th><th class="num">Training</th>
+            ${tableHeaders}
           </tr></thead>
           <tbody>${tableRows}</tbody>
         </table>

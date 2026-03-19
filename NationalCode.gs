@@ -4529,6 +4529,11 @@ var CONSOLIDATED_BASE_HEADERS = [
   'Training'         // 5
 ];
 
+// Campaigns with extra headcount columns (Closers, Lead Gen)
+var CAMPAIGN_EXTRA_HC = {
+  'leafguard': ['Closers', 'Lead Gen']
+};
+
 var CONSOLIDATED_RECRUITING_HEADERS = [
   'Calls Received',  // from Section 2 (applies)
   'Sent to List',    // from Section 2 (no list)
@@ -4551,6 +4556,11 @@ var CONSOLIDATED_RECRUITING_HEADERS = [
 function getConsolidatedHeaders_(campaignKey) {
   var products = CAMPAIGN_PRODUCTS[campaignKey] || ['Total'];
   var headers = CONSOLIDATED_BASE_HEADERS.slice();
+  // Campaign-specific extra headcount columns (e.g. Closers, Lead Gen for LeafGuard)
+  var extraHC = CAMPAIGN_EXTRA_HC[campaignKey] || [];
+  for (var e = 0; e < extraHC.length; e++) {
+    headers.push(extraHC[e]);
+  }
   for (var p = 0; p < products.length; p++) {
     headers.push('Prod: ' + products[p]);
     headers.push('Goal: ' + products[p]);
@@ -4817,6 +4827,8 @@ function extractHealthRows_(data, start, end, displayData) {
     active: findCol(headers, ['active', 'total agents', 'agents']),
     leaders: findCol(headers, ['leaders']),
     dist: findCol(headers, ['dist', 'distributors', 'distibutors']),
+    closers: findCol(headers, ['closers']),
+    leadGen: findCol(headers, ['lead gen', 'leadgen']),
     training: findCol(headers, ['training']),
     production: findCol(headers, ['production lw', 'production', 'total production']),
     goals: findCol(headers, ['production goals', 'production goal', 'goals'])
@@ -4848,6 +4860,8 @@ function extractHealthRows_(data, start, end, displayData) {
       active: num(row[colMap.active]),
       leaders: num(row[colMap.leaders]),
       dist: num(row[colMap.dist]),
+      closers: colMap.closers >= 0 ? num(row[colMap.closers]) : 0,
+      leadGen: colMap.leadGen >= 0 ? num(row[colMap.leadGen]) : 0,
       training: num(row[colMap.training]),
       productionRaw: prodRaw,
       goalsRaw: goalsRaw
@@ -5148,6 +5162,14 @@ function mergeHealthRecruiting_(ownerName, healthRows, recruitingRows, campaignK
       h.dist || 0,         // 4: Dist
       h.training || 0      // 5: Training
     ];
+    // Campaign-specific extra headcount columns
+    var extraHC = CAMPAIGN_EXTRA_HC[campaignKey] || [];
+    for (var ei = 0; ei < extraHC.length; ei++) {
+      var ehName = extraHC[ei].toLowerCase().replace(/\s+/g, '');
+      if (ehName === 'closers') row.push(h.closers || 0);
+      else if (ehName === 'leadgen') row.push(h.leadGen || 0);
+      else row.push(0);
+    }
 
     // Per-product Prod/Goal pairs
     var prodTotal = 0, goalTotal = 0;
@@ -5316,6 +5338,8 @@ function readConsolidatedRecruiting(weekCount, campaignFilter) {
     var colHC = findCol(headers, ['active hc', 'active']);
     var colLeaders = findCol(headers, ['leaders']);
     var colDist = findCol(headers, ['dist']);
+    var colClosers = findCol(headers, ['closers']);
+    var colLeadGen = findCol(headers, ['lead gen', 'leadgen']);
     var colTraining = findCol(headers, ['training']);
     // ── Find per-product production/goal columns ──
     // New format: "prod: frontier", "goal: frontier", "prod: cell", etc.
@@ -5404,6 +5428,8 @@ function readConsolidatedRecruiting(weekCount, campaignFilter) {
           active: num(row[colHC]),
           leaders: num(row[colLeaders]),
           dist: num(row[colDist]),
+          closers: colClosers >= 0 ? num(row[colClosers]) : 0,
+          leadGen: colLeadGen >= 0 ? num(row[colLeadGen]) : 0,
           training: num(row[colTraining]),
           production: productionData,
           goals: productionData

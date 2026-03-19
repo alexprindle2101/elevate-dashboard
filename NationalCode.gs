@@ -4508,7 +4508,7 @@ function odDeleteUser(body) {
 // missing ones get 0. "TV" wasn't always tracked so Frontier may have 2 or 3 values.
 var CAMPAIGN_PRODUCTS = {
   'frontier':        ['Frontier', 'Cell', 'TV'],
-  'verizon-fios':    ['Fios'],      // single product — will update when we learn the real breakdown
+  'verizon-fios':    ['Units', 'Wireless'],
   'att-nds':         ['NDS'],       // single product — will update
   'att-res':         ['Residential'],// single product — will update
   'rogers':          ['Rogers'],    // single product — will update
@@ -4537,12 +4537,17 @@ var CAMPAIGN_PROD_COLUMNS = {
     'Gross Leads':      { prod: ['gross leads'], goal: ['gross leads goal', 'leads goal'] },
     'Number of Sales':  { prod: ['number of sales', '# of sales'], goal: [] },
     'Gross Sales':      { prod: ['gross sales'], goal: ['gross sales goal', 'sales goal', 'goal'] }
+  },
+  'verizon-fios': {
+    'Units':     { prod: ['production lw', 'production'], goal: ['production goals', 'production goal', 'goals'] },
+    'Wireless':  { prod: ['wireless'], goal: [] }
   }
 };
 
 // Which products have goals set (these show goal comparison)
 var CAMPAIGN_GOAL_PRODUCTS = {
-  'leafguard': ['Gross Sales', 'Gross Leads']
+  'leafguard': ['Gross Sales', 'Gross Leads'],
+  'verizon-fios': ['Units']  // Production Goals is combined (units + wireless) — shown against Units
 };
 
 // Campaigns with extra headcount columns (Closers, Lead Gen)

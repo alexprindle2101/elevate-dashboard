@@ -5609,3 +5609,23 @@ function odBatchSaveCampaignTabMap(body) {
   return { success: true, saved: saved };
 }
 
+
+// ══════════════════════════════════════════════════
+// TEMPORARY TEST — safe to delete after debugging
+// Run directly from editor (▶ button) — does NOT affect deployed app
+// ══════════════════════════════════════════════════
+function TEST_lumen_extraction() {
+  var ss = SpreadsheetApp.openById('1P4DYlcV1hgNkaAapk3tWD7ytcRXw4K1n7R6EMKPCoSA');
+  var tab = ss.getSheetByName('Campaign');
+  Logger.log('Tab found: ' + !!tab);
+  if (!tab) {
+    Logger.log('Available tabs: ' + ss.getSheets().map(function(t) { return t.getName(); }).join(', '));
+    return;
+  }
+  var data = tab.getDataRange().getValues();
+  Logger.log('Data rows: ' + data.length);
+  for (var i = 0; i < Math.min(data.length, 20); i++) {
+    var val = String(data[i][0] || '');
+    Logger.log('Row ' + i + ': "' + val + '" (len=' + val.length + ', trimmed="' + val.trim() + '")');
+  }
+}

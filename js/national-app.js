@@ -1723,14 +1723,13 @@ const NationalApp = {
     const goalsEl = document.getElementById('health-goals');
     let goalFieldsHtml = '';
     if (productNames.length > 0) {
-      // Per-product goal inputs
+      // Per-product goal inputs (empty by default, like headcount fields)
       for (const pName of productNames) {
-        const currentGoal = (productEntries[pName] || {}).goal || '';
         goalFieldsHtml += `
           <div class="goal-field">
             <label class="goal-field-label">${this._esc(pName)} Goal</label>
             <input type="number" class="goal-input" id="goal-${pName.toLowerCase().replace(/\s+/g,'-')}-${ownerIdx}"
-              value="${currentGoal}" min="0" placeholder="—"
+              value="" min="0" placeholder="—"
               onchange="NationalApp._updateGoal(${ownerIdx}, '${pName}', this.value)">
           </div>`;
       }

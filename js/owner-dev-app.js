@@ -1156,7 +1156,16 @@ const OwnerDev = {
       </div>
       <div class="sd-options"></div>
     `;
+    dd.classList.remove('flip-up');
     dd.classList.add('open');
+
+    // Flip upward if dropdown would overflow viewport
+    requestAnimationFrame(() => {
+      const rect = dd.getBoundingClientRect();
+      if (rect.bottom > window.innerHeight - 10) {
+        dd.classList.add('flip-up');
+      }
+    });
 
     const searchInput = dd.querySelector('.sd-search');
     const optionsContainer = dd.querySelector('.sd-options');

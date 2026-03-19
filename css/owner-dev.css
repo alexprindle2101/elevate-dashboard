@@ -644,6 +644,7 @@ input, select, textarea { font-family: inherit; }
   flex-direction: column; min-width: 220px;
 }
 .sd-dropdown.open { display: flex; }
+.sd-dropdown.flip-up { top: auto; bottom: calc(100% + 4px); }
 .sd-dropdown .sd-search-wrap {
   padding: 8px; border-bottom: 1px solid var(--gray-100);
 }

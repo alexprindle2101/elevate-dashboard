@@ -4240,6 +4240,14 @@ const NationalApp = {
 
     html += `</thead><tbody>`;
 
+    // Detect all-zero week columns (data never entered — show dashes)
+    const numWeeks = weeks.length;
+    const zeroWeeks = new Array(numWeeks).fill(true);
+    rows.forEach(row => {
+      const vals = [...row.values].reverse();
+      vals.forEach((v, wi) => { if (v !== 0 && v !== '0%') zeroWeeks[wi] = false; });
+    });
+
     // Data rows
     rows.forEach((row, ri) => {
       html += `<tr>`;
@@ -4248,9 +4256,13 @@ const NationalApp = {
 
       // Weekly values with conditional coloring (reversed: newest-first)
       const vals = [...row.values].reverse();
-      vals.forEach(val => {
-        const color = this._cellColor(val, row.projected, row.isRate, ri);
-        html += `<td class="${color}">${this._fmtCell(val, row.isRate)}</td>`;
+      vals.forEach((val, wi) => {
+        if (zeroWeeks[wi]) {
+          html += `<td class="rt-dash">—</td>`;
+        } else {
+          const color = this._cellColor(val, row.projected, row.isRate, ri);
+          html += `<td class="${color}">${this._fmtCell(val, row.isRate)}</td>`;
+        }
       });
 
       // Total column

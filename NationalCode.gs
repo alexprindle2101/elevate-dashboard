@@ -1023,8 +1023,11 @@ function _pctNum(v) {
 
 // ── Parse tab name as date ──
 function _parseTabDate(name) {
-  // Try formats: "3-7-2026", "03-02-26", "Mar-7", "2-28-2026"
-  var parts = name.split(/[-\/]/);
+  // Strip common prefixes: "WE 1/3" → "1/3", "Week 2/28" → "2/28"
+  var cleaned = name.replace(/^(WE|Week|Wk)\s+/i, '').trim();
+
+  // Try formats: "3-7-2026", "03-02-26", "Mar-7", "2-28-2026", "1/3", "2/28"
+  var parts = cleaned.split(/[-\/]/);
   if (parts.length >= 2) {
     var month = parseInt(parts[0]);
     var day = parseInt(parts[1]);
@@ -4799,10 +4802,17 @@ function consolidateCampaign_(campaignKey, campaign, destSS) {
 function extractHealthRows_(data, start, end, displayData) {
   if (start < 0 || end < start) return [];
 
-  var headers = data[start].map(function(h) { return String(h).toLowerCase().trim(); });
+  // Find the actual header row — skip empty rows at the start
+  var headerIdx = start;
+  for (var hi = start; hi <= Math.min(start + 3, end); hi++) {
+    var rowText = data[hi].map(function(c) { return String(c).trim(); }).join('');
+    if (rowText.length > 0) { headerIdx = hi; break; }
+  }
+
+  var headers = data[headerIdx].map(function(h) { return String(h).toLowerCase().trim(); });
   var colMap = {
     dates: findCol(headers, ['dates', 'date']),
-    active: findCol(headers, ['active']),
+    active: findCol(headers, ['active', 'total agents', 'agents']),
     leaders: findCol(headers, ['leaders']),
     dist: findCol(headers, ['dist']),
     training: findCol(headers, ['training']),
@@ -4811,7 +4821,7 @@ function extractHealthRows_(data, start, end, displayData) {
   };
 
   var result = [];
-  for (var i = start + 1; i <= end; i++) {
+  for (var i = headerIdx + 1; i <= end; i++) {
     var row = data[i];
     var dateVal = row[colMap.dates];
     if (!dateVal) continue;
@@ -4858,7 +4868,14 @@ function extractHealthRows_(data, start, end, displayData) {
 function extractHorizontalRecruitingRows_(data, start, end) {
   if (start < 0 || end < start) return [];
 
-  var headers = data[start].map(function(h) { return String(h).toLowerCase().trim(); });
+  // Find the actual header row — skip empty rows at the start
+  var headerIdx = start;
+  for (var hi = start; hi <= Math.min(start + 3, end); hi++) {
+    var rowText = data[hi].map(function(c) { return String(c).trim(); }).join('');
+    if (rowText.length > 0) { headerIdx = hi; break; }
+  }
+
+  var headers = data[headerIdx].map(function(h) { return String(h).toLowerCase().trim(); });
 
   Logger.log('extractHorizontalRecruiting_ headers: ' + JSON.stringify(headers));
 
@@ -4866,9 +4883,9 @@ function extractHorizontalRecruitingRows_(data, start, end) {
   // Use nth-occurrence logic for "retention" (appears 3 times)
   var colCalls = findCol(headers, ['calls received', 'applies received', 'applies']);
   var colSentToList = findCol(headers, ['sent to call list', 'sent to list', 'no list']);
-  var col1stBooked = findCol(headers, ['1st rounds booked', '1st booked']);
-  var col1stShowed = findCol(headers, ['1st rounds showed', '1st showed']);
-  var colConversion = findCol(headers, ['conversion', 'turned to 2nd']);
+  var col1stBooked = findCol(headers, ['1st rounds booked', '1st booked', 'first booked', 'booked from call']);
+  var col1stShowed = findCol(headers, ['1st rounds showed', '1st showed', 'first showed']);
+  var colConversion = findCol(headers, ['conversion', 'turned to 2nd', '% of call']);
 
   // Find 2nd round columns (must contain "2nd")
   var col2ndBooked = -1, col2ndShowed = -1;
@@ -4904,7 +4921,7 @@ function extractHorizontalRecruitingRows_(data, start, end) {
   if (dateCol < 0) return [];
 
   var result = [];
-  for (var i = start + 1; i <= end; i++) {
+  for (var i = headerIdx + 1; i <= end; i++) {
     var row = data[i];
     var dateVal = row[dateCol];
     if (!dateVal) continue;
@@ -4983,16 +5000,16 @@ function extractRecruitingRows_(data, start, end) {
 
     if (label.indexOf('calls received') >= 0 || label.indexOf('applies') >= 0) metricsMap.callsReceived = data[i];
     else if (label.indexOf('no list') >= 0 || label.indexOf('sent to call') >= 0 || label.indexOf('sent to list') >= 0) metricsMap.noList = data[i];
-    else if ((label === 'booked' || (label.indexOf('1st') >= 0 && label.indexOf('book') >= 0)) && !metricsMap.booked) metricsMap.booked = data[i];
-    else if ((label === 'showed' || (label.indexOf('1st') >= 0 && label.indexOf('show') >= 0)) && !metricsMap.showed) metricsMap.showed = data[i];
+    else if ((label === 'booked' || (label.indexOf('1st') >= 0 && label.indexOf('book') >= 0) || label.indexOf('first booked') >= 0 || label.indexOf('booked from call') >= 0) && !metricsMap.booked) metricsMap.booked = data[i];
+    else if ((label === 'showed' || (label.indexOf('1st') >= 0 && label.indexOf('show') >= 0) || label.indexOf('first showed') >= 0) && !metricsMap.showed) metricsMap.showed = data[i];
     else if (label.indexOf('retention') >= 0 && !metricsMap.retention1) metricsMap.retention1 = data[i];
-    else if (label.indexOf('conversion') >= 0 || label.indexOf('% call') >= 0 || label.indexOf('turned to 2nd') >= 0) metricsMap.conversion = data[i];
+    else if (label.indexOf('conversion') >= 0 || label.indexOf('% call') >= 0 || label.indexOf('% of call') >= 0 || label.indexOf('turned to 2nd') >= 0) metricsMap.conversion = data[i];
     else if (label.indexOf('2nd') >= 0 && label.indexOf('book') >= 0) metricsMap.booked2 = data[i];
     else if (label.indexOf('2nd') >= 0 && label.indexOf('show') >= 0) metricsMap.showed2 = data[i];
     else if (label.indexOf('retention') >= 0 && metricsMap.retention1 && !metricsMap.retention2) metricsMap.retention2 = data[i];
     else if (label.indexOf('start') >= 0 && (label.indexOf('book') >= 0 || label.indexOf('schedul') >= 0)) metricsMap.startsBooked = data[i];
     else if (label.indexOf('start') >= 0 && label.indexOf('show') >= 0) metricsMap.startsShowed = data[i];
-    else if (label.indexOf('start') >= 0 && label.indexOf('retention') >= 0) metricsMap.startRetention = data[i];
+    else if ((label.indexOf('start') >= 0 && label.indexOf('retention') >= 0) || (label.indexOf('new start') >= 0 && label.indexOf('retention') >= 0)) metricsMap.startRetention = data[i];
     else if (label.indexOf('retention') >= 0 && metricsMap.retention1 && metricsMap.retention2 && !metricsMap.retention3) metricsMap.retention3 = data[i];
   }
 
@@ -5628,4 +5645,12 @@ function TEST_lumen_extraction() {
     var val = String(data[i][0] || '');
     Logger.log('Row ' + i + ': "' + val + '" (len=' + val.length + ', trimmed="' + val.trim() + '")');
   }
+}
+
+// Run the FULL refresh pipeline for Lumen and log the result
+function TEST_lumen_refresh() {
+  Logger.log('=== Testing refreshSingleCampaign("lumen") ===');
+  Logger.log('OD_CAMPAIGNS.lumen = ' + JSON.stringify(OD_CAMPAIGNS['lumen']));
+  var result = refreshSingleCampaign('lumen');
+  Logger.log('Result: ' + JSON.stringify(result));
 }

@@ -4879,10 +4879,31 @@ function extractHealthRows_(data, start, end, displayData, campaignKey) {
       // Per-product columns: build "/" separated string for compatibility with mergeHealthRecruiting_
       var prodVals = [], goalVals = [];
       var products = CAMPAIGN_PRODUCTS[campaignKey] || [];
+
+      // Read the shared "goals" column — may be "/" separated (Gross Leads / Gross Sales) or single (Gross Sales only)
+      var sharedGoalRaw = '';
+      if (colMap.goals >= 0) {
+        sharedGoalRaw = displayData && displayData[i] ? String(displayData[i][colMap.goals]) : String(row[colMap.goals] || '');
+      }
+      var sharedGoalParts = _splitSlashValues(sharedGoalRaw);
+      // If "/" separated: first = Gross Leads goal, second = Gross Sales goal
+      // If single value: just Gross Sales goal
+      var grossLeadsGoal = sharedGoalParts.length >= 2 ? sharedGoalParts[0] : 0;
+      var grossSalesGoal = sharedGoalParts.length >= 2 ? sharedGoalParts[1] : sharedGoalParts[0] || 0;
+
       for (var pp = 0; pp < products.length; pp++) {
         var ppc = perProdCols[products[pp]] || { prodCol: -1, goalCol: -1 };
         prodVals.push(ppc.prodCol >= 0 ? num(row[ppc.prodCol]) : 0);
-        goalVals.push(ppc.goalCol >= 0 ? num(row[ppc.goalCol]) : 0);
+        // Goal assignment: per-product goal column if available, otherwise shared column
+        if (ppc.goalCol >= 0) {
+          goalVals.push(num(row[ppc.goalCol]));
+        } else if (products[pp] === 'Gross Leads') {
+          goalVals.push(grossLeadsGoal);
+        } else if (products[pp] === 'Gross Sales') {
+          goalVals.push(grossSalesGoal);
+        } else {
+          goalVals.push(0);
+        }
       }
       prodRaw = prodVals.join('/');
       goalsRaw = goalVals.join('/');

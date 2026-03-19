@@ -2235,9 +2235,10 @@ const NationalApp = {
     if (!rawHist.length) { trendEl.style.display = 'none'; return; }
     trendEl.style.display = '';
 
-    // Reverse so newest week is on the LEFT
-    const hist = [...rawHist].reverse();
+    // Reverse so newest week is on the LEFT, skip all-zero weeks
+    const hist = [...rawHist].filter(r => (r.tA || 0) > 0 || (r.tG || 0) > 0).reverse();
     const n = hist.length;
+    if (!n) { trendEl.style.display = 'none'; return; }
 
     const shortDate = (d) => {
       if (!d) return '';

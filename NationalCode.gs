@@ -4530,19 +4530,19 @@ var CONSOLIDATED_BASE_HEADERS = [
 ];
 
 // Campaigns where each product has its own column in the source tab (not "/" separated)
-// Maps product name → array of possible column header matches
+// Maps product name → { prod: [...headers], goal: [...headers] }
 var CAMPAIGN_PROD_COLUMNS = {
   'leafguard': {
-    'Personal Prod':    ['personal prod', 'personal production'],
-    'Gross Leads':      ['gross leads'],
-    'Number of Sales':  ['number of sales', '# of sales'],
-    'Gross Sales':      ['gross sales']
+    'Personal Prod':    { prod: ['personal prod', 'personal production'], goal: [] },
+    'Gross Leads':      { prod: ['gross leads'], goal: ['gross leads goal', 'leads goal'] },
+    'Number of Sales':  { prod: ['number of sales', '# of sales'], goal: [] },
+    'Gross Sales':      { prod: ['gross sales'], goal: ['gross sales goal', 'sales goal', 'goal'] }
   }
 };
 
-// Which product has goals set (only this one shows goal comparison)
-var CAMPAIGN_GOAL_PRODUCT = {
-  'leafguard': 'Gross Sales'
+// Which products have goals set (these show goal comparison)
+var CAMPAIGN_GOAL_PRODUCTS = {
+  'leafguard': ['Gross Sales', 'Gross Leads']
 };
 
 // Campaigns with extra headcount columns (Closers, Lead Gen)
@@ -4851,17 +4851,20 @@ function extractHealthRows_(data, start, end, displayData, campaignKey) {
   };
 
   // Per-product column detection (LeafGuard: separate columns per product)
-  var perProdCols = null;
+  // Per-product column detection (LeafGuard: separate columns per product)
+  var perProdCols = null; // { productName: { prodCol, goalCol } }
   var prodColConfig = campaignKey && CAMPAIGN_PROD_COLUMNS[campaignKey];
   if (prodColConfig) {
     perProdCols = {};
     var prodNames = Object.keys(prodColConfig);
     for (var pp = 0; pp < prodNames.length; pp++) {
-      perProdCols[prodNames[pp]] = findCol(headers, prodColConfig[prodNames[pp]]);
+      var cfg = prodColConfig[prodNames[pp]];
+      perProdCols[prodNames[pp]] = {
+        prodCol: findCol(headers, cfg.prod),
+        goalCol: cfg.goal && cfg.goal.length ? findCol(headers, cfg.goal) : -1
+      };
     }
   }
-
-  var goalProduct = campaignKey && CAMPAIGN_GOAL_PRODUCT[campaignKey];
 
   var result = [];
   for (var i = headerIdx + 1; i <= end; i++) {
@@ -4877,14 +4880,9 @@ function extractHealthRows_(data, start, end, displayData, campaignKey) {
       var prodVals = [], goalVals = [];
       var products = CAMPAIGN_PRODUCTS[campaignKey] || [];
       for (var pp = 0; pp < products.length; pp++) {
-        var col = perProdCols[products[pp]];
-        prodVals.push(col >= 0 ? num(row[col]) : 0);
-        // Only the goal product gets goal values; others get 0
-        if (products[pp] === goalProduct && colMap.goals >= 0) {
-          goalVals.push(displayData && displayData[i] ? displayData[i][colMap.goals] : num(row[colMap.goals]));
-        } else {
-          goalVals.push(0);
-        }
+        var ppc = perProdCols[products[pp]] || { prodCol: -1, goalCol: -1 };
+        prodVals.push(ppc.prodCol >= 0 ? num(row[ppc.prodCol]) : 0);
+        goalVals.push(ppc.goalCol >= 0 ? num(row[ppc.goalCol]) : 0);
       }
       prodRaw = prodVals.join('/');
       goalsRaw = goalVals.join('/');

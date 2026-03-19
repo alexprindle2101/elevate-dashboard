@@ -271,11 +271,13 @@ const NationalApp = {
 
     // ── Build owners from recruiting data ──
     const sheetData = results.recruiting || null;
-    console.log('[NationalApp] recruiting result for', campaignKey, ':', sheetData ? { owners: sheetData.owners?.length, weeks: sheetData.weeks?.length } : 'null');
+    console.log('[NationalApp] recruiting result for', campaignKey, ':',
+      sheetData ? { owners: sheetData.owners?.length, weeks: sheetData.weeks?.length, products: sheetData.products } : 'null');
     if (sheetData && sheetData.owners && sheetData.owners.length) {
       this._buildOwnersFromSheet(campaignKey, sheetData);
+      console.log('[NationalApp] Built owners for', campaignKey, ':', this.state.owners.length);
     } else {
-      console.log('[NationalApp] No recruiting data — showing empty state');
+      console.log('[NationalApp] No recruiting data for', campaignKey, '— showing empty state');
       this.state.owners = [];
       this.state.campaignTotals = {};
     }
@@ -346,7 +348,8 @@ const NationalApp = {
         && this._allCampaignsData[campaignKey].weeks
         && this._allCampaignsData[campaignKey].weeks.length > 0) {
       const cd = this._allCampaignsData[campaignKey];
-      return { owners: cd.owners || [], weeks: cd.weeks || [], label: cd.label || '' };
+      console.log('[NationalApp] Cache HIT for', campaignKey, '— owners:', (cd.owners||[]).length, 'weeks:', (cd.weeks||[]).length);
+      return { owners: cd.owners || [], weeks: cd.weeks || [], label: cd.label || '', products: cd.products || ['Total'] };
     }
 
     const weeks = NATIONAL_CONFIG.campaigns[campaignKey]?.weeksToPull || 6;
@@ -376,7 +379,8 @@ const NationalApp = {
     return {
       owners: campaignData.owners || [],
       weeks: campaignData.weeks || [],
-      label: campaignData.label || ''
+      label: campaignData.label || '',
+      products: campaignData.products || ['Total']
     };
   },
 
@@ -1169,6 +1173,8 @@ const NationalApp = {
       if (!cd) return false;
       return (cd.owners || []).length > 0;
     });
+    // Debug: log all campaigns and their owner counts
+    console.log('[NationalApp] _showLandingPage — campaigns:', [...allKeys].map(k => k + ':' + (campaigns[k]?.owners?.length || 0)).join(', '));
 
     // Sort by label
     const sorted = activeKeys.sort((a, b) => {
@@ -1279,12 +1285,14 @@ const NationalApp = {
       console.error('Failed to load campaign:', err);
     }
     this._hideLoading();
-    this.renderCampaignOverview();
-    this.renderOwnersList();
+    console.log('[NationalApp] selectCampaign render:', campaignKey, 'owners:', this.state.owners.length);
+    try { this.renderCampaignOverview(); } catch (e) { console.error('[NationalApp] renderCampaignOverview error:', e); }
+    try { this.renderOwnersList(); } catch (e) { console.error('[NationalApp] renderOwnersList error:', e); }
   },
 
   // ── Back to landing page ──
   backToLanding() {
+    console.log('[NationalApp] backToLanding — _allCampaignsData keys:', Object.keys(this._allCampaignsData || {}));
     this.state.campaign = null;
     this.state.selectedOwner = null;
     this._showLandingPage();

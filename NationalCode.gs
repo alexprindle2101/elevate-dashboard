@@ -3887,13 +3887,24 @@ function getOwnerNamesForCampaign_(cfg, ss) {
     var tab = null;
     if (cfg.sourceTab) {
       tab = ss.getSheetByName(cfg.sourceTab);
+      Logger.log('getOwnerNames sectionHeader: sourceTab="' + cfg.sourceTab + '" found=' + !!tab);
     }
-    if (!tab) tab = sheets[0]; // fallback to first tab
+    if (!tab) {
+      tab = sheets[0]; // fallback to first tab
+      Logger.log('getOwnerNames sectionHeader: fell back to first tab "' + tab.getName() + '"');
+    }
 
     var data = tab.getDataRange().getValues();
     var headerLower = cfg.sectionHeader.toLowerCase();
     var owners = [];
     var inSection = false;
+
+    // Log first 5 rows of column A for debugging
+    Logger.log('getOwnerNames sectionHeader: looking for "' + headerLower + '" in tab "' + tab.getName() + '" (' + data.length + ' rows)');
+    for (var dbg = 0; dbg < Math.min(data.length, 20); dbg++) {
+      var dbgVal = String(data[dbg][0] || '').trim();
+      Logger.log('  row ' + dbg + ' col A: "' + dbgVal + '" (len=' + dbgVal.length + ', match=' + (dbgVal.toLowerCase() === headerLower) + ')');
+    }
 
     for (var i = 0; i < data.length; i++) {
       var val = String(data[i][0] || '').trim();
@@ -3902,20 +3913,22 @@ function getOwnerNamesForCampaign_(cfg, ss) {
       // Found our section header — start collecting from next row
       if (valLower === headerLower) {
         inSection = true;
+        Logger.log('getOwnerNames sectionHeader: FOUND header at row ' + i);
         continue;
       }
 
       if (!inSection) continue;
 
       // Stop at empty row, another all-caps section header, or footer-like row
-      if (!val) break;
-      if (val === val.toUpperCase() && val.length > 2 && !/\d/.test(val)) break; // another section header (all caps, no digits)
+      if (!val) { Logger.log('getOwnerNames sectionHeader: BREAK empty at row ' + i); break; }
+      if (val === val.toUpperCase() && val.length > 2 && !/\d/.test(val)) { Logger.log('getOwnerNames sectionHeader: BREAK section header at row ' + i + ': "' + val + '"'); break; }
       if (valLower.indexOf('total') >= 0 || valLower.indexOf('template') >= 0 ||
           valLower.indexOf('summary') >= 0 || valLower.indexOf('***') >= 0 ||
-          valLower.indexOf('average') >= 0) break;
+          valLower.indexOf('average') >= 0) { Logger.log('getOwnerNames sectionHeader: BREAK footer at row ' + i + ': "' + val + '"'); break; }
 
       owners.push(val);
     }
+    Logger.log('getOwnerNames sectionHeader: returning ' + owners.length + ' owners: ' + owners.join(', '));
     return owners;
   }
 
@@ -4631,11 +4644,14 @@ function refreshSingleCampaign(campaignKey) {
  * write flat rows to destination tab.
  */
 function consolidateCampaign_(campaignKey, campaign, destSS) {
+  Logger.log('consolidateCampaign_ START: key=' + campaignKey + ' sheetId=' + campaign.sheetId + ' sectionHeader=' + (campaign.sectionHeader || 'none') + ' ownerSource=' + (campaign.ownerSource || 'default'));
   var srcSS = SpreadsheetApp.openById(campaign.sheetId);
   var allTabs = srcSS.getSheets();
+  Logger.log('consolidateCampaign_ opened source sheet, tabs: ' + allTabs.map(function(t) { return t.getName(); }).join(', '));
 
   // Get owner names using the shared extraction helper
   var ownerNames = getOwnerNamesForCampaign_(campaign, srcSS);
+  Logger.log('consolidateCampaign_ ownerNames (' + ownerNames.length + '): ' + ownerNames.join(', '));
 
   // ── Load saved tab mappings from _Campaign_Tab_Map ──
   var savedTabMap = {}; // lowercase ownerName → tabName

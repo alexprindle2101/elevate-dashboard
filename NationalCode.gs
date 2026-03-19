@@ -5091,8 +5091,9 @@ function mergeHealthRecruiting_(ownerName, healthRows, recruitingRows, campaignK
     dateMap[key].recruiting = recruitingRows[i];
   }
 
-  // Fuzzy date matching (±3 days) for health→recruiting alignment
+  // Fuzzy date matching (±3 days) — merge nearby entries that split due to timezone/parsing
   var dateKeys = Object.keys(dateMap);
+  // Pass 1: health without recruiting → find nearby recruiting
   for (var i = 0; i < dateKeys.length; i++) {
     var entry = dateMap[dateKeys[i]];
     if (entry.health && !entry.recruiting) {
@@ -5100,6 +5101,28 @@ function mergeHealthRecruiting_(ownerName, healthRows, recruitingRows, campaignK
         var diff = Math.abs(entry.date.getTime() - recruitingRows[j].date.getTime());
         if (diff <= 3 * 86400000) {
           entry.recruiting = recruitingRows[j];
+          break;
+        }
+      }
+    }
+  }
+  // Pass 2: recruiting without health → find nearby health entry and merge into it, then delete orphan
+  dateKeys = Object.keys(dateMap);
+  for (var i = 0; i < dateKeys.length; i++) {
+    var entry = dateMap[dateKeys[i]];
+    if (entry.recruiting && !entry.health) {
+      // Look for a nearby health entry that already absorbed this recruiting, or merge into one
+      var merged = false;
+      for (var j = 0; j < dateKeys.length; j++) {
+        if (i === j) continue;
+        var other = dateMap[dateKeys[j]];
+        if (!other.health) continue;
+        var diff = Math.abs(entry.date.getTime() - other.date.getTime());
+        if (diff <= 3 * 86400000) {
+          // Merge recruiting into the health entry
+          if (!other.recruiting) other.recruiting = entry.recruiting;
+          delete dateMap[dateKeys[i]];
+          merged = true;
           break;
         }
       }

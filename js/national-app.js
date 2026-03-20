@@ -627,18 +627,27 @@ const NationalApp = {
 
   // ── Enrich owners with D2D Res ranking data ──
   // Fuzzy-matches ranking owner names to campaign owner names and sets o.d2dRank
+  // Aliases handle cases where Tableau uses a different name than the campaign sheet
+  _D2D_RANK_ALIASES: {
+    'wayne rude': 'flloyd (wayne) rude'
+  },
+
   _enrichOwnersWithD2DRanking(ranking) {
     // Build lowercase lookup: ranking owner name → ranking entry
     const rankLower = {};
     for (const entry of ranking) {
-      rankLower[entry.owner.toLowerCase().trim()] = entry;
+      const key = entry.owner.toLowerCase().trim();
+      rankLower[key] = entry;
+      // Also register under alias if one exists
+      const alias = this._D2D_RANK_ALIASES[key];
+      if (alias) rankLower[alias] = entry;
     }
 
     let matched = 0;
     for (const owner of this.state.owners) {
       const ownerLc = owner.name.toLowerCase().trim();
 
-      // Exact match
+      // Exact match (includes aliases)
       let entry = rankLower[ownerLc];
 
       // Starts-with
@@ -1368,18 +1377,27 @@ const NationalApp = {
       this.state.owners = cached.owners;
       this.state.campaignTotals = cached.campaignTotals || {};
       this.renderCampaignOverview();
+
+      // For att-res: await ranking BEFORE rendering owner cards so badges are visible immediately
+      const isRes = campaignKey === 'att-res';
+      if (isRes) {
+        try {
+          const rankData = await this._fetchWithTimeout(this._fetchD2DResRanking(), 10000);
+          if (rankData?.ranking?.length) {
+            this._enrichOwnersWithD2DRanking(rankData.ranking);
+          }
+        } catch (err) {
+          console.warn('[NationalApp] D2D ranking fetch failed:', err.message);
+        }
+      }
+
       this.renderOwnersList();
 
-      // Fetch camMapping + audit + ranking in background (not cached)
-      const bgFetches = [
+      // Fetch camMapping + audit in background (not cached)
+      Promise.allSettled([
         this._fetchOwnerCamMapping(),
         this._fetchOnlinePresence()
-      ];
-      const isRes = campaignKey === 'att-res';
-      if (isRes) bgFetches.push(this._fetchD2DResRanking());
-
-      Promise.allSettled(bgFetches).then((results) => {
-        const [camRes, auditRes] = results;
+      ]).then(([camRes, auditRes]) => {
         if (camRes.status === 'fulfilled' && camRes.value) {
           this.state.camMapping = camRes.value.mapping || camRes.value;
         }
@@ -1387,13 +1405,6 @@ const NationalApp = {
           this.state.allCompanyNames = auditRes.value.allCompanyNames || [];
           this._cachedAuditBusinesses = auditRes.value.businesses;
           this._mapAuditToOwners(auditRes.value.businesses, this.state.camMapping || null);
-        }
-        if (isRes && results[2] && results[2].status === 'fulfilled') {
-          const rankData = results[2].value;
-          if (rankData?.ranking?.length) {
-            this._enrichOwnersWithD2DRanking(rankData.ranking);
-            this.renderOwnersList(); // re-render with badges
-          }
         }
       });
       return;

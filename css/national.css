@@ -190,64 +190,80 @@ input, select, textarea { font-family: inherit; }
    ═══════════════════════════════════════════════════════ */
 .campaign-landing {
   padding: 48px 28px;
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 .landing-header {
   text-align: center;
-  margin-bottom: 36px;
+  margin-bottom: 40px;
 }
 .landing-actions {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 .landing-title {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 800;
   color: var(--gray-900);
-  margin: 0 0 6px;
+  margin: 0 0 8px;
+  letter-spacing: -0.5px;
 }
 .landing-subtitle {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--gray-400);
   margin: 0;
 }
 .campaign-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
 }
 .campaign-card {
-  background: var(--white);
+  background: #fff;
   border: 1px solid var(--gray-100);
-  border-radius: var(--radius);
-  padding: 28px 20px;
+  border-radius: 16px;
+  padding: 32px 24px 24px;
   cursor: pointer;
-  transition: all var(--transition);
+  transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.campaign-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--teal), var(--sc-cyan));
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 .campaign-card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
   border-color: var(--teal);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+}
+.campaign-card:hover::before {
+  opacity: 1;
 }
 .campaign-card-logo {
-  height: 56px;
+  height: 48px;
   width: auto;
-  max-width: 180px;
+  max-width: 160px;
   object-fit: contain;
+  margin-bottom: 4px;
 }
 .campaign-card-logo.placeholder {
   height: 48px;
   width: 48px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--gray-50);
   display: flex;
   align-items: center;
@@ -258,13 +274,13 @@ input, select, textarea { font-family: inherit; }
 .campaign-card-logo-dual {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   justify-content: center;
 }
 .campaign-card-logo-half {
-  height: 40px;
+  height: 36px;
   width: auto;
-  max-width: 100px;
+  max-width: 90px;
   object-fit: contain;
 }
 .logo-divider {
@@ -286,22 +302,23 @@ input, select, textarea { font-family: inherit; }
   letter-spacing: 0.5px;
 }
 .campaign-card-label {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--silver, #1a3a52);
-  margin-top: 6px;
+  margin-top: 2px;
 }
 .campaign-card-owners {
   font-size: 12px;
+  font-weight: 600;
   color: var(--gray-400);
-}
-.campaign-card {
-  position: relative;
+  background: var(--gray-50);
+  padding: 3px 12px;
+  border-radius: 20px;
 }
 .campaign-card-refresh {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 10px;
+  right: 10px;
   width: 28px;
   height: 28px;
   border: none;

@@ -3724,9 +3724,11 @@ const NationalApp = {
     // ── Card 2: Rep Breakdown Table ──
     const repsEl = document.getElementById('sales-reps-table');
     if (s.reps.length) {
+      const _stickyTh0 = 'position:sticky;left:0;z-index:2;background:var(--card-bg,#ddeaf5);width:30px;';
+      const _stickyTh1 = 'position:sticky;left:30px;z-index:2;background:var(--card-bg,#ddeaf5);cursor:pointer;user-select:none;';
       const _sh = (label, col) => `<th class="num sortable-th" onclick="NationalApp._sortSalesReps('${col}')" style="cursor:pointer;user-select:none;">${label} <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>`;
       const repHeaders = isNDS
-        ? `<th style="width:30px"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="cursor:pointer;user-select:none;">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
+        ? `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
            ${_sh('New/Ports','newPorts')}
            ${_sh('Orders','orderCount')}
            ${_sh('Cancel %','cancelFraudPct')}
@@ -3740,7 +3742,7 @@ const NationalApp = {
            ${_sh('Away %','awayFromDoorsPct')}
            ${_sh('Before 3 %','before3pmPct')}
            ${_sh('After 7:30 %','after730pmPct')}`
-        : `<th style="width:30px"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="cursor:pointer;user-select:none;">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
+        : `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
            ${_sh('Volume','totalVolume')}
            ${_sh('Orders','orderCount')}
            ${_sh('Sales/Rep','salesPerRep')}
@@ -3755,11 +3757,13 @@ const NationalApp = {
            ${_sh('New Wrls %','newWrlsPct')}
            ${_sh('BYOD %','byodPct')}`;
 
+      const _stickyTd0 = 'position:sticky;left:0;z-index:1;background:inherit;';
+      const _stickyTd1 = 'position:sticky;left:30px;z-index:1;background:inherit;';
       const repRows = isNDS
         ? s.reps.map((rep, ri) => `
-            <tr id="sales-rep-row-${ri}">
-              <td><input type="checkbox" class="rep-highlight-cb" onchange="NationalApp._toggleRepHighlight(${ri}, this.checked)"></td>
-              <td class="bold">${this._esc(rep.name)}</td>
+            <tr id="sales-rep-row-${ri}" style="background:var(--black,#f0f4f8);">
+              <td style="${_stickyTd0}"><input type="checkbox" class="rep-highlight-cb" onchange="NationalApp._toggleRepHighlight(${ri}, this.checked)"></td>
+              <td class="bold" style="${_stickyTd1}">${this._esc(rep.name)}</td>
               <td class="num">${rep.newPorts || rep.totalVolume}</td>
               <td class="num">${rep.orderCount}</td>
               <td class="num">${this._pct(rep.cancelFraudPct)}</td>
@@ -3775,9 +3779,9 @@ const NationalApp = {
               <td class="num">${this._pct(rep.after730pmPct)}</td>
             </tr>`).join('')
         : s.reps.map((rep, ri) => `
-            <tr id="sales-rep-row-${ri}">
-              <td><input type="checkbox" class="rep-highlight-cb" onchange="NationalApp._toggleRepHighlight(${ri}, this.checked)"></td>
-              <td class="bold">${this._esc(rep.name)}</td>
+            <tr id="sales-rep-row-${ri}" style="background:var(--black,#f0f4f8);">
+              <td style="${_stickyTd0}"><input type="checkbox" class="rep-highlight-cb" onchange="NationalApp._toggleRepHighlight(${ri}, this.checked)"></td>
+              <td class="bold" style="${_stickyTd1}">${this._esc(rep.name)}</td>
               <td class="num">${rep.totalVolume}</td>
               <td class="num">${rep.orderCount}</td>
               <td class="num">${rep.salesPerRep}</td>

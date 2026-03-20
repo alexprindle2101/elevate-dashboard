@@ -1394,10 +1394,11 @@ const NationalApp = {
       console.log('[NationalApp] Rendering campaign from cache:', campaignKey);
       this.state.owners = cached.owners;
       this.state.campaignTotals = cached.campaignTotals || {};
-      this.renderCampaignOverview();
 
-      // For att-res: await ranking BEFORE rendering owner cards so badges are visible immediately
+      // Show loading while we fetch ranking (att-res) so page doesn't flash without badges
       const isRes = campaignKey === 'att-res';
+      if (isRes) this._showLoading('Loading rankings...');
+
       if (isRes) {
         try {
           const rankData = await this._fetchWithTimeout(this._fetchD2DResRanking(), 10000);
@@ -1409,6 +1410,8 @@ const NationalApp = {
         }
       }
 
+      if (isRes) this._hideLoading();
+      this.renderCampaignOverview();
       this.renderOwnersList();
 
       // Fetch camMapping + audit in background (not cached)

@@ -1370,11 +1370,16 @@ const NationalApp = {
       this.renderCampaignOverview();
       this.renderOwnersList();
 
-      // Fetch camMapping + audit in background (not cached)
-      Promise.allSettled([
+      // Fetch camMapping + audit + ranking in background (not cached)
+      const bgFetches = [
         this._fetchOwnerCamMapping(),
         this._fetchOnlinePresence()
-      ]).then(([camRes, auditRes]) => {
+      ];
+      const isRes = campaignKey === 'att-res';
+      if (isRes) bgFetches.push(this._fetchD2DResRanking());
+
+      Promise.allSettled(bgFetches).then((results) => {
+        const [camRes, auditRes] = results;
         if (camRes.status === 'fulfilled' && camRes.value) {
           this.state.camMapping = camRes.value.mapping || camRes.value;
         }
@@ -1382,6 +1387,13 @@ const NationalApp = {
           this.state.allCompanyNames = auditRes.value.allCompanyNames || [];
           this._cachedAuditBusinesses = auditRes.value.businesses;
           this._mapAuditToOwners(auditRes.value.businesses, this.state.camMapping || null);
+        }
+        if (isRes && results[2] && results[2].status === 'fulfilled') {
+          const rankData = results[2].value;
+          if (rankData?.ranking?.length) {
+            this._enrichOwnersWithD2DRanking(rankData.ranking);
+            this.renderOwnersList(); // re-render with badges
+          }
         }
       });
       return;

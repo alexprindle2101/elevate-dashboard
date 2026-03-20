@@ -3084,18 +3084,38 @@ const NationalApp = {
     // Render NLR banner above cost section
     this._renderNlrBanner();
 
-    // Map NLR data to renderer format
-    const _mapNlrWeeks = (nlr) => nlr.map(w => ({
-      weekOf: w.date || '',
-      totalSpend: w.totalSpend || 0,
-      totalApplies: w.applies || 0,
-      total2nds: w['2nds'] || 0,
-      totalNewStarts: w.newStarts || 0,
-      cpa: w.cpa || 0,
-      cpns: w.cpns || 0,
-      numAds: w.numAds || w.ads?.length || 0,
-      ads: w.ads || []
-    }));
+    // Map NLR data to renderer format and compute WoW deltas
+    const _mapNlrWeeks = (nlr) => {
+      const weeks = nlr.map(w => ({
+        weekOf: w.date || '',
+        totalSpend: w.totalSpend || 0,
+        totalApplies: w.applies || 0,
+        total2nds: w['2nds'] || 0,
+        totalNewStarts: w.newStarts || 0,
+        cpa: w.cpa || 0,
+        cpns: w.cpns || 0,
+        numAds: w.numAds || w.ads?.length || 0,
+        ads: w.ads || []
+      }));
+      // Compute week-over-week deltas (mirrors readIndeedTracking server logic)
+      for (let i = 0; i < weeks.length; i++) {
+        if (i === 0) { weeks[i].delta = null; continue; }
+        const prev = weeks[i - 1], curr = weeks[i];
+        weeks[i].delta = {
+          spend: +(curr.totalSpend - prev.totalSpend).toFixed(2),
+          applies: curr.totalApplies - prev.totalApplies,
+          seconds: curr.total2nds - prev.total2nds,
+          newStarts: curr.totalNewStarts - prev.totalNewStarts,
+          cpa: +(curr.cpa - prev.cpa).toFixed(2),
+          cpns: +(curr.cpns - prev.cpns).toFixed(2),
+          spendPct: prev.totalSpend > 0 ? +((curr.totalSpend - prev.totalSpend) / prev.totalSpend * 100).toFixed(1) : null,
+          appliesPct: prev.totalApplies > 0 ? +((curr.totalApplies - prev.totalApplies) / prev.totalApplies * 100).toFixed(1) : null,
+          cpaPct: prev.cpa > 0 ? +((curr.cpa - prev.cpa) / prev.cpa * 100).toFixed(1) : null,
+          cpnsPct: prev.cpns > 0 ? +((curr.cpns - prev.cpns) / prev.cpns * 100).toFixed(1) : null
+        };
+      }
+      return weeks;
+    };
 
     // Use NLR data already fetched by _fetchOwnerNlrData
     if (owner.nlrData && owner.nlrData.length > 0) {

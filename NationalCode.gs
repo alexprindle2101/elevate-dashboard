@@ -2353,7 +2353,7 @@ function readOwnerNlrData(ownerName, campaignFilter) {
       var dateMatch = cell0.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
       if (cell0Lower.indexOf('week') >= 0 && dateMatch) {
         if (currentWeek && currentWeek.rows.length > 0) weeks.push(currentWeek);
-        currentWeek = { date: dateMatch[1], rows: [] };
+        currentWeek = { date: dateMatch[1], rows: [], colHeaders: null };
         colHeaders = null;
         continue;
       }
@@ -2366,7 +2366,20 @@ function readOwnerNlrData(ownerName, campaignFilter) {
           if (v.length > 1 && isNaN(Number(v))) textCells++;
         }
         if (textCells >= 3) {
-          colHeaders = data[i].map(function(h) { return String(h).toLowerCase().trim(); });
+          // Dedup headers: first "total spend" keeps its name, subsequent get "__2", "__3" etc.
+          // This prevents the rightmost running-total column from overwriting the per-ad spend.
+          var rawHeaders = data[i].map(function(h) { return String(h).toLowerCase().trim(); });
+          var seen = {};
+          colHeaders = rawHeaders.map(function(h) {
+            if (!h) return h;
+            if (seen[h]) {
+              seen[h]++;
+              return h + '__' + seen[h]; // e.g. "total spend__2"
+            }
+            seen[h] = 1;
+            return h;
+          });
+          if (currentWeek) currentWeek.colHeaders = colHeaders;
           continue;
         }
       }
@@ -2382,16 +2395,32 @@ function readOwnerNlrData(ownerName, campaignFilter) {
     }
     if (currentWeek && currentWeek.rows.length > 0) weeks.push(currentWeek);
 
+    // Merge same-date weeks (e.g. "WEEK 03/16" + "WEEK 03/16 (Phase 2)")
+    var mergedMap = {};
+    var mergedOrder = [];
+    for (var mi = 0; mi < weeks.length; mi++) {
+      var d = weeks[mi].date;
+      if (mergedMap[d]) {
+        mergedMap[d].rows = mergedMap[d].rows.concat(weeks[mi].rows);
+        // Keep the first phase's colHeaders (column structure is the same)
+      } else {
+        mergedMap[d] = { date: d, rows: weeks[mi].rows.slice(), colHeaders: weeks[mi].colHeaders };
+        mergedOrder.push(d);
+      }
+    }
+    weeks = mergedOrder.map(function(d) { return mergedMap[d]; });
+
     // Aggregate each week + include individual ad rows for breakdown
     var trend = [];
     for (var w = 0; w < weeks.length; w++) {
       var wk = weeks[w];
       var summary = { date: wk.date, numAds: wk.rows.length, ads: [] };
 
-      // Auto-detect numeric columns from first row
-      if (wk.rows.length > 0 && colHeaders) {
-        for (var ci = 0; ci < colHeaders.length; ci++) {
-          var colName = colHeaders[ci];
+      // Auto-detect numeric columns from first row (use per-week colHeaders)
+      var wkHeaders = wk.colHeaders || colHeaders;
+      if (wk.rows.length > 0 && wkHeaders) {
+        for (var ci = 0; ci < wkHeaders.length; ci++) {
+          var colName = wkHeaders[ci];
           if (!colName) continue;
           var colTotal = 0;
           var isNumeric = false;

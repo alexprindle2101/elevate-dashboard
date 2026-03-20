@@ -97,6 +97,11 @@ const NationalApp = {
     this._coachCampaign = campaign;
     this.state.session = { email: session.email, name: session.name, loginTime: Date.now() };
 
+    // Fetch planning schedule (non-blocking) for sorted landing page
+    if (!this._planningSchedule) {
+      this._fetchPlanningSchedule();
+    }
+
     if (campaign) {
       // Direct campaign selection — must fetch full data
       this._showLoading('Loading campaign data...');
@@ -343,6 +348,26 @@ const NationalApp = {
         console.warn('[NationalApp] Pre-fetch Indeed Tracking for', owner.name, ':', err.message);
       }
       owner._trackingFetching = false;
+    }
+  },
+
+  // ── Fetch weekly planning schedule from _OD_Planning tab ──
+  async _fetchPlanningSchedule() {
+    try {
+      const url = new URL(NATIONAL_CONFIG.appsScriptUrl || OD_CONFIG.appsScriptUrl);
+      url.searchParams.set('key', NATIONAL_CONFIG.apiKey || OD_CONFIG.apiKey);
+      url.searchParams.set('action', 'odGetPlanning');
+      const res = await fetch(url.toString()).then(r => r.json());
+      if (res.success && res.planning) {
+        this._planningSchedule = res.planning;
+        // Re-render landing if visible
+        const landing = document.getElementById('campaign-landing');
+        if (landing && landing.style.display !== 'none') {
+          this._showLandingPage();
+        }
+      }
+    } catch (err) {
+      console.warn('[NationalApp] Failed to fetch planning schedule:', err.message);
     }
   },
 
@@ -1401,12 +1426,33 @@ const NationalApp = {
     // Debug: log all campaigns and their owner counts
     console.log('[NationalApp] _showLandingPage — campaigns:', [...allKeys].map(k => k + ':' + (campaigns[k]?.owners?.length || 0)).join(', '));
 
-    // Sort by label
-    const sorted = activeKeys.sort((a, b) => {
-      const la = (campaigns[a]?.label || configCampaigns[a]?.label || a).toLowerCase();
-      const lb = (campaigns[b]?.label || configCampaigns[b]?.label || b).toLowerCase();
-      return la.localeCompare(lb);
-    });
+    // Sort: planning schedule (today first, then tomorrow, etc.) or alphabetical fallback
+    const schedule = this._planningSchedule || null;
+    let sorted;
+    if (schedule && schedule.length > 0) {
+      const todayIdx = (new Date().getDay() + 6) % 7; // Mon=0, Sun=6
+      sorted = activeKeys.sort((a, b) => {
+        const aEntry = schedule.find(p => p.campaignKey === a);
+        const bEntry = schedule.find(p => p.campaignKey === b);
+        if (!aEntry && !bEntry) {
+          const la = (campaigns[a]?.label || configCampaigns[a]?.label || a).toLowerCase();
+          const lb = (campaigns[b]?.label || configCampaigns[b]?.label || b).toLowerCase();
+          return la.localeCompare(lb);
+        }
+        if (!aEntry) return 1;
+        if (!bEntry) return -1;
+        const aDist = (aEntry.day - todayIdx + 7) % 7;
+        const bDist = (bEntry.day - todayIdx + 7) % 7;
+        if (aDist !== bDist) return aDist - bDist;
+        return aEntry.sortOrder - bEntry.sortOrder;
+      });
+    } else {
+      sorted = activeKeys.sort((a, b) => {
+        const la = (campaigns[a]?.label || configCampaigns[a]?.label || a).toLowerCase();
+        const lb = (campaigns[b]?.label || configCampaigns[b]?.label || b).toLowerCase();
+        return la.localeCompare(lb);
+      });
+    }
 
     container.innerHTML = sorted.map(key => {
       const label = campaigns[key]?.label || configCampaigns[key]?.label || key;
@@ -1853,6 +1899,22 @@ const NationalApp = {
   renderOwnersList() {
     const container = document.getElementById('owners-list');
     const owners = this.state.owners;
+
+    // Apply planning owner order if available for current campaign + today
+    const schedule = this._planningSchedule || [];
+    const todayIdx = (new Date().getDay() + 6) % 7;
+    const planEntry = schedule.find(
+      p => p.campaignKey === this.state.campaign && p.day === todayIdx
+    );
+    if (planEntry && planEntry.ownerOrder && planEntry.ownerOrder.length > 0) {
+      const orderMap = {};
+      planEntry.ownerOrder.forEach((name, i) => { orderMap[name.toLowerCase()] = i; });
+      owners.sort((a, b) => {
+        const ai = orderMap[a.name.toLowerCase()] ?? 9999;
+        const bi = orderMap[b.name.toLowerCase()] ?? 9999;
+        return ai - bi;
+      });
+    }
 
     if (!owners.length) {
       container.innerHTML = `

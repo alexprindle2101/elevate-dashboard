@@ -26,7 +26,12 @@ const OwnerDev = {
     // View-As state (superadmin only)
     viewAsTeam: null,       // which team we're impersonating (null = own team)
     isSuperadmin: false,    // is the logged-in user a superadmin?
-    realTeam: null          // actual logged-in team (preserved during View-As)
+    realTeam: null,         // actual logged-in team (preserved during View-As)
+
+    // Planning tab state
+    planningData: [],       // [{ day, sortOrder, campaignKey, ownerOrder }, ...]
+    planningLoaded: false,  // whether planning data has been fetched
+    _planningDirty: false   // whether unsaved changes exist
   },
 
   // ══════════════════════════════════════════════════════
@@ -77,6 +82,13 @@ const OwnerDev = {
     if (this.state.isSuperadmin || role === 'manager') {
       const coachTab = document.getElementById('nav-coach-tab');
       if (coachTab) coachTab.style.display = '';
+    }
+
+    // Show planning tab for Maddie's team managers + superadmins
+    const initTeam = (this.state.session.team || '').toLowerCase();
+    if ((initTeam === 'maddie' && role === 'manager') || this.state.isSuperadmin) {
+      const planTab = document.getElementById('nav-planning-tab');
+      if (planTab) planTab.style.display = '';
     }
 
     // Build View-As bar for superadmins
@@ -896,6 +908,8 @@ const OwnerDev = {
     teamView.classList.toggle('active', tab === 'team');
     const coachView = document.getElementById('view-coach');
     if (coachView) coachView.style.display = tab === 'coach' ? '' : 'none';
+    const planningView = document.getElementById('view-planning');
+    if (planningView) planningView.style.display = tab === 'planning' ? '' : 'none';
 
     if (tab === 'team') {
       this.renderTeam();
@@ -909,6 +923,9 @@ const OwnerDev = {
           campaign: (this.state.activeCampaign && this.state.activeCampaign !== 'all') ? this.state.activeCampaign : null
         });
       }
+    }
+    if (tab === 'planning') {
+      this._initPlanning();
     }
   },
 
@@ -2096,7 +2113,6 @@ const OwnerDev = {
     document.querySelectorAll('.va-pill').forEach(pill => {
       const team = pill.dataset.team;
       if (team === 'off') {
-        // Reset button: highlighted when no view-as is active
         pill.style.borderColor = !active ? '#00c8ff' : 'rgba(255,255,255,0.15)';
         pill.style.color = !active ? '#00c8ff' : 'rgba(255,255,255,0.5)';
       } else {
@@ -2107,6 +2123,305 @@ const OwnerDev = {
         pill.style.color = isActive ? '#fff' : 'rgba(255,255,255,0.7)';
       }
     });
+  },
+
+  // ══════════════════════════════════════════════════════
+  // PLANNING TAB
+  // ══════════════════════════════════════════════════════
+
+  _PLAN_DAY_NAMES: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+
+  async _initPlanning() {
+    if (!this.state.planningLoaded) {
+      try {
+        const res = await this._api('odGetPlanning');
+        if (res.success && res.planning) {
+          this.state.planningData = res.planning;
+        }
+      } catch (err) {
+        console.warn('[OwnerDev] Failed to load planning:', err.message);
+      }
+      this.state.planningLoaded = true;
+    }
+    this._renderPlanningGrid();
+  },
+
+  _renderPlanningGrid() {
+    const grid = document.getElementById('planning-grid');
+    const poolCards = document.getElementById('planning-pool-cards');
+    if (!grid || !poolCards) return;
+
+    // All campaigns with owners
+    const allCampaigns = {};
+    for (const [key, camp] of Object.entries(this.state.campaigns)) {
+      if (camp.owners && camp.owners.length > 0) {
+        allCampaigns[key] = camp;
+      }
+    }
+
+    // Determine assigned campaigns (exist in planningData)
+    const assignedKeys = new Set(this.state.planningData.map(p => p.campaignKey));
+    const unassignedKeys = Object.keys(allCampaigns).filter(k => !assignedKeys.has(k));
+
+    // Render unassigned pool
+    poolCards.innerHTML = unassignedKeys.map(key =>
+      this._planningCardHtml(key, allCampaigns[key])
+    ).join('');
+
+    // Today index: Mon=0, Sun=6
+    const todayIdx = (new Date().getDay() + 6) % 7;
+
+    // Render 7 day columns
+    grid.innerHTML = this._PLAN_DAY_NAMES.map((name, dayIdx) => {
+      const dayCampaigns = this.state.planningData
+        .filter(p => p.day === dayIdx)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+
+      const todayCls = dayIdx === todayIdx ? ' today' : '';
+      const cardsHtml = dayCampaigns.map(p => {
+        const camp = allCampaigns[p.campaignKey];
+        if (!camp) return '';
+        return this._planningCardHtml(p.campaignKey, camp, dayIdx);
+      }).join('');
+
+      return `
+        <div class="planning-day-col">
+          <div class="planning-day-header${todayCls}">${name}</div>
+          <div class="planning-drop-zone" data-day="${dayIdx}">${cardsHtml}</div>
+        </div>`;
+    }).join('');
+
+    this._setupPlanningDnD();
+  },
+
+  _planningCardHtml(campaignKey, camp, day) {
+    const label = camp?.label || campaignKey;
+    const ownerCount = camp?.owners?.length || 0;
+    const logos = (typeof NationalApp !== 'undefined' && NationalApp.CAMPAIGN_LOGOS)
+      ? NationalApp.CAMPAIGN_LOGOS[campaignKey] : null;
+
+    let logoHtml;
+    if (Array.isArray(logos)) {
+      logoHtml = logos.map(l => `<img src="${l}" class="planning-card-logo">`).join('');
+    } else if (logos) {
+      logoHtml = `<img src="${logos}" class="planning-card-logo">`;
+    } else {
+      logoHtml = `<span class="planning-card-logo-placeholder">&#x1F4CA;</span>`;
+    }
+
+    const reorderBtn = day !== undefined
+      ? `<button class="planning-card-reorder" onclick="event.stopPropagation();OwnerDev._openReorderModal('${campaignKey}',${day})" title="Reorder owners">&#x2195;</button>`
+      : '';
+
+    return `
+      <div class="planning-card" draggable="true" data-campaign="${campaignKey}">
+        ${logoHtml}
+        <div class="planning-card-info">
+          <div class="planning-card-label">${this._esc(label)}</div>
+          <div class="planning-card-owners">${ownerCount} owner${ownerCount !== 1 ? 's' : ''}</div>
+        </div>
+        ${reorderBtn}
+      </div>`;
+  },
+
+  _setupPlanningDnD() {
+    let draggedKey = null;
+
+    // Cards
+    document.querySelectorAll('#view-planning .planning-card').forEach(card => {
+      card.addEventListener('dragstart', e => {
+        draggedKey = card.dataset.campaign;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedKey);
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        draggedKey = null;
+      });
+    });
+
+    // Drop zones (day columns)
+    document.querySelectorAll('.planning-drop-zone').forEach(zone => {
+      zone.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+      zone.addEventListener('dragenter', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+      zone.addEventListener('dragleave', e => {
+        if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
+      });
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const key = e.dataTransfer.getData('text/plain') || draggedKey;
+        if (!key) return;
+        const day = parseInt(zone.dataset.day);
+        this._moveCampaignToDay(key, day);
+      });
+    });
+
+    // Pool drop zone
+    const pool = document.getElementById('planning-pool');
+    if (pool) {
+      pool.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+      pool.addEventListener('dragenter', e => { e.preventDefault(); pool.classList.add('drag-over'); });
+      pool.addEventListener('dragleave', e => {
+        if (!pool.contains(e.relatedTarget)) pool.classList.remove('drag-over');
+      });
+      pool.addEventListener('drop', e => {
+        e.preventDefault();
+        pool.classList.remove('drag-over');
+        const key = e.dataTransfer.getData('text/plain') || draggedKey;
+        if (!key) return;
+        this._removeCampaignFromPlanning(key);
+      });
+    }
+  },
+
+  _moveCampaignToDay(campaignKey, day) {
+    // Remove from current position
+    this.state.planningData = this.state.planningData.filter(p => p.campaignKey !== campaignKey);
+    // Find the current max sortOrder for this day
+    const dayItems = this.state.planningData.filter(p => p.day === day);
+    const maxSort = dayItems.length > 0 ? Math.max(...dayItems.map(p => p.sortOrder)) + 1 : 0;
+    // Add to new day
+    this.state.planningData.push({
+      day,
+      sortOrder: maxSort,
+      campaignKey,
+      ownerOrder: []
+    });
+    this.state._planningDirty = true;
+    this._renderPlanningGrid();
+  },
+
+  _removeCampaignFromPlanning(campaignKey) {
+    this.state.planningData = this.state.planningData.filter(p => p.campaignKey !== campaignKey);
+    this.state._planningDirty = true;
+    this._renderPlanningGrid();
+  },
+
+  // ── Owner Reorder Modal ──
+
+  _openReorderModal(campaignKey, day) {
+    const camp = this.state.campaigns[campaignKey];
+    if (!camp || !camp.owners || !camp.owners.length) return;
+
+    const planEntry = this.state.planningData.find(p => p.campaignKey === campaignKey && p.day === day);
+    let orderedOwners;
+    if (planEntry && planEntry.ownerOrder && planEntry.ownerOrder.length > 0) {
+      // Use saved order, append any new owners not in the saved list
+      const known = new Set(planEntry.ownerOrder.map(n => n.toLowerCase()));
+      orderedOwners = [...planEntry.ownerOrder];
+      for (const o of camp.owners) {
+        if (!known.has(o.toLowerCase())) orderedOwners.push(o);
+      }
+    } else {
+      orderedOwners = [...camp.owners];
+    }
+
+    this._reorderState = { campaignKey, day, owners: orderedOwners };
+
+    document.getElementById('reorder-modal-title').textContent =
+      `Reorder — ${camp.label || campaignKey}`;
+    this._renderReorderList();
+    document.getElementById('owner-reorder-modal').style.display = '';
+  },
+
+  _renderReorderList() {
+    const list = document.getElementById('reorder-owner-list');
+    if (!list || !this._reorderState) return;
+
+    list.innerHTML = this._reorderState.owners.map((name, idx) =>
+      `<div class="reorder-item" draggable="true" data-idx="${idx}">
+        <span class="reorder-drag-handle">&#x2630;</span>
+        <span class="reorder-item-rank">${idx + 1}</span>
+        <span class="reorder-item-name">${this._esc(name)}</span>
+      </div>`
+    ).join('');
+
+    this._setupOwnerReorderDnD();
+  },
+
+  _setupOwnerReorderDnD() {
+    const list = document.getElementById('reorder-owner-list');
+    if (!list) return;
+    let dragIdx = null;
+
+    list.querySelectorAll('.reorder-item').forEach(item => {
+      item.addEventListener('dragstart', e => {
+        dragIdx = parseInt(item.dataset.idx);
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(dragIdx));
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        list.querySelectorAll('.reorder-item').forEach(i => i.classList.remove('drag-over-item'));
+      });
+      item.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      item.addEventListener('dragenter', e => {
+        e.preventDefault();
+        item.classList.add('drag-over-item');
+      });
+      item.addEventListener('dragleave', () => {
+        item.classList.remove('drag-over-item');
+      });
+      item.addEventListener('drop', e => {
+        e.preventDefault();
+        item.classList.remove('drag-over-item');
+        const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+        const toIdx = parseInt(item.dataset.idx);
+        if (isNaN(fromIdx) || isNaN(toIdx) || fromIdx === toIdx) return;
+
+        // Reorder
+        const owners = this._reorderState.owners;
+        const [moved] = owners.splice(fromIdx, 1);
+        owners.splice(toIdx, 0, moved);
+        this._reorderState.owners = owners;
+        this.state._planningDirty = true;
+
+        // Update planning data
+        const entry = this.state.planningData.find(
+          p => p.campaignKey === this._reorderState.campaignKey && p.day === this._reorderState.day
+        );
+        if (entry) entry.ownerOrder = [...owners];
+
+        this._renderReorderList();
+      });
+    });
+  },
+
+  closeReorderModal() {
+    document.getElementById('owner-reorder-modal').style.display = 'none';
+    this._reorderState = null;
+  },
+
+  // ── Save Planning ──
+
+  async savePlanning() {
+    const status = document.getElementById('planning-save-status');
+    if (status) status.textContent = 'Saving...';
+    try {
+      const res = await this._post('odSavePlanning', {
+        planning: this.state.planningData,
+        email: this.state.session.email
+      });
+      if (res.success) {
+        this.state._planningDirty = false;
+        this._toast('Schedule saved');
+        if (status) status.textContent = 'Saved';
+        setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+      } else {
+        this._toast(res.message || 'Failed to save', 'error');
+        if (status) status.textContent = 'Error';
+      }
+    } catch (err) {
+      console.error('[OwnerDev] savePlanning error:', err);
+      this._toast('Failed to save schedule', 'error');
+      if (status) status.textContent = 'Error';
+    }
   }
 };
 

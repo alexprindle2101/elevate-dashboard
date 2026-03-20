@@ -211,6 +211,11 @@ function doGet(e) {
       return jsonResp(readD2DResRanking());
     }
 
+    // ── OD: Get weekly planning schedule ──
+    if (action === 'odGetPlanning') {
+      return jsonResp(odGetPlanning());
+    }
+
     if (owner) {
       return jsonResp(loadOwnerDetail(campaign, owner));
     } else {
@@ -299,6 +304,9 @@ function doPost(e) {
         break;
       case 'odDeleteUser':
         result = odDeleteUser(body);
+        break;
+      case 'odSavePlanning':
+        result = odSavePlanning(body);
         break;
       default:
         result = { error: 'unknown action: ' + body.action };
@@ -6446,4 +6454,87 @@ function TEST_frontier_alante() {
     }
     Logger.log('Row ' + r + ': ' + cols.join(' | '));
   }
+}
+
+// ═══════════════════════════════════════════════════════
+// OWNER DEVELOPMENT (OD) — Planning Schedule
+// ═══════════════════════════════════════════════════════
+
+var OD_PLANNING_HEADERS_ = ['day', 'sortOrder', 'campaignKey', 'ownerOrder', 'updatedBy', 'updatedAt'];
+
+/**
+ * action: odGetPlanning (doGet)
+ * Returns the weekly planning schedule from _OD_Planning tab.
+ */
+function odGetPlanning() {
+  var sheet = odGetOrCreateTab('_OD_Planning', OD_PLANNING_HEADERS_);
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: true, planning: [] };
+
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+  var colMap = {};
+  for (var c = 0; c < headers.length; c++) colMap[headers[c]] = c;
+
+  var planning = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var campaignKey = String(row[colMap['campaignKey']] || '').trim();
+    if (!campaignKey) continue;
+
+    var ownerOrderRaw = String(row[colMap['ownerOrder']] || '');
+    var ownerOrder = [];
+    try { ownerOrder = JSON.parse(ownerOrderRaw); } catch (e) { ownerOrder = []; }
+    if (!Array.isArray(ownerOrder)) ownerOrder = [];
+
+    planning.push({
+      day: parseInt(row[colMap['day']]) || 0,
+      sortOrder: parseInt(row[colMap['sortOrder']]) || 0,
+      campaignKey: campaignKey,
+      ownerOrder: ownerOrder
+    });
+  }
+  return { success: true, planning: planning };
+}
+
+/**
+ * action: odSavePlanning (doPost)
+ * body: { planning: [{ day, sortOrder, campaignKey, ownerOrder }], email }
+ * Full-replace strategy: clears all data rows, writes the new schedule.
+ */
+function odSavePlanning(body) {
+  var items = body.planning;
+  if (!items || !Array.isArray(items)) {
+    return { success: false, message: 'planning array is required' };
+  }
+
+  var email = String(body.email || '').trim();
+  var now = new Date().toISOString();
+  var sheet = odGetOrCreateTab('_OD_Planning', OD_PLANNING_HEADERS_);
+
+  // Clear existing data rows (keep header)
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, OD_PLANNING_HEADERS_.length).clearContent();
+  }
+
+  // Write new rows
+  if (items.length > 0) {
+    var newRows = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var ownerOrder = '';
+      try { ownerOrder = JSON.stringify(item.ownerOrder || []); } catch (e) { ownerOrder = '[]'; }
+      newRows.push([
+        parseInt(item.day) || 0,
+        parseInt(item.sortOrder) || 0,
+        String(item.campaignKey || '').trim(),
+        ownerOrder,
+        email,
+        now
+      ]);
+    }
+    sheet.getRange(2, 1, newRows.length, OD_PLANNING_HEADERS_.length).setValues(newRows);
+  }
+
+  return { success: true, saved: items.length };
 }

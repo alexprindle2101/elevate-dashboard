@@ -699,6 +699,294 @@ input, select, textarea { font-family: inherit; }
   .mapping-table { min-width: 800px; }
 }
 
+/* ═══════════════════════════════════════════════════════
+   PLANNING TAB
+   ═══════════════════════════════════════════════════════ */
+
+.planning-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.planning-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0d2035;
+  margin: 0;
+}
+.planning-subtitle {
+  font-size: 13px;
+  color: #708090;
+  margin: 4px 0 0;
+}
+.planning-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn-save-planning {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #0099cc;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-save-planning:hover { background: #007aa3; }
+.planning-save-status {
+  font-size: 12px;
+  color: #708090;
+}
+
+/* Unassigned pool */
+.planning-pool {
+  background: #f0f4f8;
+  border: 2px dashed #c8d6e0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  min-height: 60px;
+}
+.planning-pool-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #708090;
+  margin-bottom: 10px;
+}
+.planning-pool-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 44px;
+}
+.planning-pool.drag-over {
+  background: #e0f7fa;
+  border-color: #0099cc;
+}
+
+/* 7-column grid */
+.planning-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.planning-day-col {
+  background: #fff;
+  border: 1px solid #dce5ed;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.planning-day-header {
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  background: #f0f4f8;
+  border-bottom: 1px solid #dce5ed;
+  color: #1a3a52;
+}
+.planning-day-header.today {
+  background: #0099cc;
+  color: #fff;
+}
+.planning-drop-zone {
+  flex: 1;
+  padding: 8px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: background 0.15s;
+}
+.planning-drop-zone.drag-over {
+  background: #e0f7fa;
+}
+.planning-drop-zone:empty::after {
+  content: 'Drop here';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 11px;
+  color: #b0bec5;
+  font-weight: 500;
+}
+
+/* Campaign cards (in grid and pool) */
+.planning-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #dce5ed;
+  border-radius: 8px;
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow 0.15s, opacity 0.15s;
+  position: relative;
+}
+.planning-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.planning-card.dragging {
+  opacity: 0.35;
+  border-style: dashed;
+}
+.planning-card-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.planning-card-logo-placeholder {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.planning-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.planning-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0d2035;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.planning-card-owners {
+  font-size: 10px;
+  color: #708090;
+}
+.planning-card-reorder {
+  padding: 2px 6px;
+  font-size: 11px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,153,204,0.1);
+  color: #0099cc;
+  cursor: pointer;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.planning-card-reorder:hover {
+  background: rgba(0,153,204,0.2);
+}
+
+/* Reorder modal */
+.planning-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.planning-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 380px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+.planning-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.planning-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0d2035;
+}
+.planning-modal-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #708090;
+  line-height: 1;
+}
+.reorder-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.reorder-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f0f4f8;
+  border: 1px solid #dce5ed;
+  border-radius: 8px;
+  cursor: grab;
+  user-select: none;
+  transition: opacity 0.15s;
+}
+.reorder-item.dragging {
+  opacity: 0.35;
+  border-style: dashed;
+}
+.reorder-item.drag-over-item {
+  border-top: 2px solid #0099cc;
+}
+.reorder-drag-handle {
+  color: #b0bec5;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.reorder-item-rank {
+  font-size: 11px;
+  font-weight: 700;
+  color: #708090;
+  min-width: 18px;
+  text-align: center;
+}
+.reorder-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #0d2035;
+}
+.btn-done-reorder {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #0099cc;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+}
+.btn-done-reorder:hover { background: #007aa3; }
+
+/* Responsive */
 @media (max-width: 768px) {
   .top-bar { padding: 0 16px; }
   .top-bar-title { display: none; }
@@ -712,10 +1000,13 @@ input, select, textarea { font-family: inherit; }
   .team-members-grid { grid-template-columns: 1fr; }
   .nav-tabs { padding: 0 16px; }
   .nav-tab { padding: 10px 14px; font-size: 12px; }
+  .planning-grid { grid-template-columns: repeat(3, 1fr); }
+  .planning-header { flex-direction: column; gap: 12px; }
 }
 
 @media (max-width: 480px) {
   .stat-cards { grid-template-columns: 1fr; }
   .login-card { margin: 16px; }
   .form-row { flex-direction: column; }
+  .planning-grid { grid-template-columns: 1fr 1fr; }
 }

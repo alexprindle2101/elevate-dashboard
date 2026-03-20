@@ -200,6 +200,11 @@ function doGet(e) {
       return jsonResp(odGetCamCompanies());
     }
 
+    // ── D2D Residential ranking from _D2D_Res_Ranking tab ──
+    if (action === 'd2dResRanking') {
+      return jsonResp(readD2DResRanking());
+    }
+
     if (owner) {
       return jsonResp(loadOwnerDetail(campaign, owner));
     } else {
@@ -1162,6 +1167,63 @@ function _campaignSlug(label) {
 // Three columns: Owner Name | Cam Company Name | Cost Sheet ID
 // Returns { mapping: { "Owner Name": ["Company A", ...] }, costSheets: { "Owner Name": "sheetId" } }
 // ══════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════
+// D2D RESIDENTIAL RANKING — reads _D2D_Res_Ranking tab
+// Returns { ranking: [ { rank, owner, totalUnits, products: { AIR, NEW INTERNET, ... } } ] }
+// ══════════════════════════════════════════════════
+
+function readD2DResRanking() {
+  var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  var sheet = ss.getSheetByName('_D2D_Res_Ranking');
+  if (!sheet) return { ranking: [], error: '_D2D_Res_Ranking tab not found' };
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { ranking: [] };
+
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+
+  // Find key columns
+  var rankIdx = headers.indexOf('Rank');
+  var ownerIdx = headers.indexOf('Owner');
+  var totalIdx = headers.indexOf('Total Units');
+  var officesIdx = headers.indexOf('Offices');
+
+  if (ownerIdx === -1) return { ranking: [], error: 'Owner column not found' };
+
+  // Product columns = everything after Offices (or after Total Units if no Offices)
+  var productStart = (officesIdx !== -1 ? officesIdx : totalIdx !== -1 ? totalIdx : ownerIdx) + 1;
+  var productHeaders = [];
+  for (var h = productStart; h < headers.length; h++) {
+    if (headers[h]) productHeaders.push({ idx: h, name: headers[h] });
+  }
+
+  var ranking = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var owner = String(row[ownerIdx] || '').trim();
+    if (!owner) continue;
+    // Stop at metadata rows (e.g. "Last Sync")
+    var rankVal = rankIdx !== -1 ? row[rankIdx] : r;
+    if (typeof rankVal === 'string' && rankVal.toLowerCase().indexOf('last') !== -1) break;
+
+    var entry = {
+      rank: Number(rankVal) || r,
+      owner: owner,
+      totalUnits: totalIdx !== -1 ? (Number(row[totalIdx]) || 0) : 0,
+      offices: officesIdx !== -1 ? String(row[officesIdx] || '') : '',
+      products: {}
+    };
+
+    for (var p = 0; p < productHeaders.length; p++) {
+      entry.products[productHeaders[p].name] = Number(row[productHeaders[p].idx]) || 0;
+    }
+
+    ranking.push(entry);
+  }
+
+  return { ranking: ranking };
+}
 
 function readOwnerCamMapping() {
   var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);

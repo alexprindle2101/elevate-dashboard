@@ -252,10 +252,12 @@ const NationalApp = {
     // Legacy B2B/NDS enrichment (still needed for campaigns using local tabs)
     const isB2B = campaignKey === 'att-b2b';
     const isNDS = campaignKey.indexOf('nds') >= 0 || campaignKey.indexOf('NDS') >= 0;
+    const isRes = campaignKey === 'att-res';
     if (isB2B && hasApi) fetchPromises.headcount  = this._fetchWithTimeout(this._fetchB2BHeadcount());
     if (isB2B && hasApi) fetchPromises.production = this._fetchWithTimeout(this._fetchB2BProduction());
     if (isNDS && hasApi) fetchPromises.ndsHeadcount  = this._fetchWithTimeout(this._fetchNDSHeadcount());
     if (isNDS && hasApi) fetchPromises.ndsProduction = this._fetchWithTimeout(this._fetchNDSProduction());
+    if (isRes && hasApi) fetchPromises.d2dResRanking = this._fetchWithTimeout(this._fetchD2DResRanking());
     // Indeed/recruiting costs excluded from initial load — fetched only via Import button
 
     const keys = Object.keys(fetchPromises);
@@ -308,6 +310,11 @@ const NationalApp = {
 
     if (results.production && results.production.owners && Object.keys(results.production.owners).length) {
       this._enrichOwnersWithProduction(results.production.owners);
+    }
+
+    // D2D Res ranking enrichment (att-res campaign only)
+    if (results.d2dResRanking && results.d2dResRanking.ranking && results.d2dResRanking.ranking.length) {
+      this._enrichOwnersWithD2DRanking(results.d2dResRanking.ranking);
     }
 
     // Pre-fetch Indeed Tracking data for configured owners (non-blocking)
@@ -604,6 +611,58 @@ const NationalApp = {
       matched++;
     }
     console.log('[NationalApp] Production enrichment: matched', matched, 'of', this.state.owners.length, 'owners');
+  },
+
+  // ── Fetch D2D Residential ranking from _D2D_Res_Ranking tab ──
+  async _fetchD2DResRanking() {
+    const url = NATIONAL_CONFIG.appsScriptUrl +
+      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+      '&action=d2dResRanking' +
+      '&_t=' + Date.now();
+    const resp = await fetch(url);
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
+
+  // ── Enrich owners with D2D Res ranking data ──
+  // Fuzzy-matches ranking owner names to campaign owner names and sets o.d2dRank
+  _enrichOwnersWithD2DRanking(ranking) {
+    // Build lowercase lookup: ranking owner name → ranking entry
+    const rankLower = {};
+    for (const entry of ranking) {
+      rankLower[entry.owner.toLowerCase().trim()] = entry;
+    }
+
+    let matched = 0;
+    for (const owner of this.state.owners) {
+      const ownerLc = owner.name.toLowerCase().trim();
+
+      // Exact match
+      let entry = rankLower[ownerLc];
+
+      // Starts-with
+      if (!entry) {
+        for (const lc in rankLower) {
+          if (lc.startsWith(ownerLc) || ownerLc.startsWith(lc)) { entry = rankLower[lc]; break; }
+        }
+      }
+
+      // Contains
+      if (!entry) {
+        for (const lc in rankLower) {
+          if (lc.indexOf(ownerLc) >= 0 || ownerLc.indexOf(lc) >= 0) { entry = rankLower[lc]; break; }
+        }
+      }
+
+      if (entry) {
+        owner.d2dRank = entry.rank;
+        owner.d2dTotalUnits = entry.totalUnits;
+        owner.d2dProducts = entry.products || {};
+        matched++;
+      }
+    }
+    console.log('[NationalApp] D2D Res ranking enrichment: matched', matched, 'of', this.state.owners.length, 'owners');
   },
 
   // ── Fetch Indeed ad cost data from per-owner Drive spreadsheets ──
@@ -1631,8 +1690,12 @@ const NationalApp = {
     }
 
     container.innerHTML = owners.map((o, idx) => {
+      const rankBadge = o.d2dRank
+        ? `<span class="owner-rank-badge" title="#${o.d2dRank} — ${o.d2dTotalUnits || 0} units LW">#${o.d2dRank}</span>`
+        : '';
       return `
         <div class="owner-card" onclick="NationalApp.openOwnerDetail(${idx})">
+          ${rankBadge}
           <span class="owner-card-name">${this._esc(o.name)}</span>
           <span class="owner-card-arrow">→</span>
         </div>`;

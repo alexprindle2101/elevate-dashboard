@@ -1969,10 +1969,11 @@ td.cell-red    { background: #e53935 !important; color: #000 !important; font-we
   cursor: pointer;
 }
 
-/* Ad breakdown table */
-.it-breakdown-wrap { overflow-x: auto; }
+/* Ad breakdown table — scrollable with sticky header */
+.it-breakdown-wrap { overflow-x: auto; max-height: 520px; overflow-y: auto; }
 .it-breakdown-table { font-size: 12px; }
-.it-breakdown-table th { font-size: 10px; white-space: nowrap; }
+.it-breakdown-table th { font-size: 10px; white-space: nowrap; position: sticky; top: 0; z-index: 1; background: var(--card-bg); }
+.it-breakdown-wrap .data-table-wrap { overflow: visible; }
 
 /* Account group header row */
 .it-acct-row td {

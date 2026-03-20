@@ -2368,7 +2368,7 @@ function readOwnerNlrData(ownerName, campaignFilter) {
         if (textCells >= 3) {
           // Dedup headers: first "total spend" keeps its name, subsequent get "__2", "__3" etc.
           // This prevents the rightmost running-total column from overwriting the per-ad spend.
-          var rawHeaders = data[i].map(function(h) { return String(h).toLowerCase().trim(); });
+          var rawHeaders = data[i].map(function(h) { return String(h).toLowerCase().trim().replace(/[:\s]+$/, ''); });
           var seen = {};
           colHeaders = rawHeaders.map(function(h) {
             if (!h) return h;

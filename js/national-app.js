@@ -3795,8 +3795,8 @@ const NationalApp = {
       repsEl.innerHTML = `
         <div class="coaching-section">
           <div class="coaching-label">Rep Breakdown <span class="coaching-sublabel">${s.reps.length} reps</span></div>
-          <div class="data-table-wrap">
-            <table class="data-table">
+          <div class="data-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+            <table class="data-table" style="min-width:900px;">
               <thead>
                 <tr>${repHeaders}</tr>
               </thead>

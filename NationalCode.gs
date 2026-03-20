@@ -4201,7 +4201,7 @@ function readResOwnerSales(ownerName) {
 
   // Find "Rep Name" or "Name" header row (sales section — search from row 20 down)
   var headersRow = -1;
-  for (var i = Math.max(0, data.length - 40); i < data.length; i++) {
+  for (var i = 20; i < data.length; i++) {
     var cellA = String(data[i][0] || '').trim().toLowerCase();
     if (cellA === 'rep name' || cellA === 'name') {
       headersRow = i;

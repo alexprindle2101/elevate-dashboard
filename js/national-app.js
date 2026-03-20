@@ -1190,6 +1190,11 @@ const NationalApp = {
 
     // Campaign-level totals + aggregate recruiting (4 weeks only)
     this._buildCampaignAggregates(campaignLabels);
+
+    // For non-att-res campaigns, rank owners by production (att-res uses Tableau ranking)
+    if (this.state.campaign !== 'att-res') {
+      this._rankOwnersByProduction();
+    }
   },
 
   // ── Build campaign-level totals and aggregate recruiting table ──
@@ -1269,6 +1274,22 @@ const NationalApp = {
       production: totals.production,
       prodBreakdown
     };
+  },
+
+  // ── Rank owners by most recent week's production (for non-att-res campaigns) ──
+  _rankOwnersByProduction() {
+    const sorted = [...this.state.owners]
+      .map((o, idx) => ({ idx, prod: o.production?.totalActual || 0 }))
+      .sort((a, b) => b.prod - a.prod);
+
+    sorted.forEach((entry, rank) => {
+      const owner = this.state.owners[entry.idx];
+      owner.d2dRank = rank + 1;
+      owner.d2dTotalUnits = entry.prod;
+    });
+
+    console.log('[NationalApp] Production ranking: top 3 —',
+      sorted.slice(0, 3).map((e, i) => '#' + (i+1) + ' ' + this.state.owners[e.idx].name + ' (' + e.prod + ')').join(', '));
   },
 
   // ── Calculate projected weekly numbers from leader count ──
@@ -1426,11 +1447,10 @@ const NationalApp = {
       this.state.owners = cached.owners;
       this.state.campaignTotals = cached.campaignTotals || {};
 
-      // Show loading while we fetch ranking (att-res) so page doesn't flash without badges
+      // Ranking: att-res uses Tableau data (async fetch), all others use production (instant)
       const isRes = campaignKey === 'att-res';
-      if (isRes) this._showLoading('Loading rankings...');
-
       if (isRes) {
+        this._showLoading('Loading rankings...');
         try {
           const rankData = await this._fetchWithTimeout(this._fetchD2DResRanking(), 10000);
           if (rankData?.ranking?.length) {
@@ -1439,9 +1459,10 @@ const NationalApp = {
         } catch (err) {
           console.warn('[NationalApp] D2D ranking fetch failed:', err.message);
         }
+        this._hideLoading();
+      } else {
+        this._rankOwnersByProduction();
       }
-
-      if (isRes) this._hideLoading();
       this.renderCampaignOverview();
       this.renderOwnersList();
 

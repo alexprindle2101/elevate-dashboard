@@ -263,7 +263,7 @@ function doPost(e) {
         break;
       case 'updateProduction':
         result = updateProductionRow(body.ownerName, body.date,
-                   body.productionLW, body.productionGoals);
+                   body.internet, body.wireless, body.dtv, body.goals);
         break;
       case 'odCheckUser':
         result = odCheckUser(body.email || '');
@@ -487,6 +487,49 @@ function findSections(data) {
 }
 
 // ══════════════════════════════════════════════════
+// PRODUCTION HELPERS: Internet/Wireless/DTV + Smart Goals
+// Goals column uses "/" separator mapped left-to-right to
+// whichever production categories the office tracks.
+// E.g. if no Wireless data, "40/20" → Internet=40, DTV=20
+// ══════════════════════════════════════════════════
+
+/** Determine which production categories exist from colMap */
+function _getActiveCategories(colMap) {
+  var cats = [];
+  if (colMap.internet >= 0) cats.push('internet');
+  if (colMap.wireless >= 0) cats.push('wireless');
+  if (colMap.dtv >= 0) cats.push('dtv');
+  return cats;
+}
+
+/** Display names for production categories */
+var _PROD_DISPLAY = { internet: 'Internet', wireless: 'Wireless', dtv: 'DTV' };
+
+/**
+ * Parse production actuals + goals into per-category object.
+ * Uses { production, goals } keys to match frontend expectations.
+ * @returns e.g. { Internet: { production: 15, goals: 40 }, DTV: { production: 8, goals: 20 } }
+ */
+function _parseProductionGoals(activeCategories, inet, wrls, dtvVal, goalsRaw) {
+  var goalParts = String(goalsRaw || '').split('/').map(function(g) { return num(g.trim()); });
+  var production = {};
+  for (var i = 0; i < activeCategories.length; i++) {
+    var cat = activeCategories[i];
+    var actual = cat === 'internet' ? inet : cat === 'wireless' ? wrls : dtvVal;
+    production[_PROD_DISPLAY[cat]] = {
+      production: actual || 0,
+      goals: i < goalParts.length ? goalParts[i] : 0
+    };
+  }
+  return production;
+}
+
+/** Sum all "/" separated goal parts into a single total */
+function _sumGoals(goalsRaw) {
+  return String(goalsRaw || '').split('/').reduce(function(s, g) { return s + (num(g.trim()) || 0); }, 0);
+}
+
+// ══════════════════════════════════════════════════
 // PARSE SECTION 1: Office Health
 // ══════════════════════════════════════════════════
 
@@ -501,10 +544,14 @@ function parseSection1(data, start, end) {
     leaders: findCol(headers, ['leaders']),
     dist: findCol(headers, ['dist', 'distributors', 'distibutors']),
     training: findCol(headers, ['training']),
-    productionLW: findCol(headers, ['production lw', 'production']),
+    internet: findCol(headers, ['internet']),
+    wireless: findCol(headers, ['wireless']),
     dtv: findCol(headers, ['dtv']),
-    goals: findCol(headers, ['production goals', 'goals'])
+    goals: findCol(headers, ['goals', 'production goals'])
   };
+
+  // Determine which production categories exist based on column headers
+  var activeCategories = _getActiveCategories(colMap);
 
   var trend = [];
   var lastGoodRow = null;
@@ -514,22 +561,32 @@ function parseSection1(data, start, end) {
     var dateVal = row[colMap.dates];
     if (!dateVal) continue;
 
+    var inet = colMap.internet >= 0 ? val(row[colMap.internet]) : 0;
+    var wrls = colMap.wireless >= 0 ? val(row[colMap.wireless]) : 0;
+    var dtvVal = colMap.dtv >= 0 ? val(row[colMap.dtv]) : 0;
+    var goalsRaw = colMap.goals >= 0 ? String(row[colMap.goals] || '') : '';
+    var production = _parseProductionGoals(activeCategories, inet, wrls, dtvVal, goalsRaw);
+
     var entry = {
       date: formatDate(dateVal),
       active: val(row[colMap.active]),
       leaders: val(row[colMap.leaders]),
       dist: val(row[colMap.dist]),
       training: val(row[colMap.training]),
-      productionLW: val(row[colMap.productionLW]),
-      dtv: val(row[colMap.dtv]),
-      goals: val(row[colMap.goals])
+      internet: inet,
+      wireless: wrls,
+      dtv: dtvVal,
+      goalsRaw: goalsRaw,
+      production: production,
+      productionLW: (inet || 0) + (wrls || 0) + (dtvVal || 0),
+      goals: _sumGoals(goalsRaw)
     };
     trend.push(entry);
     lastGoodRow = entry;
   }
 
   return {
-    current: lastGoodRow || { active: '—', leaders: '—', dist: '—', training: '—', productionLW: '—', dtv: '—', goals: '—' },
+    current: lastGoodRow || { active: '—', leaders: '—', dist: '—', training: '—', internet: 0, wireless: 0, dtv: 0, production: {}, productionLW: 0, goals: 0 },
     trend: trend
   };
 }
@@ -1646,21 +1703,23 @@ function readNLRHeadcount() {
     // Row 0 = headers
     var headers = data[0].map(function(h) { return String(h).toLowerCase().trim(); });
 
-    // IMPORTANT: "production lw" must match before "production" to avoid
-    // hitting "personal production" (col F) which is a different metric.
-    // Same for "production goals" before generic "goals".
     var colMap = {
-      dates:          findCol(headers, ['dates', 'date']),
-      active:         findCol(headers, ['active']),
-      leaders:        findCol(headers, ['leaders']),
-      dist:           findCol(headers, ['dist']),
-      training:       findCol(headers, ['training']),
-      productionLW:   findCol(headers, ['production lw']),
-      productionGoals:findCol(headers, ['production goals'])
+      dates:    findCol(headers, ['dates', 'date']),
+      active:   findCol(headers, ['active']),
+      leaders:  findCol(headers, ['leaders']),
+      dist:     findCol(headers, ['dist']),
+      training: findCol(headers, ['training']),
+      internet: findCol(headers, ['internet']),
+      wireless: findCol(headers, ['wireless']),
+      dtv:      findCol(headers, ['dtv']),
+      goals:    findCol(headers, ['goals', 'production goals'])
     };
 
     // Must have at least dates + active columns to be a valid owner tab
     if (colMap.dates < 0 && colMap.active < 0) continue;
+
+    // Determine which production categories exist for this owner
+    var activeCategories = _getActiveCategories(colMap);
 
     // Walk ALL rows, collecting trend history + tracking last good row
     // ONLY include rows where column A is a real date (skip text like "Owner (Owner>Rep>Zip)")
@@ -1679,17 +1738,28 @@ function readNLRHeadcount() {
 
       // Check if row has any numeric data
       var hasActive = colMap.active >= 0 && row[colMap.active] !== '' && row[colMap.active] !== null;
-      var hasProd   = colMap.productionLW >= 0 && row[colMap.productionLW] !== '' && row[colMap.productionLW] !== null;
-      if (!hasActive && !hasProd) continue;
+      var hasInet   = colMap.internet >= 0 && row[colMap.internet] !== '' && row[colMap.internet] !== null;
+      var hasDtv    = colMap.dtv >= 0 && row[colMap.dtv] !== '' && row[colMap.dtv] !== null;
+      if (!hasActive && !hasInet && !hasDtv) continue;
+
+      var inet = colMap.internet >= 0 ? num(row[colMap.internet]) : 0;
+      var wrls = colMap.wireless >= 0 ? num(row[colMap.wireless]) : 0;
+      var dtvVal = colMap.dtv >= 0 ? num(row[colMap.dtv]) : 0;
+      var goalsRaw = colMap.goals >= 0 ? String(row[colMap.goals] || '') : '';
 
       var entry = {
-        date:            colMap.dates >= 0 ? formatDate(row[colMap.dates]) : '',
-        active:          colMap.active >= 0 ? num(row[colMap.active]) : 0,
-        leaders:         colMap.leaders >= 0 ? num(row[colMap.leaders]) : 0,
-        dist:            colMap.dist >= 0 ? num(row[colMap.dist]) : 0,
-        training:        colMap.training >= 0 ? num(row[colMap.training]) : 0,
-        productionLW:    colMap.productionLW >= 0 ? num(row[colMap.productionLW]) : 0,
-        productionGoals: colMap.productionGoals >= 0 ? num(row[colMap.productionGoals]) : 0
+        date:     colMap.dates >= 0 ? formatDate(row[colMap.dates]) : '',
+        active:   colMap.active >= 0 ? num(row[colMap.active]) : 0,
+        leaders:  colMap.leaders >= 0 ? num(row[colMap.leaders]) : 0,
+        dist:     colMap.dist >= 0 ? num(row[colMap.dist]) : 0,
+        training: colMap.training >= 0 ? num(row[colMap.training]) : 0,
+        internet: inet,
+        wireless: wrls,
+        dtv:      dtvVal,
+        goalsRaw: goalsRaw,
+        production: _parseProductionGoals(activeCategories, inet, wrls, dtvVal, goalsRaw),
+        productionLW: (inet || 0) + (wrls || 0) + (dtvVal || 0),
+        productionGoals: _sumGoals(goalsRaw)
       };
       trend.push(entry);
       lastGood = entry;
@@ -1733,13 +1803,15 @@ function importNLRHeadcount() {
   var sheet = ss.getSheetByName(TAB_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(TAB_NAME);
-    sheet.appendRow(['Owner', 'Date', 'Active', 'Leaders', 'Dist', 'Training', 'ProductionLW', 'ProductionGoals']);
+    sheet.appendRow(['Owner', 'Date', 'Active', 'Leaders', 'Dist', 'Training', 'Internet', 'Wireless', 'DTV', 'Goals']);
   } else {
-    // Clear existing data (keep header)
+    // Clear existing data (keep header) and update headers to new schema
     var lastRow = sheet.getLastRow();
     if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
+      sheet.getRange(2, 1, lastRow - 1, 10).clearContent();
     }
+    // Ensure headers match new schema
+    sheet.getRange(1, 1, 1, 10).setValues([['Owner', 'Date', 'Active', 'Leaders', 'Dist', 'Training', 'Internet', 'Wireless', 'DTV', 'Goals']]);
   }
 
   // 4. Build rows: one row per owner per date
@@ -1758,15 +1830,17 @@ function importNLRHeadcount() {
         entry.leaders,
         entry.dist,
         entry.training,
-        entry.productionLW,
-        entry.productionGoals
+        entry.internet || 0,
+        entry.wireless || 0,
+        entry.dtv || 0,
+        entry.goalsRaw || ''
       ]);
     }
   }
 
   // 5. Write all rows at once
   if (rows.length) {
-    sheet.getRange(2, 1, rows.length, 8).setValues(rows);
+    sheet.getRange(2, 1, rows.length, 10).setValues(rows);
   }
 
   return { success: true, ownersImported: ownerNames.length, rowsWritten: rows.length };
@@ -2253,21 +2327,40 @@ function readLocalHeadcount() {
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return { owners: {} };
 
-  // Header row 0: Owner | Date | Active | Leaders | Dist | Training | ProductionLW | ProductionGoals
+  // Header row 0: Owner | Date | Active | Leaders | Dist | Training | Internet | Wireless | DTV | Goals
   var owners = {};
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
     var name = String(row[0] || '').trim();
     if (!name) continue;
 
+    var inet = num(row[6]);
+    var wrls = num(row[7]);
+    var dtvVal = num(row[8]);
+    var goalsRaw = String(row[9] || '');
+
+    // Determine active categories from non-zero data across ALL rows for this owner
+    // (simple approach: include category if column has any value)
+    var cats = [];
+    if (inet > 0 || row[6] !== '') cats.push('internet');
+    if (wrls > 0 || row[7] !== '') cats.push('wireless');
+    if (dtvVal > 0 || row[8] !== '') cats.push('dtv');
+    // Fallback: if no categories detected yet, use all three
+    if (!cats.length) cats = ['internet', 'wireless', 'dtv'];
+
     var entry = {
-      date:            _normalizeDate(row[1]),
-      active:          num(row[2]),
-      leaders:         num(row[3]),
-      dist:            num(row[4]),
-      training:        num(row[5]),
-      productionLW:    num(row[6]),
-      productionGoals: num(row[7])
+      date:     _normalizeDate(row[1]),
+      active:   num(row[2]),
+      leaders:  num(row[3]),
+      dist:     num(row[4]),
+      training: num(row[5]),
+      internet: inet,
+      wireless: wrls,
+      dtv:      dtvVal,
+      goalsRaw: goalsRaw,
+      production: _parseProductionGoals(cats, inet, wrls, dtvVal, goalsRaw),
+      productionLW: (inet || 0) + (wrls || 0) + (dtvVal || 0),
+      productionGoals: _sumGoals(goalsRaw)
     };
 
     if (!owners[name]) {
@@ -2528,10 +2621,10 @@ function updateHeadcountRow(ownerName, date, active, leaders, dist, training) {
 
 // ══════════════════════════════════════════════════
 // UPDATE PRODUCTION ROW in _B2B_Headcount tab
-// Finds row by Owner (col A) + Date (col B), updates cols G-H
+// Finds row by Owner (col A) + Date (col B), updates cols G-J (Internet, Wireless, DTV, Goals)
 // ══════════════════════════════════════════════════
 
-function updateProductionRow(ownerName, date, productionLW, productionGoals) {
+function updateProductionRow(ownerName, date, internet, wireless, dtv, goals) {
   if (!ownerName || !date) return { error: 'ownerName and date are required' };
 
   var ss;
@@ -2561,9 +2654,9 @@ function updateProductionRow(ownerName, date, productionLW, productionGoals) {
     return { error: 'Row not found for owner "' + ownerName + '" date "' + normDate + '"' };
   }
 
-  // Update columns G-H (ProductionLW, ProductionGoals) — 1-based cols 7-8
-  sheet.getRange(targetRow, 7, 1, 2).setValues([
-    [parseInt(productionLW) || 0, parseInt(productionGoals) || 0]
+  // Update columns G-J (Internet, Wireless, DTV, Goals) — 1-based cols 7-10
+  sheet.getRange(targetRow, 7, 1, 4).setValues([
+    [parseInt(internet) || 0, parseInt(wireless) || 0, parseInt(dtv) || 0, String(goals || '')]
   ]);
 
   return { ok: true, row: targetRow, owner: ownerName, date: normDate };

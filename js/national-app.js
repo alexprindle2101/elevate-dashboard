@@ -732,9 +732,25 @@ const NationalApp = {
         }
       }
 
-      // Set current production from latest row
-      owner.production.totalActual = nlr.current.productionLW || 0;
-      owner.production.totalGoal = nlr.current.productionGoals || 0;
+      // Set current production from latest row (per-category breakdown)
+      const prod = nlr.current.production;
+      if (prod && typeof prod === 'object') {
+        let totalP = 0, totalG = 0;
+        for (const pName in prod) {
+          owner.production.products[pName] = {
+            actual: prod[pName].production || 0,
+            goal: prod[pName].goals || 0
+          };
+          totalP += prod[pName].production || 0;
+          totalG += prod[pName].goals || 0;
+        }
+        owner.production.totalActual = totalP;
+        owner.production.totalGoal = totalG;
+      } else {
+        // Fallback: single total (backward compat)
+        owner.production.totalActual = nlr.current.productionLW || 0;
+        owner.production.totalGoal = nlr.current.productionGoals || 0;
+      }
 
       // Build headcount history from ALL trend rows
       owner.headcountHistory = (nlr.trend || []).map(row => ({
@@ -744,16 +760,24 @@ const NationalApp = {
         training: row.training
       }));
 
-      // Build production history from ALL trend rows
-      // Format: tA = total actual, tG = total goal, wA = wireless actual, wG = wireless goal
-      // NLR only has total production (no wireless breakdown), so wireless = 0
-      owner.productionHistory = (nlr.trend || []).map(row => ({
-        date: row.date,
-        tA: row.productionLW,
-        tG: row.productionGoals,
-        wA: 0,
-        wG: 0
-      }));
+      // Build production history from ALL trend rows with per-product data
+      owner.productionHistory = (nlr.trend || []).map(row => {
+        const entry = {
+          date: row.date,
+          tA: row.productionLW || 0,
+          tG: row.productionGoals || 0,
+          products: {}
+        };
+        if (row.production && typeof row.production === 'object') {
+          for (const pName in row.production) {
+            entry.products[pName] = {
+              actual: row.production[pName].production || 0,
+              goal: row.production[pName].goals || 0
+            };
+          }
+        }
+        return entry;
+      });
 
       matched++;
     }

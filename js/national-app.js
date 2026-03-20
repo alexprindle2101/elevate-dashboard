@@ -1256,15 +1256,15 @@ const NationalApp = {
       // 1st Rounds
       firstBooked: _t(2),
       firstShowed: _t(3),
-      firstRetention: _t(4),
+      firstRetention: _t(2) ? Math.round((_t(3) / _t(2)) * 100) : 0,
       // 2nd Rounds
       secondBooked: _t(6),
       secondShowed: _t(7),
-      secondRetention: _t(8),
+      secondRetention: _t(6) ? Math.round((_t(7) / _t(6)) * 100) : 0,
       // New Starts
       newStartsBooked: _t(9),
       newStartsShowed: _t(10),
-      newStartRetention: _t(11),
+      newStartRetention: _t(9) ? Math.round((_t(10) / _t(9)) * 100) : 0,
       // Production
       production: totals.production,
       prodBreakdown

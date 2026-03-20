@@ -516,6 +516,34 @@ const NationalApp = {
     return result;
   },
 
+  // ── Fetch NDS sales data for a single owner on demand ──
+  async _fetchNDSOwnerSales(owner) {
+    owner._ndsSalesFetching = true;
+    try {
+      const url = NATIONAL_CONFIG.appsScriptUrl +
+        '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+        '&action=ndsOwnerSales' +
+        '&owner=' + encodeURIComponent(owner.name) +
+        '&_t=' + Date.now();
+      const resp = await this._fetchWithTimeout(fetch(url), 30000);
+      const result = await resp.json();
+      if (!result.error && (result.summary || result.reps)) {
+        owner.sales = { summary: result.summary, reps: result.reps || [] };
+        owner._ndsSalesFetched = true;
+        console.log('[NationalApp] NDS sales loaded for', owner.name, ':', result.reps?.length, 'reps, tab:', result.tab);
+        // Re-render sales tab if currently viewing it
+        if (this.state.selectedOwner === owner && this.state.currentTab === 'sales') {
+          this.renderSalesTab(owner);
+        }
+      } else {
+        console.warn('[NationalApp] NDS sales empty for', owner.name, ':', result.error || 'no data');
+      }
+    } catch (err) {
+      console.warn('[NationalApp] NDS sales fetch failed for', owner.name, ':', err.message);
+    }
+    owner._ndsSalesFetching = false;
+  },
+
   // ── Fetch B2B production/sales data from local _B2B_Production tab ──
   async _fetchB2BProduction() {
     const url = NATIONAL_CONFIG.appsScriptUrl +
@@ -1631,6 +1659,12 @@ const NationalApp = {
     // Lazy-load NLR data for this specific owner (non-blocking)
     if (!owner._nlrFetched) {
       this._fetchOwnerNlrData(owner);
+    }
+
+    // Lazy-load NDS sales data for this owner (non-blocking)
+    const isNDS = this.state.campaign && this.state.campaign.indexOf('nds') >= 0;
+    if (isNDS && !owner._ndsSalesFetched) {
+      this._fetchNDSOwnerSales(owner);
     }
   },
 

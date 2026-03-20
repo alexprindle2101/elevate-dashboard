@@ -116,6 +116,12 @@ function doGet(e) {
       return jsonResp(readNDSProduction());
     }
 
+    // ── NDS per-owner sales data (fetched on demand when opening owner detail) ──
+    if (action === 'ndsOwnerSales') {
+      var ownerParam = e.parameter.owner || '';
+      return jsonResp(readNDSOwnerSales(ownerParam));
+    }
+
     // ── List cost files in Drive folder (names + IDs only) ──
     if (action === 'listCostFiles') {
       return jsonResp(listCostFiles());
@@ -3816,6 +3822,130 @@ function readNDSProduction() {
   return { owners: owners };
 }
 
+/**
+ * Read sales data for a SINGLE NDS owner on demand.
+ * Looks for the owner's tab in the NDS One-on-Ones sheet using fuzzy matching.
+ * Returns: { summary: {...}, reps: [...] } or { error: '...' }
+ */
+function readNDSOwnerSales(ownerName) {
+  if (!ownerName) return { error: 'No owner specified' };
+  if (!SHEETS.NDS_ONE_ON_ONES) return { error: 'NDS sheet not configured' };
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NDS_ONE_ON_ONES);
+  } catch (err) {
+    return { error: 'Cannot open NDS sheet: ' + err.message };
+  }
+
+  // Try exact match first, then fuzzy
+  var ownerLower = ownerName.toLowerCase().trim();
+  var allSheets = ss.getSheets();
+  var tab = null;
+
+  for (var i = 0; i < allSheets.length; i++) {
+    if (allSheets[i].getName().toLowerCase().trim() === ownerLower) {
+      tab = allSheets[i];
+      break;
+    }
+  }
+
+  if (!tab) {
+    // Fuzzy: tab contains owner name or owner name contains tab name
+    var allTabNames = allSheets.map(function(s) { return s.getName(); });
+    var tabByName = {};
+    allSheets.forEach(function(s) { tabByName[s.getName().toLowerCase().trim()] = s; });
+    tab = _fuzzyFindTab_(ownerName, allTabNames, tabByName);
+  }
+
+  if (!tab) return { error: 'No tab found for: ' + ownerName };
+
+  var lastRow = tab.getLastRow();
+  var lastCol = Math.min(tab.getLastColumn(), 20);
+  if (lastRow < 10 || lastCol < 5) return { error: 'Tab too small: ' + tab.getName() };
+
+  var data = tab.getRange(1, 1, lastRow, lastCol).getValues();
+
+  // Find "Rep" header row in column A (sales section is below row 30)
+  var headersRow = -1;
+  for (var i = 30; i < data.length; i++) {
+    var cellA = String(data[i][0] || '').trim().toLowerCase();
+    if (cellA === 'rep') {
+      headersRow = i;
+      break;
+    }
+  }
+  if (headersRow < 0) return { error: 'No "Rep" header found in: ' + tab.getName() };
+
+  var hdrs = data[headersRow].map(function(h) { return String(h || '').trim().toLowerCase(); });
+
+  var colIdx = function(patterns) {
+    for (var p = 0; p < patterns.length; p++) {
+      for (var c = 0; c < hdrs.length; c++) {
+        if (hdrs[c].indexOf(patterns[p]) >= 0) return c;
+      }
+    }
+    return -1;
+  };
+
+  var cols = {
+    rep:              0,
+    newPorts:         colIdx(['new/ports', 'new ports', 'sold last week']),
+    orderCount:       colIdx(['order count', 'tier bonus']),
+    cancelFraudPct:   colIdx(['cancel fraud', 'cancel']),
+    extraPremiumPct:  colIdx(['extra', 'premium']),
+    nextUpPct:        colIdx(['next up']),
+    abpPct:           colIdx(['abp']),
+    byodPct:          colIdx(['byod']),
+    newOfNewPortsPct: colIdx(['new %', 'new % of']),
+    insurancePct:     colIdx(['insurance']),
+    highMedCreditPct: colIdx(['high/med', 'credit rating']),
+    awayFromDoorsPct: colIdx(['away from door']),
+    before3pmPct:     colIdx(['before 3']),
+    after730pmPct:    colIdx(['after 7'])
+  };
+
+  var summary = null;
+  var reps = [];
+
+  for (var i = headersRow + 1; i < data.length; i++) {
+    var row = data[i];
+    var repName = String(row[cols.rep] || '').trim();
+    if (!repName) break;
+
+    var entry = {
+      name:             repName,
+      rep:              repName,
+      newPorts:         cols.newPorts >= 0 ? num(row[cols.newPorts]) : 0,
+      orderCount:       cols.orderCount >= 0 ? num(row[cols.orderCount]) : 0,
+      cancelFraudPct:   cols.cancelFraudPct >= 0 ? numDec(row[cols.cancelFraudPct]) : 0,
+      extraPremiumPct:  cols.extraPremiumPct >= 0 ? numDec(row[cols.extraPremiumPct]) : 0,
+      nextUpPct:        cols.nextUpPct >= 0 ? numDec(row[cols.nextUpPct]) : 0,
+      abpPct:           cols.abpPct >= 0 ? numDec(row[cols.abpPct]) : 0,
+      byodPct:          cols.byodPct >= 0 ? numDec(row[cols.byodPct]) : 0,
+      newOfNewPortsPct: cols.newOfNewPortsPct >= 0 ? numDec(row[cols.newOfNewPortsPct]) : 0,
+      insurancePct:     cols.insurancePct >= 0 ? numDec(row[cols.insurancePct]) : 0,
+      highMedCreditPct: cols.highMedCreditPct >= 0 ? numDec(row[cols.highMedCreditPct]) : 0,
+      awayFromDoorsPct: cols.awayFromDoorsPct >= 0 ? numDec(row[cols.awayFromDoorsPct]) : 0,
+      before3pmPct:     cols.before3pmPct >= 0 ? numDec(row[cols.before3pmPct]) : 0,
+      after730pmPct:    cols.after730pmPct >= 0 ? numDec(row[cols.after730pmPct]) : 0,
+      totalVolume:      cols.newPorts >= 0 ? num(row[cols.newPorts]) : 0,
+      salesPerRep:      0,
+      repCount:         0
+    };
+
+    if (repName.toLowerCase() === 'total') {
+      summary = entry;
+    } else {
+      reps.push(entry);
+    }
+  }
+
+  if (summary) summary.repCount = reps.length;
+
+  return { summary: summary, reps: reps, tab: tab.getName() };
+}
+
 // ═══════════════════════════════════════════════════════
 // OWNER DEVELOPMENT (OD) — Helper Functions
 // ═══════════════════════════════════════════════════════
@@ -4509,7 +4639,7 @@ function odDeleteUser(body) {
 var CAMPAIGN_PRODUCTS = {
   'frontier':        ['Frontier', 'Cell', 'TV'],
   'verizon-fios':    ['Units', 'Wireless'],
-  'att-nds':         ['NDS'],       // single product — will update
+  'att-nds':         ['Units'],
   'att-res':         ['Residential'],// single product — will update
   'rogers':          ['Units', 'Mobility'],
   'leafguard':       ['Personal Prod', 'Gross Leads', 'Number of Sales', 'Gross Sales'],
@@ -4539,11 +4669,11 @@ var CAMPAIGN_PROD_COLUMNS = {
     'Gross Sales':      { prod: ['gross sales'], goal: ['gross sales goal', 'sales goal', 'goal'] }
   },
   'verizon-fios': {
-    'Units':     { prod: ['production lw', 'production'], goal: ['production goals', 'production goal', 'goals'] },
+    'Units':     { prod: ['production lw', 'production'], goal: [] },
     'Wireless':  { prod: ['wireless'], goal: [] }
   },
   'rogers': {
-    'Units':     { prod: ['production lw', 'production'], goal: ['production goals', 'production goal', 'goals'] },
+    'Units':     { prod: ['production lw', 'production'], goal: [] },
     'Mobility':  { prod: ['mobility', 'mobilty'], goal: [] }
   }
 };
@@ -4890,27 +5020,27 @@ function extractHealthRows_(data, start, end, displayData, campaignKey) {
       var prodVals = [], goalVals = [];
       var products = CAMPAIGN_PRODUCTS[campaignKey] || [];
 
-      // Read the shared "goals" column — may be "/" separated (Gross Leads / Gross Sales) or single (Gross Sales only)
+      // Read the shared "goals" column — may be "/" separated (e.g., "60/30" for Units/Wireless)
       var sharedGoalRaw = '';
       if (colMap.goals >= 0) {
         sharedGoalRaw = displayData && displayData[i] ? String(displayData[i][colMap.goals]) : String(row[colMap.goals] || '');
       }
       var sharedGoalParts = _splitSlashValues(sharedGoalRaw);
-      // If "/" separated: first = Gross Leads goal, second = Gross Sales goal
-      // If single value: just Gross Sales goal
-      var grossLeadsGoal = sharedGoalParts.length >= 2 ? sharedGoalParts[0] : 0;
-      var grossSalesGoal = sharedGoalParts.length >= 2 ? sharedGoalParts[1] : sharedGoalParts[0] || 0;
 
       for (var pp = 0; pp < products.length; pp++) {
         var ppc = perProdCols[products[pp]] || { prodCol: -1, goalCol: -1 };
         prodVals.push(ppc.prodCol >= 0 ? num(row[ppc.prodCol]) : 0);
-        // Goal assignment: per-product goal column if available, otherwise shared column
+        // Goal assignment: per-product goal column first, then shared "/" column by index
         if (ppc.goalCol >= 0) {
-          goalVals.push(num(row[ppc.goalCol]));
-        } else if (products[pp] === 'Gross Leads') {
-          goalVals.push(grossLeadsGoal);
-        } else if (products[pp] === 'Gross Sales') {
-          goalVals.push(grossSalesGoal);
+          // Per-product goal column (e.g., LeafGuard Gross Leads Goal)
+          var goalCellRaw = displayData && displayData[i] ? String(displayData[i][ppc.goalCol]) : String(row[ppc.goalCol] || '');
+          goalVals.push(num(goalCellRaw));
+        } else if (pp < sharedGoalParts.length) {
+          // Shared "/" separated goal column — assign by product index
+          goalVals.push(sharedGoalParts[pp]);
+        } else if (sharedGoalParts.length === 1) {
+          // Single goal value — assign to first product only
+          goalVals.push(pp === 0 ? sharedGoalParts[0] : 0);
         } else {
           goalVals.push(0);
         }
@@ -5164,13 +5294,25 @@ function mergeHealthRecruiting_(ownerName, healthRows, recruitingRows, campaignK
   for (var i = 0; i < healthRows.length; i++) {
     var key = _normalizeDateKey_(healthRows[i].date);
     if (!dateMap[key]) dateMap[key] = { date: healthRows[i].date };
-    dateMap[key].health = healthRows[i];
+    // Only overwrite health if new row has more data (avoid zero row clobbering real data)
+    var existing = dateMap[key].health;
+    if (!existing || (healthRows[i].active || 0) + (healthRows[i].leaders || 0) >= (existing.active || 0) + (existing.leaders || 0)) {
+      dateMap[key].health = healthRows[i];
+    }
   }
 
   for (var i = 0; i < recruitingRows.length; i++) {
     var key = _normalizeDateKey_(recruitingRows[i].date);
     if (!dateMap[key]) dateMap[key] = { date: recruitingRows[i].date };
-    dateMap[key].recruiting = recruitingRows[i];
+    // Only overwrite recruiting if new row has more data
+    var existingR = dateMap[key].recruiting;
+    if (!existingR) {
+      dateMap[key].recruiting = recruitingRows[i];
+    } else {
+      var newSum = recruitingRows[i].metrics.reduce(function(a, b) { return a + b; }, 0);
+      var oldSum = existingR.metrics.reduce(function(a, b) { return a + b; }, 0);
+      if (newSum > oldSum) dateMap[key].recruiting = recruitingRows[i];
+    }
   }
 
   // Fuzzy date matching (±3 days) — merge nearby entries that split due to timezone/parsing
@@ -5857,5 +5999,63 @@ function TEST_angel_columns() {
     var r = recruitingRows[i];
     var d = r.date;
     Logger.log('Recruit[' + i + '] date=' + d + ' type=' + typeof d + ' isDate=' + (d instanceof Date) + ' key=' + _normalizeDateKey_(d));
+  }
+}
+
+function TEST_rogers_pipeline() {
+  var campaignKey = 'rogers';
+  var ss = SpreadsheetApp.openById(OD_CAMPAIGNS[campaignKey].sheetId);
+  var sheets = ss.getSheets();
+  var tab = null;
+  var skip = ['campaign', 'blank copy', '_ownertabmapping', 'template', 'rogers campaign stats', 'fios campaign stats', 'campaign totals'];
+  for (var i = 0; i < sheets.length; i++) {
+    var tName = sheets[i].getName().toLowerCase().trim();
+    var isSkip = false;
+    for (var s = 0; s < skip.length; s++) {
+      if (tName === skip[s] || tName.indexOf(skip[s]) >= 0) { isSkip = true; break; }
+    }
+    if (!isSkip) { tab = sheets[i]; break; }
+  }
+  if (!tab) { Logger.log('No owner tab found'); return; }
+  Logger.log('Using tab: ' + tab.getName());
+
+  var data = tab.getDataRange().getValues();
+  var displayData = tab.getDataRange().getDisplayValues();
+  var sections = findSections(data);
+  Logger.log('Sections: ' + JSON.stringify(sections));
+
+  // Step 1: Extract health rows WITH campaignKey
+  var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, displayData, campaignKey);
+  Logger.log('Health rows: ' + healthRows.length);
+
+  // Log last 3 health rows — focus on productionRaw and goalsRaw
+  for (var i = Math.max(0, healthRows.length - 3); i < healthRows.length; i++) {
+    var h = healthRows[i];
+    Logger.log('Health[' + i + '] date=' + h.date + ' active=' + h.active + ' leaders=' + h.leaders +
+      ' productionRaw=' + h.productionRaw + ' goalsRaw=' + h.goalsRaw +
+      ' (typeof prod=' + typeof h.productionRaw + ', typeof goals=' + typeof h.goalsRaw + ')');
+  }
+
+  // Step 2: Extract recruiting rows
+  var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End);
+  if (recruitingRows.length === 0 && sections.section2Start >= 0) {
+    recruitingRows = extractRecruitingRows_(data, sections.section2Start, sections.section2End);
+  }
+  Logger.log('Recruiting rows: ' + recruitingRows.length);
+
+  // Step 3: Merge
+  var merged = mergeHealthRecruiting_(tab.getName(), healthRows, recruitingRows, campaignKey);
+  Logger.log('Merged rows: ' + merged.length);
+
+  // Log last 3 merged rows — show all columns
+  var headers = getConsolidatedHeaders_(campaignKey);
+  Logger.log('Headers: ' + JSON.stringify(headers));
+  for (var i = Math.max(0, merged.length - 3); i < merged.length; i++) {
+    var row = merged[i];
+    var parts = [];
+    for (var c = 0; c < Math.min(row.length, headers.length); c++) {
+      parts.push(headers[c] + '=' + row[c]);
+    }
+    Logger.log('Row[' + i + '] ' + parts.join(', '));
   }
 }

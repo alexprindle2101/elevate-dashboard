@@ -1040,14 +1040,14 @@ const NationalApp = {
     // Store campaign product list for rendering
     this.state.campaignProducts = sheetData.products || ['Total'];
 
-    // Campaign table: 4 most recent non-future weeks, left-to-right chronological
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
+    // Campaign table: 4 most recent completed weeks (week date must be before today)
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const pastWeeks = allWeeks.filter(w => {
       const parts = w.tabName.split('/');
       if (parts.length !== 3) return true;
       const d = new Date(+parts[2], +parts[0] - 1, +parts[1]);
-      return d <= today;
+      return d < todayStart;
     });
     const campaignWeeks = pastWeeks.slice(0, 4).reverse();
     const campaignLabels = campaignWeeks.map(w => w.tabName);

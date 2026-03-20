@@ -321,7 +321,7 @@ input, select, textarea { font-family: inherit; }
   background: var(--white);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  overflow: hidden;
+  overflow: visible;
 }
 .mapping-table {
   width: 100%;

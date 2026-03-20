@@ -629,7 +629,8 @@ const NationalApp = {
   // Fuzzy-matches ranking owner names to campaign owner names and sets o.d2dRank
   // Aliases handle cases where Tableau uses a different name than the campaign sheet
   _D2D_RANK_ALIASES: {
-    'wayne rude': 'flloyd (wayne) rude'
+    'wayne rude': 'flloyd (wayne) rude',
+    'tre mitchell': 'lamar (tre) mitchell iii'
   },
 
   _enrichOwnersWithD2DRanking(ranking) {

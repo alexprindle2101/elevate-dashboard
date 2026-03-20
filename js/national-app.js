@@ -1735,11 +1735,12 @@ const NationalApp = {
 
     container.innerHTML = owners.map((o, idx) => {
       const rankCls = o.d2dRank === 1 ? ' rank-gold' : o.d2dRank === 2 ? ' rank-silver' : o.d2dRank === 3 ? ' rank-bronze' : '';
+      const cardCls = o.d2dRank <= 3 ? rankCls : '';
       const rankBadge = o.d2dRank
         ? `<span class="owner-rank-badge${rankCls}" title="#${o.d2dRank} — ${o.d2dTotalUnits || 0} units LW">#${o.d2dRank}</span>`
         : '';
       return `
-        <div class="owner-card" onclick="NationalApp.openOwnerDetail(${idx})">
+        <div class="owner-card${cardCls}" onclick="NationalApp.openOwnerDetail(${idx})">
           ${rankBadge}
           <span class="owner-card-name">${this._esc(o.name)}</span>
           <span class="owner-card-arrow">→</span>

@@ -5267,6 +5267,22 @@ function consolidateCampaign_(campaignKey, campaign, destSS) {
       var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End);
       Logger.log('consolidateCampaign_ ' + ownerName + ': s2Start=' + sections.section2Start + ', recruitingRows=' + recruitingRows.length + ', healthRows=' + healthRows.length);
 
+      // All campaigns except LeafGuard have source dates offset by -7 days.
+      // Shift dates forward by 7 days at extraction time so consolidated data has correct dates.
+      if (campaignKey !== 'leafguard') {
+        var offset = 7 * 86400000;
+        for (var hi = 0; hi < healthRows.length; hi++) {
+          if (healthRows[hi].date instanceof Date) {
+            healthRows[hi].date = new Date(healthRows[hi].date.getTime() + offset);
+          }
+        }
+        for (var ri = 0; ri < recruitingRows.length; ri++) {
+          if (recruitingRows[ri].date instanceof Date) {
+            recruitingRows[ri].date = new Date(recruitingRows[ri].date.getTime() + offset);
+          }
+        }
+      }
+
       // Merge by date → flat output rows (campaign-aware product splitting)
       var merged = mergeHealthRecruiting_(ownerName, healthRows, recruitingRows, campaignKey);
 
@@ -5949,19 +5965,13 @@ function readConsolidatedRecruiting(weekCount, campaignFilter) {
       var owner = String(row[colOwner] || '').trim();
       if (!dateVal || !owner) continue;
 
-      // All campaigns except LeafGuard count weeks offset by -7 days in the source sheet.
-      // Shift display date forward by 7 days so e.g. 3/8 shows as 3/15.
-      var displayDate = (dateVal instanceof Date) ? new Date(dateVal.getTime()) : _parseTabDate(String(dateVal));
-      if (key !== 'leafguard' && displayDate) {
-        displayDate = new Date(displayDate.getTime() + 7 * 86400000);
-      }
-      var dateKey = formatDate(displayDate || dateVal);
+      var dateKey = formatDate(dateVal);
       ownerSet[owner] = true;
 
       if (!weekMap[dateKey]) {
         weekMap[dateKey] = {
           tabName: dateKey,
-          date: displayDate || ((dateVal instanceof Date) ? dateVal : _parseTabDate(String(dateVal))),
+          date: (dateVal instanceof Date) ? dateVal : _parseTabDate(String(dateVal)),
           data: {}
         };
       }

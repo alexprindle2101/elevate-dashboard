@@ -917,13 +917,18 @@ const OwnerDev = {
       this.renderTeam();
     }
     if (tab === 'coach') {
-      // Lazy-init the NationalApp coach view on first open
       if (typeof NationalApp !== 'undefined') {
-        NationalApp.initCoachView({
-          email: this.state.session.email,
-          name: this.state.session.name,
-          campaign: (this.state.activeCampaign && this.state.activeCampaign !== 'all') ? this.state.activeCampaign : null
-        });
+        if (NationalApp._coachInitDone) {
+          // Already initialized — go back to landing page
+          NationalApp.backToLanding();
+        } else {
+          // First open — lazy-init
+          NationalApp.initCoachView({
+            email: this.state.session.email,
+            name: this.state.session.name,
+            campaign: (this.state.activeCampaign && this.state.activeCampaign !== 'all') ? this.state.activeCampaign : null
+          });
+        }
       }
     }
     if (tab === 'planning') {

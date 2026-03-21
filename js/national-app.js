@@ -4050,21 +4050,17 @@ const NationalApp = {
         svg += `<path d="${roundTop(gx, baseY - shH, barW, shH, BAR_R)}" fill="${barColor}" opacity="0.88"/>`;
       }
 
-      // Booked count in ghost gap area (between showed top and booked top)
-      const gapH = bkH - shH;
-      if (bk > 0 && gapH > 12) {
-        const gapMidY = baseY - shH - gapH / 2 + 3;
-        const _bkShadow = _isLight(barColor) ? ' filter="url(#txtShadow)"' : '';
-        svg += `<text x="${cx}" y="${gapMidY}" text-anchor="middle" fill="${barColor}" font-size="8" font-weight="700" font-family="Inter,sans-serif" opacity="0.55"${_bkShadow}>${bk}</text>`;
-      } else if (bk > 0 && bk === sh && shH > 28) {
-        svg += `<text x="${cx}" y="${baseY - shH + 10}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="7" font-weight="600" font-family="Inter,sans-serif">${bk}</text>`;
-      }
-
       // Showed count inside solid bar (if tall enough)
       if (sh > 0 && shH > 14) {
         const _shadow = _isLight(barColor) ? ' filter="url(#txtShadow)"' : '';
         svg += `<text x="${cx}" y="${baseY - shH / 2 + 4}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Inter,sans-serif"${_shadow}>${sh}</text>`;
       }
+
+      // Hover target over entire bar area (shows booked/showed/retention on hover)
+      const hoverTop = Math.min(bkH > 0 ? baseY - bkH : baseY, shH > 0 ? baseY - shH : baseY) - 16;
+      const hoverH = baseY - hoverTop;
+      const ttText = `Booked: ${bk} | Showed: ${sh}${pct !== null ? ' | Retention: ' + pct + '%' : ''}`;
+      svg += `<rect x="${gx}" y="${hoverTop}" width="${barW}" height="${hoverH}" fill="transparent" style="cursor:pointer"><title>${ttText}</title></rect>`;
 
       // Retention % pill above bar
       if (pct !== null) {

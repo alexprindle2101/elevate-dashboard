@@ -4085,6 +4085,15 @@ const NationalApp = {
   renderSalesTab(owner) {
     // Sales data comes from Tableau — no Non-Partner gate needed here
 
+    // Show loading if sales data is still being fetched
+    if (owner._ndsSalesFetching || owner._resSalesFetching) {
+      const summaryEl = document.getElementById('sales-summary');
+      const repsEl = document.getElementById('sales-reps-table');
+      if (summaryEl) summaryEl.innerHTML = '<div class="coaching-section" style="text-align:center;padding:40px;"><div class="loading-spinner"></div><div style="margin-top:12px;font-size:13px;color:#708090;">Loading sales data...</div></div>';
+      if (repsEl) repsEl.innerHTML = '';
+      return;
+    }
+
     const s = owner.sales;
     const sm = s.summary;
     const isNDS = this.state.campaign && (this.state.campaign.indexOf('nds') >= 0 || this.state.campaign.indexOf('NDS') >= 0);

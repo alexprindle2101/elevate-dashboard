@@ -275,7 +275,7 @@ function doPost(e) {
         break;
       case 'updateHeadcount':
         result = updateHeadcountRow(body.ownerName, body.date,
-                   body.active, body.leaders, body.dist, body.training);
+                   body.active, body.leaders, body.dist, body.training, body.campaignLabel);
         break;
       case 'updateProduction':
         result = updateProductionRow(body.ownerName, body.date,
@@ -2664,8 +2664,8 @@ function readOwnerNlrData(ownerName, campaignFilter) {
 // Finds row by Owner (col A) + Date (col B), updates cols C-F
 // ══════════════════════════════════════════════════
 
-function updateHeadcountRow(ownerName, date, active, leaders, dist, training) {
-  if (!ownerName || !date) return { error: 'ownerName and date are required' };
+function updateHeadcountRow(ownerName, date, active, leaders, dist, training, campaignLabel) {
+  if (!ownerName) return { error: 'ownerName is required' };
 
   var ss;
   try {
@@ -2674,6 +2674,51 @@ function updateHeadcountRow(ownerName, date, active, leaders, dist, training) {
     return { error: 'Cannot open national sheet: ' + err.message };
   }
 
+  // Write to consolidated campaign tab (e.g. "Frontier", "AT&T NDS/Verizon")
+  if (campaignLabel) {
+    var sheet = ss.getSheetByName(campaignLabel);
+    if (!sheet) return { error: 'Tab "' + campaignLabel + '" not found' };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0].map(function(h) { return String(h).trim(); });
+    var colMap = {};
+    for (var c = 0; c < headers.length; c++) colMap[headers[c]] = c;
+
+    var colWeek = colMap['Week'];
+    var colOwner = colMap['Owner'];
+    var colActive = colMap['Active HC'];
+    var colLeaders = colMap['Leaders'];
+    var colDist = colMap['Dist'];
+    var colTraining = colMap['Training'];
+
+    if (colOwner === undefined) return { error: 'Owner column not found in "' + campaignLabel + '"' };
+
+    // Find the most recent row for this owner (data is sorted date-descending)
+    var targetRow = -1;
+    var targetDate = '';
+    for (var i = 1; i < data.length; i++) {
+      var rowOwner = String(data[i][colOwner] || '').trim();
+      if (rowOwner.toLowerCase() === ownerName.toLowerCase()) {
+        targetRow = i + 1; // 1-based
+        targetDate = data[i][colWeek];
+        break; // first match = most recent (sorted desc)
+      }
+    }
+
+    if (targetRow === -1) {
+      return { error: 'No row found for owner "' + ownerName + '" in "' + campaignLabel + '"' };
+    }
+
+    // Update headcount columns
+    if (colActive !== undefined) sheet.getRange(targetRow, colActive + 1).setValue(parseInt(active) || 0);
+    if (colLeaders !== undefined) sheet.getRange(targetRow, colLeaders + 1).setValue(parseInt(leaders) || 0);
+    if (colDist !== undefined) sheet.getRange(targetRow, colDist + 1).setValue(parseInt(dist) || 0);
+    if (colTraining !== undefined) sheet.getRange(targetRow, colTraining + 1).setValue(parseInt(training) || 0);
+
+    return { ok: true, row: targetRow, owner: ownerName, date: formatDate(targetDate), tab: campaignLabel };
+  }
+
+  // Legacy fallback: _B2B_Headcount tab
   var sheet = ss.getSheetByName('_B2B_Headcount');
   if (!sheet) return { error: '_B2B_Headcount tab not found' };
 
@@ -2685,7 +2730,7 @@ function updateHeadcountRow(ownerName, date, active, leaders, dist, training) {
     var rowOwner = String(data[i][0] || '').trim();
     var rowDate  = _normalizeDate(data[i][1]);
     if (rowOwner === ownerName && rowDate === normDate) {
-      targetRow = i + 1; // 1-based sheet row
+      targetRow = i + 1;
       break;
     }
   }
@@ -2694,7 +2739,6 @@ function updateHeadcountRow(ownerName, date, active, leaders, dist, training) {
     return { error: 'Row not found for owner "' + ownerName + '" date "' + normDate + '"' };
   }
 
-  // Update columns C-F (Active, Leaders, Dist, Training) — 1-based cols 3-6
   sheet.getRange(targetRow, 3, 1, 4).setValues([
     [parseInt(active) || 0, parseInt(leaders) || 0, parseInt(dist) || 0, parseInt(training) || 0]
   ]);
@@ -6110,6 +6154,7 @@ function setupWeekdayRefreshTrigger(days) {
 
 /**
  * Trigger handler that checks if today is an allowed refresh day.
+ * @deprecated — replaced by scheduledPlanningRefresh_
  */
 function scheduledRefreshCampaigns_() {
   var daysJson = PropertiesService.getScriptProperties().getProperty('REFRESH_DAYS');
@@ -6123,6 +6168,312 @@ function scheduledRefreshCampaigns_() {
     }
   }
   refreshAllCampaigns();
+}
+
+// ═══════════════════════════════════════════════════════
+// PLANNING-BASED AUTO-REFRESH (replaces manual refresh)
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Setup the daily 1 AM trigger based on _OD_Planning schedule.
+ * Run once from Apps Script editor to install.
+ * Removes old triggers for refreshAllCampaigns / scheduledRefreshCampaigns_.
+ */
+function setupPlanningRefreshTrigger() {
+  // Remove old triggers
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    var handler = triggers[i].getHandlerFunction();
+    if (handler === 'refreshAllCampaigns' || handler === 'scheduledRefreshCampaigns_' || handler === 'scheduledPlanningRefresh_') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+
+  ScriptApp.newTrigger('scheduledPlanningRefresh_')
+    .timeBased()
+    .everyDays(1)
+    .atHour(1)
+    .nearMinute(0)
+    .create();
+
+  Logger.log('Planning refresh trigger installed: scheduledPlanningRefresh_ at 1 AM daily');
+  return { ok: true, message: 'Trigger set: scheduledPlanningRefresh_ runs daily at 1 AM' };
+}
+
+/**
+ * Daily 1 AM trigger handler.
+ * Reads _OD_Planning to find which campaigns are scheduled for today,
+ * then runs consolidateCampaignSlim_ for each.
+ */
+function scheduledPlanningRefresh_() {
+  var jsDay = new Date().getDay();
+  var todayIdx = (jsDay + 6) % 7; // Mon=0, Sun=6
+
+  var planningResult = odGetPlanning();
+  var planning = (planningResult && planningResult.planning) || [];
+  var todayCampaigns = [];
+  for (var i = 0; i < planning.length; i++) {
+    if (planning[i].day === todayIdx) todayCampaigns.push(planning[i]);
+  }
+
+  if (!todayCampaigns.length) {
+    Logger.log('scheduledPlanningRefresh_: no campaigns scheduled for today (dayIdx=' + todayIdx + ')');
+    return;
+  }
+
+  Logger.log('scheduledPlanningRefresh_: refreshing ' + todayCampaigns.length + ' campaigns for dayIdx=' + todayIdx);
+
+  var destSS;
+  try {
+    destSS = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    Logger.log('scheduledPlanningRefresh_: cannot open national sheet: ' + err.message);
+    return;
+  }
+
+  for (var i = 0; i < todayCampaigns.length; i++) {
+    var key = todayCampaigns[i].campaignKey;
+    var campaign = OD_CAMPAIGNS[key];
+    if (!campaign || !campaign.sheetId) {
+      Logger.log('scheduledPlanningRefresh_: skipping unknown/unconfigured campaign: ' + key);
+      continue;
+    }
+    try {
+      var count = consolidateCampaignSlim_(key, campaign, destSS);
+      Logger.log('scheduledPlanningRefresh_: ' + key + ' → ' + count + ' rows');
+    } catch (err) {
+      Logger.log('scheduledPlanningRefresh_: ERROR for ' + key + ': ' + err.message + '\n' + err.stack);
+    }
+  }
+}
+
+/**
+ * Slim consolidation: production + recruiting only (3 week lookback).
+ * Headcount columns are 0 unless previously manually entered (preserved).
+ * Goal columns are always 0.
+ */
+function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
+  Logger.log('consolidateCampaignSlim_ START: key=' + campaignKey);
+  var srcSS = SpreadsheetApp.openById(campaign.sheetId);
+  var allTabs = srcSS.getSheets();
+
+  // Get owner names
+  var ownerNames = getOwnerNamesForCampaign_(campaign, srcSS);
+  Logger.log('consolidateCampaignSlim_ owners (' + ownerNames.length + '): ' + ownerNames.join(', '));
+
+  // Load saved tab mappings
+  var savedTabMap = {};
+  try {
+    var mapTab = destSS.getSheetByName('_Campaign_Tab_Map');
+    if (mapTab) {
+      var mapData = mapTab.getDataRange().getValues();
+      for (var m = 1; m < mapData.length; m++) {
+        var mapCampaign = String(mapData[m][0] || '').trim().toLowerCase();
+        var mapOwner    = String(mapData[m][1] || '').trim().toLowerCase();
+        var mapTabName  = String(mapData[m][2] || '').trim();
+        if (mapCampaign === campaignKey.toLowerCase() && mapOwner && mapTabName) {
+          savedTabMap[mapOwner] = mapTabName;
+        }
+      }
+    }
+  } catch (e) { Logger.log('consolidateCampaignSlim_: tab map load error: ' + e.message); }
+
+  // Build tab lookup
+  var tabByName = {};
+  var allTabNames = [];
+  for (var t = 0; t < allTabs.length; t++) {
+    var tn = allTabs[t].getName().trim();
+    if (tn) tabByName[tn.toLowerCase()] = allTabs[t];
+    if (tn && SKIP_TABS_.indexOf(tn.toLowerCase()) < 0) allTabNames.push(tn);
+  }
+
+  // ── Read existing headcount from destination tab (to preserve manual entries) ──
+  var existingHC = {}; // 'ownerLower|dateKey' → { active, leaders, dist, training, closers, leadGen }
+  var destTab = destSS.getSheetByName(campaign.label);
+  var campaignHeaders = getConsolidatedHeaders_(campaignKey);
+  if (destTab) {
+    var existingData = destTab.getDataRange().getValues();
+    if (existingData.length > 1) {
+      var exHeaders = existingData[0].map(function(h) { return String(h).trim(); });
+      var exColMap = {};
+      for (var c = 0; c < exHeaders.length; c++) exColMap[exHeaders[c]] = c;
+
+      for (var ei = 1; ei < existingData.length; ei++) {
+        var exOwner = String(existingData[ei][exColMap['Owner']] || '').trim().toLowerCase();
+        var exDate = existingData[ei][exColMap['Week']];
+        if (!exOwner || !exDate) continue;
+        var exDateKey = _normalizeDateKey_(exDate instanceof Date ? exDate : _parseTabDate(String(exDate)));
+
+        // Check if any headcount value is non-zero (manually entered)
+        var exActive = parseInt(existingData[ei][exColMap['Active HC']]) || 0;
+        var exLeaders = parseInt(existingData[ei][exColMap['Leaders']]) || 0;
+        var exDist = parseInt(existingData[ei][exColMap['Dist']]) || 0;
+        var exTraining = parseInt(existingData[ei][exColMap['Training']]) || 0;
+        var exClosers = exColMap['Closers'] !== undefined ? (parseInt(existingData[ei][exColMap['Closers']]) || 0) : 0;
+        var exLeadGen = exColMap['Lead Gen'] !== undefined ? (parseInt(existingData[ei][exColMap['Lead Gen']]) || 0) : 0;
+
+        if (exActive || exLeaders || exDist || exTraining || exClosers || exLeadGen) {
+          existingHC[exOwner + '|' + exDateKey] = {
+            active: exActive, leaders: exLeaders, dist: exDist, training: exTraining,
+            closers: exClosers, leadGen: exLeadGen
+          };
+        }
+      }
+    }
+    Logger.log('consolidateCampaignSlim_ preserved ' + Object.keys(existingHC).length + ' headcount entries');
+  }
+
+  var products = CAMPAIGN_PRODUCTS[campaignKey] || ['Total'];
+  var extraHC = CAMPAIGN_EXTRA_HC[campaignKey] || [];
+  var rows = [];
+
+  for (var oi = 0; oi < ownerNames.length; oi++) {
+    var ownerName = ownerNames[oi];
+    var ownerLower = ownerName.toLowerCase();
+
+    // Find tab (same logic as consolidateCampaign_)
+    var targetTabName = savedTabMap[ownerLower] || null;
+    var tab = null;
+    if (targetTabName) {
+      if (targetTabName.toLowerCase() !== 'non-partner') {
+        tab = tabByName[targetTabName.toLowerCase()] || null;
+      }
+    }
+    if (!tab && !targetTabName) {
+      tab = tabByName[ownerLower] || null;
+      if (!tab) tab = _fuzzyFindTab_(ownerName, allTabNames, tabByName);
+    }
+
+    if (!tab) {
+      // No tab — still include owner with empty row
+      var emptyRow = [new Date(), ownerName];
+      for (var ei2 = 2; ei2 < campaignHeaders.length; ei2++) emptyRow.push(0);
+      rows.push(emptyRow);
+      continue;
+    }
+
+    try {
+      var range = tab.getDataRange();
+      var data = range.getValues();
+      var displayData = range.getDisplayValues();
+      if (!data || data.length < 2) continue;
+
+      var sections = findSections(data);
+
+      // Extract health (for production only) and recruiting
+      var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, displayData, campaignKey);
+      var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End);
+
+      // +7 day offset for non-LeafGuard
+      if (campaignKey !== 'leafguard') {
+        var offset = 7 * 86400000;
+        for (var hi = 0; hi < healthRows.length; hi++) {
+          if (healthRows[hi].date instanceof Date) healthRows[hi].date = new Date(healthRows[hi].date.getTime() + offset);
+        }
+        for (var ri = 0; ri < recruitingRows.length; ri++) {
+          if (recruitingRows[ri].date instanceof Date) recruitingRows[ri].date = new Date(recruitingRows[ri].date.getTime() + offset);
+        }
+      }
+
+      // Merge health + recruiting by date
+      var merged = mergeHealthRecruiting_(ownerName, healthRows, recruitingRows, campaignKey);
+
+      // Sort by date descending and limit to 3 most recent weeks
+      merged.sort(function(a, b) {
+        var da = (a[0] instanceof Date) ? a[0].getTime() : 0;
+        var db = (b[0] instanceof Date) ? b[0].getTime() : 0;
+        return db - da;
+      });
+      if (merged.length > 3) merged = merged.slice(0, 3);
+
+      // Zero out headcount + goals, but preserve existing manual entries
+      for (var r = 0; r < merged.length; r++) {
+        var row = merged[r];
+        var rowDateKey = _normalizeDateKey_(row[0]);
+        var hcKey = ownerLower + '|' + rowDateKey;
+        var preserved = existingHC[hcKey];
+
+        // Headcount: use preserved values or 0
+        row[2] = preserved ? preserved.active : 0;   // Active HC
+        row[3] = preserved ? preserved.leaders : 0;   // Leaders
+        row[4] = preserved ? preserved.dist : 0;      // Dist
+        row[5] = preserved ? preserved.training : 0;  // Training
+
+        // Extra HC columns (Closers, Lead Gen for LeafGuard)
+        var extraStart = 6;
+        for (var exi = 0; exi < extraHC.length; exi++) {
+          var exName = extraHC[exi].toLowerCase().replace(/\s+/g, '');
+          if (exName === 'closers') row[extraStart + exi] = preserved ? preserved.closers : 0;
+          else if (exName === 'leadgen') row[extraStart + exi] = preserved ? preserved.leadGen : 0;
+          else row[extraStart + exi] = 0;
+        }
+
+        // Zero out Goal columns (odd indices in the prod/goal section)
+        var prodStart = 6 + extraHC.length;
+        for (var pi = 0; pi < products.length; pi++) {
+          // row[prodStart + pi*2] = production value (keep)
+          row[prodStart + pi * 2 + 1] = 0; // goal → 0
+        }
+
+        rows.push(row);
+      }
+    } catch (err) {
+      Logger.log('consolidateCampaignSlim_ tab error (' + campaignKey + '/' + ownerName + '): ' + err.message);
+    }
+  }
+
+  // Also preserve headcount entries for dates NOT in the new 3-week window
+  // (older weeks where coach already entered data)
+  var newDateOwnerKeys = {};
+  for (var ri2 = 0; ri2 < rows.length; ri2++) {
+    var rOwner = String(rows[ri2][1] || '').trim().toLowerCase();
+    var rDate = _normalizeDateKey_(rows[ri2][0]);
+    newDateOwnerKeys[rOwner + '|' + rDate] = true;
+  }
+  for (var hcKey2 in existingHC) {
+    if (newDateOwnerKeys[hcKey2]) continue; // already covered
+    // Rebuild a row from the old data
+    var parts = hcKey2.split('|');
+    var hcOwner = parts[0];
+    var hcDateParts = parts[1].split('/');
+    var hcDate = new Date(Number(hcDateParts[2]), Number(hcDateParts[0]) - 1, Number(hcDateParts[1]), 12, 0, 0);
+    // Find the original owner name (proper casing)
+    var hcOwnerName = hcOwner;
+    for (var oni = 0; oni < ownerNames.length; oni++) {
+      if (ownerNames[oni].toLowerCase() === hcOwner) { hcOwnerName = ownerNames[oni]; break; }
+    }
+    var hcEntry = existingHC[hcKey2];
+    var preservedRow = [hcDate, hcOwnerName, hcEntry.active, hcEntry.leaders, hcEntry.dist, hcEntry.training];
+    for (var exi2 = 0; exi2 < extraHC.length; exi2++) {
+      var exn = extraHC[exi2].toLowerCase().replace(/\s+/g, '');
+      if (exn === 'closers') preservedRow.push(hcEntry.closers || 0);
+      else if (exn === 'leadgen') preservedRow.push(hcEntry.leadGen || 0);
+      else preservedRow.push(0);
+    }
+    // Zero production + goals + recruiting for these older rows
+    for (var pi2 = 0; pi2 < products.length; pi2++) {
+      preservedRow.push(0); preservedRow.push(0); // prod, goal
+    }
+    for (var rci = 0; rci < 12; rci++) preservedRow.push(0); // recruiting
+    rows.push(preservedRow);
+  }
+
+  // Write to destination tab
+  if (!destTab) destTab = destSS.insertSheet(campaign.label);
+  destTab.clear();
+  destTab.getRange(1, 1, 1, campaignHeaders.length).setValues([campaignHeaders]);
+
+  if (rows.length > 0) {
+    rows.sort(function(a, b) {
+      var dateA = (a[0] instanceof Date) ? a[0].getTime() : new Date(a[0]).getTime() || 0;
+      var dateB = (b[0] instanceof Date) ? b[0].getTime() : new Date(b[0]).getTime() || 0;
+      if (dateA !== dateB) return dateB - dateA;
+      return String(a[1]).localeCompare(String(b[1]));
+    });
+    destTab.getRange(2, 1, rows.length, campaignHeaders.length).setValues(rows);
+  }
+
+  return rows.length;
 }
 
 // ══════════════════════════════════════════════════

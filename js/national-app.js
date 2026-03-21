@@ -1515,9 +1515,9 @@ const NationalApp = {
           <div class="campaign-card-label">${this._esc(label)}</div>
           ${variantHtml}
           ${ownerCount ? `<div class="campaign-card-owners">${ownerCount} owner${ownerCount !== 1 ? 's' : ''}</div>` : ''}
-          <button class="campaign-card-refresh" data-campaign="${key}"
+          ${this._isSuperadmin() ? `<button class="campaign-card-refresh" data-campaign="${key}"
             onclick="event.stopPropagation(); NationalApp.refreshSingleFromLanding('${key}', this)"
-            title="Refresh ${this._esc(label)} only">&#x21bb;</button>
+            title="Refresh ${this._esc(label)} only">&#x21bb;</button>` : ''}
         </div>`;
     }).join('');
 
@@ -1535,6 +1535,13 @@ const NationalApp = {
     document.querySelector('.campaign-overview').style.display = 'none';
     document.querySelector('.owners-section').style.display = 'none';
     document.getElementById('owner-detail').style.display = 'none';
+
+    // Hide refresh buttons for non-superadmins
+    const isSA = this._isSuperadmin();
+    const refreshAll = document.getElementById('btn-refresh-all');
+    if (refreshAll) refreshAll.style.display = isSA ? '' : 'none';
+    const refreshStatus = document.getElementById('landing-refresh-status');
+    if (refreshStatus) refreshStatus.style.display = isSA ? '' : 'none';
   },
 
   _COACH_CACHE_MAX_AGE: 15 * 60 * 1000, // 15 min per-campaign cache
@@ -1922,6 +1929,15 @@ const NationalApp = {
         <div class="kpi-value">${t.production?.toLocaleString() || '—'}</div>
         <div class="kpi-breakdown">${prodItems || '<div class="kpi-bd-empty">No breakdown</div>'}</div>
       </div>`;
+
+    // Hide campaign-level refresh for non-superadmins
+    const isSA = this._isSuperadmin();
+    const refreshBtn = document.getElementById('btn-import-recruiting');
+    if (refreshBtn) refreshBtn.style.display = isSA ? '' : 'none';
+    const importWeeks = document.getElementById('import-weeks');
+    if (importWeeks) importWeeks.style.display = isSA ? '' : 'none';
+    const importStatus = document.getElementById('import-status');
+    if (importStatus) importStatus.style.display = isSA ? '' : 'none';
   },
 
   // ══════════════════════════════════════════════════
@@ -2666,6 +2682,9 @@ const NationalApp = {
   async _saveHcRow(owner, entry) {
     const sheetName = owner._sheetName || owner.tab || owner.name;
     const dist = Math.max((entry.active || 0) - (entry.leaders || 0), 0);
+    // Get campaign label for writing to the consolidated tab
+    const campaignCfg = NATIONAL_CONFIG.campaigns[this.state.campaign];
+    const campaignLabel = campaignCfg?.label || '';
     try {
       const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
         method: 'POST',
@@ -2673,17 +2692,18 @@ const NationalApp = {
         body: JSON.stringify({
           key: NATIONAL_CONFIG.apiKey,
           action: 'updateHeadcount',
-          ownerName: sheetName,
+          ownerName: owner.name,
           date: entry.date,
           active: entry.active || 0,
           leaders: entry.leaders || 0,
           dist: dist,
-          training: entry.training || 0
+          training: entry.training || 0,
+          campaignLabel: campaignLabel
         })
       });
       const result = await resp.json();
       if (result.error) console.warn('[HC Save] Error:', result.error);
-      else console.log('[HC Save] Saved', sheetName, entry.date);
+      else console.log('[HC Save] Saved', owner.name, entry.date, '→', campaignLabel);
     } catch (err) {
       console.warn('[HC Save] Network error:', err.message);
     }
@@ -4967,6 +4987,10 @@ const NationalApp = {
   // ══════════════════════════════════════════════════
   // HELPERS
   // ══════════════════════════════════════════════════
+
+  _isSuperadmin() {
+    return typeof OwnerDev !== 'undefined' && OwnerDev.state && OwnerDev.state.isSuperadmin;
+  },
 
   _esc(s) {
     const d = document.createElement('div');

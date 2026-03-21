@@ -6397,6 +6397,28 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
       });
       if (merged.length > 3) merged = merged.slice(0, 3);
 
+      // Guarantee a row exists for the current week so coaches can always enter headcount
+      var now = new Date();
+      var currentWeekDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // Adjust to Monday of this week
+      var dayOfWeek = (currentWeekDate.getDay() + 6) % 7; // Mon=0
+      currentWeekDate.setDate(currentWeekDate.getDate() - dayOfWeek);
+      var currentWeekKey = _normalizeDateKey_(currentWeekDate);
+      var hasCurrentWeek = merged.some(function(m) { return _normalizeDateKey_(m[0]) === currentWeekKey; });
+      if (!hasCurrentWeek) {
+        // Build a blank row for this week
+        var blankRow = [currentWeekDate, ownerName];
+        for (var bi = 2; bi < campaignHeaders.length; bi++) blankRow.push(0);
+        // Restore preserved headcount if any
+        var blankHcKey = ownerLower + '|' + currentWeekKey;
+        if (existingHC[blankHcKey]) {
+          var bp = existingHC[blankHcKey];
+          blankRow[2] = bp.active; blankRow[3] = bp.leaders; blankRow[4] = bp.dist; blankRow[5] = bp.training;
+        }
+        merged.unshift(blankRow); // newest first
+        if (merged.length > 3) merged = merged.slice(0, 3);
+      }
+
       // Zero out headcount + goals, but preserve existing manual entries
       for (var r = 0; r < merged.length; r++) {
         var row = merged[r];

@@ -286,6 +286,9 @@ function doPost(e) {
         result = updateProductionRow(body.ownerName, body.date,
                    body.internet, body.wireless, body.dtv, body.goals);
         break;
+      case 'saveGoals':
+        result = saveGoalsRow_(body.ownerName, body.campaignLabel, body.campaignKey, body.goals);
+        break;
       case 'odCheckUser':
         result = odCheckUser(body.email || '');
         break;
@@ -2761,6 +2764,82 @@ function updateHeadcountRow(ownerName, date, active, leaders, dist, training, ca
 // UPDATE PRODUCTION ROW in _B2B_Headcount tab
 // Finds row by Owner (col A) + Date (col B), updates cols G-J (Internet, Wireless, DTV, Goals)
 // ══════════════════════════════════════════════════
+
+/**
+ * Save goals for next week into the consolidated campaign tab.
+ * Finds or creates a row for next week's Monday with the owner name,
+ * then writes goal values into the Goal: <Product> columns.
+ * @param {string} ownerName
+ * @param {string} campaignLabel - e.g. "Frontier", "AT&T NDS/Verizon"
+ * @param {string} campaignKey - e.g. "frontier", "att-nds"
+ * @param {Object} goals - { productName: goalValue, ... }
+ */
+function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
+  if (!ownerName || !campaignLabel || !goals) return { error: 'Missing required params' };
+
+  var ss;
+  try { ss = SpreadsheetApp.openById(SHEETS.NATIONAL); }
+  catch (e) { return { error: 'Cannot open sheet: ' + e.message }; }
+
+  var sheet = ss.getSheetByName(campaignLabel);
+  if (!sheet) return { error: 'Tab "' + campaignLabel + '" not found' };
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+  var colMap = {};
+  for (var c = 0; c < headers.length; c++) colMap[headers[c]] = c;
+
+  var colWeek = colMap['Week'];
+  var colOwner = colMap['Owner'];
+  if (colOwner === undefined) return { error: 'Owner column not found' };
+
+  // Calculate next week's Monday
+  var now = new Date();
+  var dayOfWeek = (now.getDay() + 6) % 7; // Mon=0
+  var nextMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (7 - dayOfWeek));
+  var nextMondayKey = _normalizeDateKey_(nextMonday);
+
+  // Find existing row for this owner + next week
+  var targetRow = -1;
+  for (var i = 1; i < data.length; i++) {
+    var rowOwner = String(data[i][colOwner] || '').trim().toLowerCase();
+    if (rowOwner !== ownerName.toLowerCase()) continue;
+    var rowDate = data[i][colWeek];
+    var rowKey = _normalizeDateKey_(rowDate instanceof Date ? rowDate : _parseTabDate(String(rowDate)));
+    if (rowKey === nextMondayKey) {
+      targetRow = i + 1; // 1-based
+      break;
+    }
+  }
+
+  // If no row exists for next week, create one
+  if (targetRow === -1) {
+    var campaignHeaders2 = getConsolidatedHeaders_(campaignKey);
+    var newRow = [];
+    for (var h2 = 0; h2 < campaignHeaders2.length; h2++) newRow.push(0);
+    newRow[colWeek] = nextMonday;
+    newRow[colOwner] = ownerName;
+    sheet.appendRow(newRow);
+    targetRow = sheet.getLastRow();
+    // Re-read headers in case of column shifts
+    data = sheet.getDataRange().getValues();
+    headers = data[0].map(function(h) { return String(h).trim(); });
+    colMap = {};
+    for (var c2 = 0; c2 < headers.length; c2++) colMap[headers[c2]] = c2;
+  }
+
+  // Write goals into Goal: <product> columns
+  var written = [];
+  for (var product in goals) {
+    var goalCol = colMap['Goal: ' + product];
+    if (goalCol !== undefined) {
+      sheet.getRange(targetRow, goalCol + 1).setValue(parseInt(goals[product]) || 0);
+      written.push(product);
+    }
+  }
+
+  return { ok: true, row: targetRow, owner: ownerName, date: formatDate(nextMonday), written: written };
+}
 
 function updateProductionRow(ownerName, date, internet, wireless, dtv, goals) {
   if (!ownerName || !date) return { error: 'ownerName and date are required' };

@@ -3513,26 +3513,70 @@ const NationalApp = {
     owner.nextGoals[field] = parseInt(value) || 0;
   },
 
-  // ── Submit goals ──
-  _submitGoals(ownerIdx) {
+  // ── Submit goals — writes to consolidated tab for next week ──
+  async _submitGoals(ownerIdx) {
     const owner = this.state.owners[ownerIdx];
     if (!owner) return;
+    const cfg = NATIONAL_CONFIG.campaigns[this.state.campaign];
+    if (!cfg) return;
 
-    const total = parseInt(document.getElementById('goal-total-' + ownerIdx)?.value) || 0;
-    const wirelessEl = document.getElementById('goal-wireless-' + ownerIdx);
-    const wireless = wirelessEl ? (parseInt(wirelessEl.value) || 0) : 0;
+    // Collect goal values from all per-product inputs
+    const prod = owner.production || {};
+    const productNames = Object.keys(prod.products || {});
+    const goals = {};
+    let anyGoal = false;
 
-    if (!total && !wireless) return;
+    if (productNames.length > 0) {
+      for (const pName of productNames) {
+        const inputId = 'goal-' + pName.toLowerCase().replace(/\s+/g, '-') + '-' + ownerIdx;
+        const el = document.getElementById(inputId);
+        if (el && el.value) {
+          goals[pName] = parseInt(el.value) || 0;
+          if (goals[pName]) anyGoal = true;
+        }
+      }
+    } else {
+      const totalEl = document.getElementById('goal-total-' + ownerIdx);
+      if (totalEl && totalEl.value) {
+        goals['Total'] = parseInt(totalEl.value) || 0;
+        if (goals['Total']) anyGoal = true;
+      }
+    }
 
-    owner.nextGoals.totalUnits = total;
-    owner.nextGoals.wirelessUnits = wireless;
+    if (!anyGoal) return;
 
     const note = document.getElementById('goal-submit-note-' + ownerIdx);
-    if (note) {
-      note.textContent = 'Goals saved ✓';
-      note.classList.add('show');
-      setTimeout(() => note.classList.remove('show'), 3000);
+    const btn = document.querySelector(`#health-goals .hc-submit-btn`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'saveGoals',
+          ownerName: owner._sheetName || owner.tab || owner.name,
+          campaignLabel: cfg.label,
+          campaignKey: this.state.campaign,
+          goals: goals
+        })
+      });
+      const result = await resp.json();
+      if (result.error) {
+        console.warn('[Goals] Error:', result.error);
+        if (note) { note.textContent = 'Error: ' + result.error; note.classList.add('show'); }
+      } else {
+        console.log('[Goals] Saved:', result);
+        if (note) { note.textContent = 'Goals saved for ' + (result.date || 'next week'); note.classList.add('show'); }
+      }
+    } catch (err) {
+      console.warn('[Goals] Network error:', err.message);
+      if (note) { note.textContent = 'Network error'; note.classList.add('show'); }
     }
+
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit Goals'; }
+    if (note) setTimeout(() => note.classList.remove('show'), 3000);
   },
 
   // ── Notes: debounced auto-save ──

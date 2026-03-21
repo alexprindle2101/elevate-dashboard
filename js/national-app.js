@@ -4240,6 +4240,7 @@ const NationalApp = {
     const s = owner.sales;
     const sm = s.summary;
     const isNDS = this.state.campaign && (this.state.campaign.indexOf('nds') >= 0 || this.state.campaign.indexOf('NDS') >= 0);
+    const isRes = this.state.campaign === 'att-res';
     // Store reps for checkbox flag/unflag reference
     this._currentSalesReps = s.reps || [];
 
@@ -4252,11 +4253,16 @@ const NationalApp = {
             { label: 'Rep Count', value: sm.repCount },
             { label: 'Order Count', value: sm.orderCount }
           ]
+        : isRes
+        ? [
+            { label: 'Total Volume', value: sm.totalVolume ?? '—', cls: 'big' },
+            { label: 'Rep Count', value: sm.repCount ?? '—' }
+          ]
         : [
-            { label: 'Total Volume', value: sm.totalVolume, cls: 'big' },
-            { label: 'Rep Count', value: sm.repCount },
-            { label: 'Sales / Rep', value: sm.salesPerRep },
-            { label: 'Order Count', value: sm.orderCount }
+            { label: 'Total Volume', value: sm.totalVolume ?? '—', cls: 'big' },
+            { label: 'Rep Count', value: sm.repCount ?? '—' },
+            { label: 'Sales / Rep', value: sm.salesPerRep ?? '—' },
+            { label: 'Order Count', value: sm.orderCount ?? '—' }
           ];
 
       const metricsHtml = isNDS
@@ -4282,18 +4288,35 @@ const NationalApp = {
               <div class="sales-metric-row"><span>After 7:30 PM</span><span class="num">${this._pct(sm.after730pmPct)}</span></div>
             </div>
           </div>`
-        : `<div class="sales-metrics-grid">
+        : isRes
+          ? `<div class="sales-metrics-grid">
             <div class="sales-metric-group">
               <div class="sales-metric-group-label">Sales Breakdown</div>
-              <div class="sales-metric-row"><span>Internet</span><span class="num">${sm.internet}</span></div>
-              <div class="sales-metric-row"><span>VOIP</span><span class="num">${sm.voip}</span></div>
-              <div class="sales-metric-row"><span>Wireless</span><span class="num">${sm.wireless}</span></div>
-              <div class="sales-metric-row"><span>AIR/AWB</span><span class="num">${sm.airAwb}</span></div>
+              <div class="sales-metric-row"><span>New Internet</span><span class="num">${sm.newInternet ?? '—'}</span></div>
+              <div class="sales-metric-row"><span>Upgrade Internet</span><span class="num">${sm.upgradeInternet ?? '—'}</span></div>
+              <div class="sales-metric-row"><span>Video</span><span class="num">${sm.videoSales ?? '—'}</span></div>
+              <div class="sales-metric-row"><span>Wireless</span><span class="num">${sm.wirelessSales ?? '—'}</span></div>
+              <div class="sales-metric-row"><span>Voice</span><span class="num">${sm.voiceSales ?? '—'}</span></div>
+            </div>
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Performance %</div>
+              <div class="sales-metric-row"><span>ABP Mix</span><span class="num">${this._pct(sm.abpMix)}</span></div>
+              <div class="sales-metric-row"><span>1Gig+ Mix</span><span class="num">${this._pct(sm.gigMix)}</span></div>
+              <div class="sales-metric-row"><span>Tech Install</span><span class="num">${this._pct(sm.techInstall)}</span></div>
+            </div>
+          </div>`
+          : `<div class="sales-metrics-grid">
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Sales Breakdown</div>
+              <div class="sales-metric-row"><span>Internet</span><span class="num">${sm.internet ?? '—'}</span></div>
+              <div class="sales-metric-row"><span>VOIP</span><span class="num">${sm.voip ?? '—'}</span></div>
+              <div class="sales-metric-row"><span>Wireless</span><span class="num">${sm.wireless ?? '—'}</span></div>
+              <div class="sales-metric-row"><span>AIR/AWB</span><span class="num">${sm.airAwb ?? '—'}</span></div>
             </div>
             <div class="sales-metric-group">
               <div class="sales-metric-group-label">Order Timing</div>
-              <div class="sales-metric-row"><span>Before 12 PM</span><span class="num">${sm.ordersBefore} <small>(${this._pct(sm.earlyPct)})</small></span></div>
-              <div class="sales-metric-row"><span>After 5 PM</span><span class="num">${sm.ordersAfter} <small>(${this._pct(sm.latePct)})</small></span></div>
+              <div class="sales-metric-row"><span>Before 12 PM</span><span class="num">${sm.ordersBefore ?? '—'} <small>(${this._pct(sm.earlyPct)})</small></span></div>
+              <div class="sales-metric-row"><span>After 5 PM</span><span class="num">${sm.ordersAfter ?? '—'} <small>(${this._pct(sm.latePct)})</small></span></div>
             </div>
             <div class="sales-metric-group">
               <div class="sales-metric-group-label">Performance %</div>
@@ -4350,6 +4373,17 @@ const NationalApp = {
            ${_sh('Away %','awayFromDoorsPct')}
            ${_sh('Before 3 %','before3pmPct')}
            ${_sh('After 7:30 %','after730pmPct')}`
+        : isRes
+        ? `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
+           ${_sh('Volume','totalVolume')}
+           ${_sh('New Internet','newInternet')}
+           ${_sh('Upgrade Internet','upgradeInternet')}
+           ${_sh('Video','videoSales')}
+           ${_sh('Wireless','wirelessSales')}
+           ${_sh('Voice','voiceSales')}
+           ${_sh('ABP Mix','abpMix')}
+           ${_sh('1Gig+ Mix','gigMix')}
+           ${_sh('Tech Install','techInstall')}`
         : `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
            ${_sh('Volume','totalVolume')}
            ${_sh('Orders','orderCount')}
@@ -4369,13 +4403,16 @@ const NationalApp = {
       const _stickyTd1 = 'position:sticky;left:30px;z-index:1;background:inherit;';
       const _ownerName = owner.name;
       const _campaign = this.state.campaign;
+      const _repRow = (rep, ri, cells) => {
+        const _flagged = this._isRepFlagged(rep.name, _ownerName, _campaign);
+        return `<tr id="sales-rep-row-${ri}">
+          <td style="${_stickyTd0}"><input type="checkbox" class="rep-highlight-cb" ${_flagged ? 'checked' : ''} onchange="NationalApp._toggleRepHighlight(${ri}, this.checked)"></td>
+          <td class="bold" style="${_stickyTd1}">${this._esc(rep.name)}</td>
+          ${cells}
+        </tr>`;
+      };
       const repRows = isNDS
-        ? s.reps.map((rep, ri) => {
-            const _flagged = this._isRepFlagged(rep.name, _ownerName, _campaign);
-            return `
-            <tr id="sales-rep-row-${ri}" style="background:var(--black,#f0f4f8);">
-              <td style="${_stickyTd0}"><input type="checkbox" class="rep-highlight-cb" ${_flagged ? 'checked' : ''} onchange="NationalApp._toggleRepHighlight(${ri}, this.checked)"></td>
-              <td class="bold" style="${_stickyTd1}">${this._esc(rep.name)}</td>
+        ? s.reps.map((rep, ri) => _repRow(rep, ri, `
               <td class="num">${rep.newPorts || rep.totalVolume}</td>
               <td class="num">${rep.orderCount}</td>
               <td class="num">${this._pct(rep.cancelFraudPct)}</td>
@@ -4388,28 +4425,32 @@ const NationalApp = {
               <td class="num">${this._pct(rep.highMedCreditPct)}</td>
               <td class="num">${this._pct(rep.awayFromDoorsPct)}</td>
               <td class="num">${this._pct(rep.before3pmPct)}</td>
-              <td class="num">${this._pct(rep.after730pmPct)}</td>
-            </tr>`}).join('')
-        : s.reps.map((rep, ri) => {
-            const _flagged = this._isRepFlagged(rep.name, _ownerName, _campaign);
-            return `
-            <tr id="sales-rep-row-${ri}" style="background:var(--black,#f0f4f8);">
-              <td style="${_stickyTd0}"><input type="checkbox" class="rep-highlight-cb" ${_flagged ? 'checked' : ''} onchange="NationalApp._toggleRepHighlight(${ri}, this.checked)"></td>
-              <td class="bold" style="${_stickyTd1}">${this._esc(rep.name)}</td>
+              <td class="num">${this._pct(rep.after730pmPct)}</td>`)).join('')
+        : isRes
+        ? s.reps.map((rep, ri) => _repRow(rep, ri, `
               <td class="num">${rep.totalVolume}</td>
-              <td class="num">${rep.orderCount}</td>
-              <td class="num">${rep.salesPerRep}</td>
-              <td class="num">${rep.internet}</td>
-              <td class="num">${rep.voip}</td>
-              <td class="num">${rep.wireless}</td>
-              <td class="num">${rep.airAwb}</td>
+              <td class="num">${rep.newInternet ?? '—'}</td>
+              <td class="num">${rep.upgradeInternet ?? '—'}</td>
+              <td class="num">${rep.videoSales ?? '—'}</td>
+              <td class="num">${rep.wirelessSales ?? '—'}</td>
+              <td class="num">${rep.voiceSales ?? '—'}</td>
+              <td class="num">${this._pct(rep.abpMix)}</td>
+              <td class="num">${this._pct(rep.gigMix)}</td>
+              <td class="num">${this._pct(rep.techInstall)}</td>`)).join('')
+        : s.reps.map((rep, ri) => _repRow(rep, ri, `
+              <td class="num">${rep.totalVolume}</td>
+              <td class="num">${rep.orderCount ?? '—'}</td>
+              <td class="num">${rep.salesPerRep ?? '—'}</td>
+              <td class="num">${rep.internet ?? '—'}</td>
+              <td class="num">${rep.voip ?? '—'}</td>
+              <td class="num">${rep.wireless ?? '—'}</td>
+              <td class="num">${rep.airAwb ?? '—'}</td>
               <td class="num">${this._pct(rep.earlyPct)}</td>
               <td class="num">${this._pct(rep.latePct)}</td>
               <td class="num">${this._pct(rep.abpPct)}</td>
               <td class="num">${this._pct(rep.cruPct)}</td>
               <td class="num">${this._pct(rep.newWrlsPct)}</td>
-              <td class="num">${this._pct(rep.byodPct)}</td>
-            </tr>`}).join('');
+              <td class="num">${this._pct(rep.byodPct)}</td>`)).join('');
 
       repsEl.innerHTML = `
         <div class="coaching-section">

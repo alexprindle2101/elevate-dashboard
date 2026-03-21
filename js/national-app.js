@@ -3074,9 +3074,14 @@ const NationalApp = {
             </div>
             <div class="hc-chart-legend">
               ${tableProductNames.length > 1 && this.state.campaign !== 'leafguard'
-                ? tableProductNames.map((pName, pi) =>
-                    `<span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:${this._PROD_COLORS[pi % this._PROD_COLORS.length]}"></span>${this._esc(pName)}</span>`
-                  ).join('') + '<span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:none;border-top:2px dashed #888;height:0;width:10px;border-radius:0"></span>Goal</span>'
+                ? tableProductNames.map((pName, pi) => {
+                    const style = pi === 0
+                      ? 'background:#888'
+                      : 'background:repeating-conic-gradient(#888 0% 25%, rgba(255,255,255,0.3) 0% 50%) 0 0/6px 6px';
+                    return `<span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="${style}"></span>${this._esc(pName)}</span>`;
+                  }).join('')
+                  + '<span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:none;border-top:2px dashed #888;height:0;width:10px;border-radius:0"></span>Goal</span>'
+                  + '<span class="hc-chart-legend-item" style="margin-left:8px;font-size:10px;color:#8a95a5">Colors = goal %</span>'
                 : this.state.campaign === 'leafguard'
                   ? '<span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch swatch-prod-actual"></span>Gross Sales</span><span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch swatch-prod-goal"></span>Goal</span>'
                   : '<span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch swatch-prod-actual"></span>Actual</span><span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch swatch-prod-goal"></span>Goal</span>'
@@ -3246,37 +3251,54 @@ const NationalApp = {
         const totalH = d.baseY - topY;
         svg += `<rect x="${slotX}" y="${Math.min(topY, d.baseY - 1)}" width="${d.barW}" height="${Math.max(totalH, 4)}" fill="transparent" style="cursor:pointer" onmouseenter="NationalApp._showProdTooltip(event,${origIdx},${d.ownerIdx},'Gross Sales')" onmouseleave="NationalApp._hideProdTooltip()"/>`;
       } else if (isMulti) {
-        // ── Grouped bars: one sub-bar per product, touching ──
-        const subW = d.barW / productNames.length;
-        productNames.forEach((pName, pi) => {
+        // ── Grouped bars: goal-attainment colors, diamond pattern for product 2+ ──
+        // Filter to products that have data or a goal this week
+        const activeProducts = productNames.filter(pName => {
+          const pv = (r.products && r.products[pName]) || { actual: 0, goal: 0 };
+          return (pv.actual || 0) > 0 || (pv.goal || 0) > 0;
+        });
+        const visibleCount = activeProducts.length || 1;
+        const subW = d.barW / visibleCount;
+        activeProducts.forEach((pName, vi) => {
+          const pi = productNames.indexOf(pName); // original product index for pattern
           const pv = (r.products && r.products[pName]) || { actual: 0, goal: 0 };
           const actual = pv.actual || 0;
           const goal = pv.goal || 0;
-          const bx = slotX + pi * subW;
+          const bx = slotX + vi * subW;
           const bcx = bx + subW / 2;
           const actualH = actual * yScale;
           const goalH = goal * yScale;
           const actualTop = d.baseY - actualH;
-          const baseColor = this._PROD_COLORS[pi % this._PROD_COLORS.length];
 
-          // Determine opacity based on goal attainment
+          // Goal-attainment color for all bars
           const pct = goal > 0 ? (actual / goal) : 0;
           const barColor = pct >= 1 ? '#22c55e' : pct >= 0.8 ? '#f0b429' : pct >= 0.6 ? '#f97316' : '#e53535';
 
-          // Only round top corners on the outer edges of the group
-          const rLeft = pi === 0 ? d.BAR_R : 0;
-          const rRight = pi === productNames.length - 1 ? d.BAR_R : 0;
+          // Corners: round outer edges of the group
+          const rLeft = vi === 0 ? d.BAR_R : 0;
+          const rRight = vi === visibleCount - 1 ? d.BAR_R : 0;
 
           if (actualH > 0) {
-            // Use product color with opacity to differentiate
-            svg += `<path d="${roundTop(bx, actualTop, subW, actualH, Math.min(rLeft, rRight) || 2)}" fill="${baseColor}" opacity="0.85"/>`;
+            const barPath = roundTop(bx, actualTop, subW, actualH, Math.min(rLeft, rRight) || 2);
+            // Product 0 = solid fill, product 1+ = diamond pattern overlay
+            if (pi === 0) {
+              svg += `<path d="${barPath}" fill="${barColor}" opacity="0.85"/>`;
+            } else {
+              const patId = 'diamond-' + i + '-' + pi;
+              svg += `<defs><pattern id="${patId}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="8" height="8" fill="${barColor}" opacity="0.85"/>
+                <rect x="0" y="0" width="4" height="4" fill="rgba(255,255,255,0.2)"/>
+                <rect x="4" y="4" width="4" height="4" fill="rgba(255,255,255,0.2)"/>
+              </pattern></defs>`;
+              svg += `<path d="${barPath}" fill="url(#${patId})"/>`;
+            }
             svg += segLabel(bcx, actualTop, actualH, actual, '#fff');
           }
 
           // Goal marker line
           if (goal > 0) {
             const goalY = d.baseY - goalH;
-            svg += `<line x1="${bx}" y1="${goalY}" x2="${bx + subW}" y2="${goalY}" stroke="${baseColor}" stroke-width="2" stroke-dasharray="3 2" opacity="0.5"/>`;
+            svg += `<line x1="${bx}" y1="${goalY}" x2="${bx + subW}" y2="${goalY}" stroke="${barColor}" stroke-width="2" stroke-dasharray="3 2" opacity="0.7"/>`;
           }
 
           // Hover target per sub-bar

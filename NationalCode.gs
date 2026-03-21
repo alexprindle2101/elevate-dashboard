@@ -2820,8 +2820,9 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
     // Write as formatted string to avoid timezone/time issues in Sheets
     newRow[colWeek] = formatDate(nextMonday);
     newRow[colOwner] = ownerName;
-    sheet.appendRow(newRow);
-    targetRow = sheet.getLastRow();
+    sheet.insertRowAfter(1);
+    sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
+    targetRow = 2;
     // Re-read headers in case of column shifts
     data = sheet.getDataRange().getValues();
     headers = data[0].map(function(h) { return String(h).trim(); });

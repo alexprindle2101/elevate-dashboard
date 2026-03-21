@@ -1542,11 +1542,11 @@ td.rt-total {
 }
 
 /* Conditional cell colors (cyan → lime → yellow → orange → red) */
-td.cell-blue   { background: #22d3ee !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
-td.cell-green  { background: #84cc16 !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
-td.cell-yellow { background: #ffeb3b !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
-td.cell-orange { background: #f9a825 !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
-td.cell-red    { background: #e53935 !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+td.cell-blue   { background: #22d3ee !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 3px rgba(0,0,0,0.45), 0 0 6px rgba(0,0,0,0.2); }
+td.cell-green  { background: #84cc16 !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 3px rgba(0,0,0,0.45), 0 0 6px rgba(0,0,0,0.2); }
+td.cell-yellow { background: #ffeb3b !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 3px rgba(0,0,0,0.55), 0 0 8px rgba(0,0,0,0.3); }
+td.cell-orange { background: #f9a825 !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 7px rgba(0,0,0,0.25); }
+td.cell-red    { background: #e53935 !important; color: #fff !important; font-weight: 700; border-radius: 4px; text-shadow: 0 1px 3px rgba(0,0,0,0.45), 0 0 6px rgba(0,0,0,0.2); }
 
 /* Section divider rows in table */
 .rt-table tbody tr.rt-section-row td {

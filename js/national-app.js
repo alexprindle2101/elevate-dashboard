@@ -4054,7 +4054,8 @@ const NationalApp = {
       const gapH = bkH - shH;
       if (bk > 0 && gapH > 12) {
         const gapMidY = baseY - shH - gapH / 2 + 3;
-        svg += `<text x="${cx}" y="${gapMidY}" text-anchor="middle" fill="${barColor}" font-size="8" font-weight="700" font-family="Inter,sans-serif" opacity="0.55">${bk}</text>`;
+        const _bkShadow = _isLight(barColor) ? ' filter="url(#txtShadow)"' : '';
+        svg += `<text x="${cx}" y="${gapMidY}" text-anchor="middle" fill="${barColor}" font-size="8" font-weight="700" font-family="Inter,sans-serif" opacity="0.55"${_bkShadow}>${bk}</text>`;
       } else if (bk > 0 && bk === sh && shH > 28) {
         svg += `<text x="${cx}" y="${baseY - shH + 10}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="7" font-weight="600" font-family="Inter,sans-serif">${bk}</text>`;
       }

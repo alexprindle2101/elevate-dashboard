@@ -2327,9 +2327,15 @@ const NationalApp = {
       prodCardsHtml = this._prodCardCombined('Gross Sales', gs.actual, gs.goal, 'Personal Prod', pp.actual, true)
                     + this._prodCardCombined('Gross Leads', gl.actual, gl.goal, 'Number of Sales', ns.actual, false);
     } else if (productNames.length > 0) {
-      // Show per-product cards only (no total)
+      // Show per-product cards only — hide products with no goal, no current units, and no history
+      const prodHist = owner.productionHistory || [];
       for (const pName of productNames) {
         const pData = productEntries[pName];
+        if (!pData.actual && !pData.goal) {
+          // Check if this product has ever had production historically
+          const everSold = prodHist.some(w => w.products && w.products[pName] && (w.products[pName].actual > 0));
+          if (!everSold) continue;
+        }
         prodCardsHtml += this._prodCard(pName, pData.actual, pData.goal);
       }
     } else {
@@ -2348,9 +2354,15 @@ const NationalApp = {
     let goalFieldsHtml = '';
     if (productNames.length > 0) {
       // LeafGuard: only show Gross Sales + Gross Leads goals (skip Personal Prod + Number of Sales)
+      // Other campaigns: skip products never sold with no current data/goal
+      const prodHist2 = owner.productionHistory || [];
       const goalProducts = this.state.campaign === 'leafguard'
         ? productNames.filter(p => p === 'Gross Sales' || p === 'Gross Leads')
-        : productNames;
+        : productNames.filter(p => {
+            const pd = productEntries[p];
+            if (pd.actual || pd.goal) return true;
+            return prodHist2.some(w => w.products && w.products[p] && (w.products[p].actual > 0));
+          });
       for (const pName of goalProducts) {
         goalFieldsHtml += `
           <div class="goal-field">

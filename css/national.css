@@ -315,6 +315,22 @@ input, select, textarea { font-family: inherit; }
   padding: 3px 12px;
   border-radius: 20px;
 }
+/* Day pill (top-right corner, from planning schedule) */
+.campaign-card-day-pill {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #0099cc;
+  background: rgba(0, 153, 204, 0.1);
+  border-radius: 6px;
+  z-index: 1;
+}
+
 .campaign-card-refresh {
   position: absolute;
   top: 10px;

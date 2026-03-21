@@ -1477,8 +1477,16 @@ const NationalApp = {
         ? `<div class="campaign-card-variant">${this._esc(variant)}</div>`
         : '';
 
+      // Day pill from planning schedule
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const planEntry = (schedule || []).find(p => p.campaignKey === key);
+      const dayPill = planEntry !== undefined
+        ? `<span class="campaign-card-day-pill">${dayNames[planEntry.day] || ''}</span>`
+        : '';
+
       return `
         <div class="campaign-card" onclick="NationalApp.selectCampaign('${key}')">
+          ${dayPill}
           ${logoHtml}
           <div class="campaign-card-label">${this._esc(label)}</div>
           ${variantHtml}

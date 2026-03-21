@@ -1556,17 +1556,9 @@ const NationalApp = {
     if (!sched.length) return;
 
     const todayIdx = (new Date().getDay() + 6) % 7;
-    const tomorrowIdx = (todayIdx + 1) % 7;
-    // Prefetch today first, then tomorrow
     const todayCampaigns = sched
-      .filter(p => p.day === todayIdx || p.day === tomorrowIdx)
-      .sort((a, b) => {
-        // Today before tomorrow
-        const aPriority = a.day === todayIdx ? 0 : 1;
-        const bPriority = b.day === todayIdx ? 0 : 1;
-        if (aPriority !== bPriority) return aPriority - bPriority;
-        return a.sortOrder - b.sortOrder;
-      });
+      .filter(p => p.day === todayIdx)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
 
     if (!todayCampaigns.length) return;
 

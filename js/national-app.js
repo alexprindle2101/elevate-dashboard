@@ -4012,6 +4012,13 @@ const NationalApp = {
 
     let svg = '';
 
+    // Shadow filter for yellow text readability
+    svg += `<defs><filter id="txtShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#000" flood-opacity="0.4"/>
+    </filter></defs>`;
+    const _isYellow = (c) => c === '#ffeb3b' || c === '#f9a825';
+    const _txtAttr = (color) => _isYellow(color) ? ' filter="url(#txtShadow)"' : '';
+
     // Light gridlines
     for (let v = 0; v <= yMax; v += step) {
       const y = baseY - v * yScale;
@@ -4048,20 +4055,20 @@ const NationalApp = {
       const gapH = bkH - shH;
       if (bk > 0 && gapH > 12) {
         const gapMidY = baseY - shH - gapH / 2 + 3;
-        svg += `<text x="${cx}" y="${gapMidY}" text-anchor="middle" fill="${barColor}" font-size="8" font-weight="700" font-family="Inter,sans-serif" opacity="0.55">${bk}</text>`;
+        svg += `<text x="${cx}" y="${gapMidY}" text-anchor="middle" fill="${barColor}" font-size="8" font-weight="700" font-family="Inter,sans-serif" opacity="0.55"${_txtAttr(barColor)}>${bk}</text>`;
       } else if (bk > 0 && bk === sh && shH > 28) {
         svg += `<text x="${cx}" y="${baseY - shH + 10}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="7" font-weight="600" font-family="Inter,sans-serif">${bk}</text>`;
       }
 
       // Showed count inside solid bar (if tall enough)
       if (sh > 0 && shH > 14) {
-        svg += `<text x="${cx}" y="${baseY - shH / 2 + 4}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Inter,sans-serif">${sh}</text>`;
+        svg += `<text x="${cx}" y="${baseY - shH / 2 + 4}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Inter,sans-serif"${_txtAttr(barColor)}>${sh}</text>`;
       }
 
       // Retention % above bar
       if (pct !== null) {
         const topY = Math.min(baseY - bkH, baseY - shH);
-        svg += `<text x="${cx}" y="${topY - 5}" text-anchor="middle" fill="${barColor}" font-size="8" font-weight="800" font-family="Inter,sans-serif">${pct}%</text>`;
+        svg += `<text x="${cx}" y="${topY - 5}" text-anchor="middle" fill="${barColor}" font-size="8" font-weight="800" font-family="Inter,sans-serif"${_txtAttr(barColor)}>${pct}%</text>`;
       }
 
       // Week label below

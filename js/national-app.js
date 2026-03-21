@@ -1373,6 +1373,9 @@ const NationalApp = {
       };
     });
 
+    // Store latest week date for overview display
+    this._latestWeekDate = pastWeeks.length ? pastWeeks[0].tabName : null;
+
     // Campaign-level totals + aggregate recruiting (4 weeks only)
     this._buildCampaignAggregates(campaignLabels);
 
@@ -1443,7 +1446,7 @@ const NationalApp = {
     });
 
     this.state.campaignTotals = {
-      latestWeek: pastWeeks.length ? pastWeeks[0].tabName : null,
+      latestWeek: this._latestWeekDate || null,
       headcount: totals.headcount,
       hcBreakdown,
       // 1st Rounds

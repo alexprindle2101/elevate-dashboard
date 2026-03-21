@@ -105,8 +105,9 @@ const NationalApp = {
     if (!this._planningSchedule) {
       this._loadPlanningFromCache();
     }
-    // Fetch flagged reps (non-blocking, populates badge)
+    // Fetch flagged reps + notes (non-blocking)
     this._fetchFlaggedReps();
+    this._fetchNotes();
 
     if (campaign) {
       // Direct campaign selection — wait for both planning + campaign data
@@ -2396,14 +2397,30 @@ const NationalApp = {
     // ── Section 4: Notes ──
     const notesEl = document.getElementById('health-notes');
     if (notesEl) {
+      const ownerNotes = (this.state.campaignNotes || [])
+        .filter(n => n.ownerName === owner.name)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      const notesHtml = ownerNotes.length
+        ? ownerNotes.map(n => `
+          <div class="note-entry">
+            <div class="note-entry-header">
+              <span class="note-author">${this._esc(n.coachName || 'Unknown')}</span>
+              <span class="note-time">${this._relativeTime(n.timestamp)}</span>
+              <button class="note-delete-btn" onclick="NationalApp._deleteNote('${n.noteId}', ${ownerIdx})" title="Delete note">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+              </button>
+            </div>
+            <div class="note-text">${this._esc(n.text)}</div>
+          </div>`).join('')
+        : '<div class="notes-empty">No notes yet</div>';
+
       notesEl.innerHTML = `
         <div class="coaching-label">Notes</div>
-        <textarea class="owner-notes" id="owner-notes-${ownerIdx}"
-          placeholder="Add notes for this owner..."
-          oninput="NationalApp._onNotesInput(${ownerIdx})">${this._esc(owner.notes || '')}</textarea>
-        <div class="notes-footer">
-          <span class="hc-submit-note" id="notes-save-status-${ownerIdx}"></span>
-        </div>`;
+        <div class="note-input-row">
+          <textarea class="note-input" id="note-input-${ownerIdx}" placeholder="Add a note..." rows="2"></textarea>
+          <button class="note-add-btn" onclick="NationalApp._addNote(${ownerIdx})">Add</button>
+        </div>
+        <div class="notes-log" id="notes-log-${ownerIdx}">${notesHtml}</div>`;
     }
   },
 
@@ -3579,31 +3596,17 @@ const NationalApp = {
     if (note) setTimeout(() => note.classList.remove('show'), 3000);
   },
 
-  // ── Notes: debounced auto-save ──
-  _notesTimer: null,
-
-  _onNotesInput(ownerIdx) {
+  // ── Notes log: add / delete ──
+  async _addNote(ownerIdx) {
     const owner = this.state.owners[ownerIdx];
     if (!owner) return;
-    const ta = document.getElementById('owner-notes-' + ownerIdx);
-    if (!ta) return;
-    owner.notes = ta.value;
+    const ta = document.getElementById('note-input-' + ownerIdx);
+    const text = ta?.value?.trim();
+    if (!text) return;
 
-    // Debounce: save 1.5s after last keystroke
-    if (this._notesTimer) clearTimeout(this._notesTimer);
-    this._notesTimer = setTimeout(() => this._saveNotes(ownerIdx), 1500);
-  },
-
-  async _saveNotes(ownerIdx) {
-    const owner = this.state.owners[ownerIdx];
-    if (!owner) return;
-    const status = document.getElementById('notes-save-status-' + ownerIdx);
-
-    if (!NATIONAL_CONFIG.appsScriptUrl) {
-      // No backend — just save locally
-      if (status) { status.textContent = 'Saved locally'; status.classList.add('show'); setTimeout(() => status.classList.remove('show'), 2000); }
-      return;
-    }
+    const coachName = this.state.session?.name || 'Unknown';
+    const btn = ta.nextElementSibling;
+    if (btn) { btn.disabled = true; btn.textContent = '...'; }
 
     try {
       const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
@@ -3611,19 +3614,71 @@ const NationalApp = {
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           key: NATIONAL_CONFIG.apiKey,
-          action: 'saveOwnerNotes',
-          ownerName: owner.name,
+          action: 'addOwnerNote',
           campaign: this.state.campaign,
-          notes: owner.notes
+          ownerName: owner.name,
+          coachName: coachName,
+          text: text
         })
       });
       const result = await resp.json();
       if (result.error) throw new Error(result.error);
-      if (status) { status.textContent = 'Saved'; status.classList.add('show'); setTimeout(() => status.classList.remove('show'), 2000); }
+
+      // Add to local cache and re-render
+      if (!this.state.campaignNotes) this.state.campaignNotes = [];
+      this.state.campaignNotes.push({
+        noteId: result.noteId,
+        campaign: this.state.campaign,
+        ownerName: owner.name,
+        coachName: coachName,
+        text: text,
+        timestamp: result.timestamp || new Date().toISOString()
+      });
+      ta.value = '';
+      this.renderHealthTab(owner);
     } catch (err) {
-      console.warn('[NationalApp] Notes save failed:', err);
-      if (status) { status.textContent = 'Save failed'; status.classList.add('show'); setTimeout(() => status.classList.remove('show'), 3000); }
+      console.warn('[Notes] Add failed:', err);
     }
+    if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
+  },
+
+  async _deleteNote(noteId, ownerIdx) {
+    const owner = this.state.owners[ownerIdx];
+    if (!owner) return;
+
+    try {
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'deleteOwnerNote',
+          noteId: noteId
+        })
+      });
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+
+      // Remove from local cache and re-render
+      this.state.campaignNotes = (this.state.campaignNotes || []).filter(n => n.noteId !== noteId);
+      this.renderHealthTab(owner);
+    } catch (err) {
+      console.warn('[Notes] Delete failed:', err);
+    }
+  },
+
+  _relativeTime(isoStr) {
+    if (!isoStr) return '';
+    const diff = Date.now() - new Date(isoStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return days + 'd ago';
+    const weeks = Math.floor(days / 7);
+    return weeks + 'w ago';
   },
 
   // ── Production card (colored card, big actual / small goal) ──
@@ -4664,6 +4719,23 @@ const NationalApp = {
       console.warn('[NationalApp] Fetch flagged reps error:', err.message);
     }
     this._updateFlaggedBadge();
+  },
+
+  // ── Fetch owner notes ──
+  async _fetchNotes() {
+    try {
+      const apiUrl = NATIONAL_CONFIG.appsScriptUrl || (typeof OD_CONFIG !== 'undefined' ? OD_CONFIG.appsScriptUrl : '');
+      const apiKey = NATIONAL_CONFIG.apiKey || (typeof OD_CONFIG !== 'undefined' ? OD_CONFIG.apiKey : '');
+      const url = new URL(apiUrl);
+      url.searchParams.set('key', apiKey);
+      url.searchParams.set('action', 'odGetNotes');
+      const res = await fetch(url.toString()).then(r => r.json());
+      if (res.success && res.notes) {
+        this.state.campaignNotes = res.notes;
+      }
+    } catch (err) {
+      console.warn('[NationalApp] Fetch notes error:', err.message);
+    }
   },
 
   _isRepFlagged(repName, ownerName, campaign) {

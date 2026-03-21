@@ -1028,35 +1028,98 @@ input, select, textarea { font-family: inherit; }
 }
 .hc-edit-input { -moz-appearance: textfield; }
 
-/* ── Owner Notes ── */
-.owner-notes {
-  width: 100%;
-  min-height: 120px;
-  padding: 12px 14px;
+/* ── Owner Notes Log ── */
+.note-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.note-input {
+  flex: 1;
+  padding: 10px 12px;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-sm, 6px);
   font-family: Inter, sans-serif;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--gray-800);
   background: var(--bg, #f8fafc);
-  resize: vertical;
+  resize: none;
   outline: none;
   transition: border-color 0.15s;
 }
-.owner-notes:focus {
+.note-input:focus {
   border-color: var(--blue-core, #0099cc);
   box-shadow: 0 0 0 2px rgba(0,153,204,0.12);
 }
-.owner-notes::placeholder {
-  color: var(--gray-400);
-  font-style: italic;
+.note-input::placeholder { color: var(--gray-400); font-style: italic; }
+.note-add-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--blue-core, #0099cc);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: flex-end;
 }
-.notes-footer {
+.note-add-btn:hover { opacity: 0.9; }
+.note-add-btn:disabled { opacity: 0.5; cursor: default; }
+.notes-log {
+  max-height: 320px;
+  overflow-y: auto;
   display: flex;
-  justify-content: flex-end;
-  margin-top: 6px;
-  min-height: 18px;
+  flex-direction: column;
+  gap: 8px;
+}
+.note-entry {
+  padding: 10px 14px;
+  background: var(--bg, #f8fafc);
+  border-left: 3px solid var(--blue-core, #0099cc);
+  border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
+}
+.note-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.note-author {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--gray-700);
+}
+.note-time {
+  font-size: 11px;
+  color: var(--gray-400);
+}
+.note-delete-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  padding: 2px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.note-entry:hover .note-delete-btn { opacity: 1; }
+.note-delete-btn:hover { color: var(--red, #e53535); }
+.note-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-700);
+  white-space: pre-wrap;
+}
+.notes-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--gray-400);
+  font-size: 13px;
+  font-style: italic;
 }
 
 /* ── Production Review Cards ── */

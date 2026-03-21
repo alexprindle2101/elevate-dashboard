@@ -1056,8 +1056,9 @@ const OwnerDev = {
       } else if (team === 'nlr') {
         if (!m?.nlrTab) totalUnmapped++;
       } else {
-        // Maddie / superadmin: unmapped = missing either
-        if (this._getRowStatus(row, m) === 'unmapped') totalUnmapped++;
+        // Maddie: count owners missing a source tab mapping
+        const tabMap = this._findCampaignTabMap(row.campaign, row.ownerName);
+        if (!tabMap?.tabName) totalUnmapped++;
       }
     }
     const badge = document.getElementById('mapping-notif-badge');

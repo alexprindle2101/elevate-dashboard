@@ -1443,6 +1443,7 @@ const NationalApp = {
     });
 
     this.state.campaignTotals = {
+      latestWeek: pastWeeks.length ? pastWeeks[0].tabName : null,
       headcount: totals.headcount,
       hcBreakdown,
       // 1st Rounds
@@ -2032,7 +2033,8 @@ const NationalApp = {
     const t = this.state.campaignTotals || {};
     const cfg = NATIONAL_CONFIG.campaigns[this.state.campaign];
     document.getElementById('campaign-title').textContent = (cfg?.label || 'Campaign') + ' Campaign';
-    document.getElementById('overview-date').textContent = 'Week of ' + this._formatCurrentWeek();
+    const weekLabel = t.latestWeek ? this._formatWeekDate(t.latestWeek) : this._formatCurrentWeek();
+    document.getElementById('overview-date').textContent = 'Week of ' + weekLabel;
 
     const hc = t.hcBreakdown || {};
     const pb = t.prodBreakdown || {};
@@ -5533,6 +5535,14 @@ const NationalApp = {
     const mon = d.toLocaleString('en-US', { month: 'short' });
     const day = d.getDate();
     return `${mon} ${day}, ${d.getFullYear()}`;
+  },
+
+  _formatWeekDate(tabName) {
+    const parts = String(tabName).split('/');
+    if (parts.length < 3) return tabName;
+    const d = new Date(+parts[2], +parts[0] - 1, +parts[1]);
+    if (isNaN(d)) return tabName;
+    return d.toLocaleString('en-US', { month: 'short' }) + ' ' + d.getDate() + ', ' + d.getFullYear();
   },
 
   // Format cell value (add % suffix for rate rows)

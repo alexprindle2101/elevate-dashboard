@@ -2969,7 +2969,11 @@ const NationalApp = {
     trendEl.style.display = '';
 
     // Reverse so newest week is on the LEFT, skip weeks with no actual production
-    const hist = [...rawHist].filter(r => (r.tA || 0) > 0).reverse();
+    // Track original indices for tooltip accuracy
+    const hist = rawHist
+      .map((r, idx) => ({ ...r, _origIdx: idx }))
+      .filter(r => (r.tA || 0) > 0)
+      .reverse();
     const n = hist.length;
     if (!n) { trendEl.style.display = 'none'; return; }
 
@@ -3029,8 +3033,7 @@ const NationalApp = {
     const hasProducts = tableProductNames.length > 0;
 
     const tableRows = hist.filter(r => (r.tA || 0) > 0).map((r, i, arr) => {
-      const origIdx = hist.indexOf(r);
-      const realOrigIdx = n - 1 - origIdx;
+      const realOrigIdx = r._origIdx !== undefined ? r._origIdx : (n - 1 - hist.indexOf(r));
       const prev = i < arr.length - 1 ? arr[i + 1] : null;
       const arrow = this._trendArrow(r.tA, prev?.tA);
       const pct = r.tG > 0 ? Math.round((r.tA / r.tG) * 100) : 0;
@@ -3246,7 +3249,7 @@ const NationalApp = {
     const formatLabel = (v) => v >= 1000 ? (v / 1000) + 'k' : String(v);
 
     d.hist.forEach((r, i) => {
-      const origIdx = d.n - 1 - i;
+      const origIdx = r._origIdx !== undefined ? r._origIdx : (d.n - 1 - i);
       const slotX = i * d.slotW + d.barOff;
       const slotCX = slotX + d.barW / 2;
 

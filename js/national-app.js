@@ -3966,6 +3966,25 @@ const NationalApp = {
     return '#8a95a5';
   },
 
+  _showRcTooltip(event, html) {
+    const wrap = event.target.closest('.rc-bar-wrap');
+    if (!wrap) return;
+    const tt = wrap.querySelector('.rc-tooltip');
+    if (!tt) return;
+    tt.innerHTML = html;
+    tt.classList.add('visible');
+    const rect = wrap.getBoundingClientRect();
+    const bar = event.target.getBoundingClientRect();
+    let left = bar.left - rect.left + bar.width / 2 - tt.offsetWidth / 2;
+    left = Math.max(4, Math.min(left, rect.width - tt.offsetWidth - 4));
+    tt.style.left = left + 'px';
+    tt.style.top = (bar.top - rect.top - tt.offsetHeight - 6) + 'px';
+  },
+
+  _hideRcTooltip() {
+    document.querySelectorAll('.rc-tooltip.visible').forEach(t => t.classList.remove('visible'));
+  },
+
   _buildRetentionCard(title, weekLabels, booked, showed, subtitle, retentionRowIdx, showedRowIdx, projected) {
     const n = weekLabels.length;
     const VISIBLE = 4;
@@ -4056,11 +4075,11 @@ const NationalApp = {
         svg += `<text x="${cx}" y="${baseY - shH / 2 + 4}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Inter,sans-serif"${_shadow}>${sh}</text>`;
       }
 
-      // Hover target over entire bar area (shows booked/showed/retention on hover)
+      // Hover target over entire bar area
       const hoverTop = Math.min(bkH > 0 ? baseY - bkH : baseY, shH > 0 ? baseY - shH : baseY) - 16;
       const hoverH = baseY - hoverTop;
-      const ttText = `Booked: ${bk} | Showed: ${sh}${pct !== null ? ' | Retention: ' + pct + '%' : ''}`;
-      svg += `<rect x="${gx}" y="${hoverTop}" width="${barW}" height="${hoverH}" fill="transparent" style="cursor:pointer"><title>${ttText}</title></rect>`;
+      const ttHtml = `<div style='font-weight:700;margin-bottom:2px'>${weekLabels[i]}</div><div>Booked: <strong>${bk}</strong></div><div>Showed: <strong>${sh}</strong></div>${pct !== null ? `<div style='border-top:1px solid rgba(255,255,255,0.2);margin-top:3px;padding-top:3px'>Retention: <strong>${pct}%</strong></div>` : ''}`;
+      svg += `<rect x="${gx}" y="${hoverTop}" width="${barW}" height="${Math.max(hoverH, 4)}" fill="transparent" style="cursor:pointer" onmouseenter="NationalApp._showRcTooltip(event,'${ttHtml.replace(/'/g, '\\x27')}')" onmouseleave="NationalApp._hideRcTooltip()"/>`;
 
       // Retention % pill above bar
       if (pct !== null) {
@@ -4095,8 +4114,9 @@ const NationalApp = {
             <div class="rc-card-hero-label">showed</div>
           </div>
         </div>
-        <div class="rc-bar-wrap">
+        <div class="rc-bar-wrap" style="position:relative">
           <svg viewBox="0 0 ${vbW} ${svgH}" width="${svgWidthPct}" preserveAspectRatio="xMinYMid meet" style="display:block">${svg}</svg>
+          <div class="hc-chart-tooltip rc-tooltip"></div>
         </div>
         ${legend}
       </div>`;

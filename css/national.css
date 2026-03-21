@@ -709,21 +709,24 @@ input, select, textarea { font-family: inherit; }
   border-bottom-color: var(--teal);
 }
 
-/* NEW data badge on detail tabs */
+/* Logo badge on detail tabs (NLR / BIS) */
 .detail-tab { position: relative; }
-.tab-new-badge {
-  display: inline-block;
+.tab-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-left: 6px;
-  padding: 1px 6px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  border-radius: 8px;
-  color: #fff;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
   vertical-align: middle;
 }
-#tab-badge-recruiting { background: #4a90d9; }  /* NLR blue */
-#tab-badge-audit { background: #e5683a; }        /* Cam/BIS orange */
+.tab-logo-badge img {
+  height: 14px;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.85;
+}
 
 /* Tab Content */
 .detail-tab-content { min-height: 300px; }

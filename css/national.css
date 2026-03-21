@@ -992,7 +992,8 @@ input, select, textarea { font-family: inherit; }
   white-space: nowrap;
   box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.15));
 }
-.hc-chart-tooltip.visible { opacity: 1; }
+.hc-chart-tooltip:not(.visible) { display: none; }
+.hc-chart-tooltip.visible { opacity: 1; display: block; }
 .hc-chart-tooltip strong { font-weight: 700; }
 .hc-chart-tooltip .tt-swatch {
   display: inline-block;

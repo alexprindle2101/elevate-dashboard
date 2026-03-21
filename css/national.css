@@ -709,6 +709,22 @@ input, select, textarea { font-family: inherit; }
   border-bottom-color: var(--teal);
 }
 
+/* NEW data badge on detail tabs */
+.detail-tab { position: relative; }
+.tab-new-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 8px;
+  color: #fff;
+  vertical-align: middle;
+}
+#tab-badge-recruiting { background: #4a90d9; }  /* NLR blue */
+#tab-badge-audit { background: #e5683a; }        /* Cam/BIS orange */
+
 /* Tab Content */
 .detail-tab-content { min-height: 300px; }
 

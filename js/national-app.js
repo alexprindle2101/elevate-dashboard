@@ -377,6 +377,105 @@ const NationalApp = {
     } catch { /* ignore */ }
   },
 
+  // ── NEW data badge logic (NLR weekly / Cam monthly) ──
+  _TAB_VIEWED_KEY: 'od_tab_viewed',
+
+  /**
+   * Get the stored "last viewed" timestamps { recruiting: ts, audit: ts }
+   */
+  _getTabViewed(ownerName, campaign) {
+    try {
+      const all = JSON.parse(localStorage.getItem(this._TAB_VIEWED_KEY) || '{}');
+      const key = (campaign + '::' + ownerName).toLowerCase();
+      return all[key] || {};
+    } catch { return {}; }
+  },
+
+  /**
+   * Save a "viewed" timestamp for an owner+campaign+tab
+   */
+  _markTabViewed(ownerName, campaign, tab) {
+    try {
+      const all = JSON.parse(localStorage.getItem(this._TAB_VIEWED_KEY) || '{}');
+      const key = (campaign + '::' + ownerName).toLowerCase();
+      if (!all[key]) all[key] = {};
+      all[key][tab] = Date.now();
+      localStorage.setItem(this._TAB_VIEWED_KEY, JSON.stringify(all));
+    } catch { /* ignore */ }
+  },
+
+  /**
+   * Get the scheduled day (0=Mon … 6=Sun) for a campaign from planning data.
+   * Returns -1 if not scheduled.
+   */
+  _getCampaignScheduledDay(campaignKey) {
+    const sched = this._planningSchedule || [];
+    const entry = sched.find(p => p.campaignKey === campaignKey);
+    return entry ? entry.day : -1;
+  },
+
+  /**
+   * Check whether the NLR "NEW" badge should show for this owner.
+   * Shows on the campaign's scheduled day each week, clears once the coach views recruiting tab.
+   */
+  _shouldShowNlrBadge(ownerName, campaign) {
+    // Owner must have NLR mapping
+    if (this._isNonPartner(ownerName, 'nlrWorkbookId') || this._isUnmapped(ownerName, 'nlrTab')) return false;
+
+    const scheduledDay = this._getCampaignScheduledDay(campaign);
+    if (scheduledDay < 0) return false;
+
+    const now = new Date();
+    const todayIdx = (now.getDay() + 6) % 7; // Mon=0
+    if (todayIdx !== scheduledDay) return false;
+
+    // Check if coach already viewed recruiting tab today
+    const viewed = this._getTabViewed(ownerName, campaign);
+    if (viewed.recruiting) {
+      const viewedDate = new Date(viewed.recruiting);
+      if (viewedDate.toDateString() === now.toDateString()) return false; // already viewed today
+    }
+    return true;
+  },
+
+  /**
+   * Check whether the Cam/BIS "NEW" badge should show for this owner.
+   * Shows on the FIRST scheduled day of each calendar month, clears once coach views audit tab.
+   */
+  _shouldShowCamBadge(ownerName, campaign) {
+    // Owner must have Cam mapping
+    if (this._isNonPartner(ownerName, 'camCompany') || this._isUnmapped(ownerName, 'camCompany')) return false;
+
+    const scheduledDay = this._getCampaignScheduledDay(campaign);
+    if (scheduledDay < 0) return false;
+
+    const now = new Date();
+    const todayIdx = (now.getDay() + 6) % 7;
+    if (todayIdx !== scheduledDay) return false;
+
+    // Is this the FIRST occurrence of scheduledDay in this calendar month?
+    const dayOfMonth = now.getDate();
+    if (dayOfMonth > 7) return false; // first occurrence is always in days 1-7
+
+    // Check if coach already viewed audit tab this month
+    const viewed = this._getTabViewed(ownerName, campaign);
+    if (viewed.audit) {
+      const viewedDate = new Date(viewed.audit);
+      if (viewedDate.getMonth() === now.getMonth() && viewedDate.getFullYear() === now.getFullYear()) return false;
+    }
+    return true;
+  },
+
+  /**
+   * Update the NLR/Cam badges on the detail tab buttons for the current owner.
+   */
+  _updateDetailTabBadges(ownerName, campaign) {
+    const nlrBadge = document.getElementById('tab-badge-recruiting');
+    const camBadge = document.getElementById('tab-badge-audit');
+    if (nlrBadge) nlrBadge.style.display = this._shouldShowNlrBadge(ownerName, campaign) ? '' : 'none';
+    if (camBadge) camBadge.style.display = this._shouldShowCamBadge(ownerName, campaign) ? '' : 'none';
+  },
+
   async _fetchPlanningSchedule() {
     try {
       const url = new URL(NATIONAL_CONFIG.appsScriptUrl || OD_CONFIG.appsScriptUrl);
@@ -2082,6 +2181,9 @@ const NationalApp = {
     this.renderHealthTab(owner);
     this._showTab('health');
 
+    // Update NLR / Cam "NEW" badges on detail tabs
+    this._updateDetailTabBadges(owner.name, this.state.campaign);
+
     // Lazy-load NLR data for this specific owner (non-blocking)
     if (!owner._nlrFetched) {
       this._fetchOwnerNlrData(owner);
@@ -2113,6 +2215,13 @@ const NationalApp = {
 
     const owner = this.state.selectedOwner;
     if (!owner) return;
+
+    // Clear "NEW" badge when coach views the tab
+    if (tab === 'recruiting' || tab === 'audit') {
+      this._markTabViewed(owner.name, this.state.campaign, tab);
+      const badge = document.getElementById('tab-badge-' + tab);
+      if (badge) badge.style.display = 'none';
+    }
 
     switch (tab) {
       case 'health': this.renderHealthTab(owner); break;

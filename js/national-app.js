@@ -69,6 +69,10 @@ const NationalApp = {
     }
     document.getElementById('user-name').textContent = this.state.session.name || this.state.session.email;
 
+    // Load planning schedule from cache immediately, refresh in background
+    this._loadPlanningFromCache();
+    this._fetchPlanningSchedule();
+
     // Fetch recruiting data to discover all campaigns, then show landing page
     this._showLoading('Loading campaigns...');
     try {
@@ -97,10 +101,11 @@ const NationalApp = {
     this._coachCampaign = campaign;
     this.state.session = { email: session.email, name: session.name, loginTime: Date.now() };
 
-    // Fetch planning schedule (non-blocking) for sorted landing page
+    // Load planning schedule: instant from cache, then refresh in background
     if (!this._planningSchedule) {
-      this._fetchPlanningSchedule();
+      this._loadPlanningFromCache();
     }
+    this._fetchPlanningSchedule();
 
     if (campaign) {
       // Direct campaign selection — must fetch full data
@@ -351,7 +356,28 @@ const NationalApp = {
     }
   },
 
-  // ── Fetch weekly planning schedule from _OD_Planning tab ──
+  // ── Planning schedule: localStorage cache + background refresh ──
+  _PLANNING_CACHE_KEY: 'od_planning_cache',
+
+  _loadPlanningFromCache() {
+    try {
+      const raw = localStorage.getItem(this._PLANNING_CACHE_KEY);
+      if (!raw) return false;
+      const cache = JSON.parse(raw);
+      if (cache && Array.isArray(cache.planning)) {
+        this._planningSchedule = cache.planning;
+        return true;
+      }
+    } catch { /* ignore */ }
+    return false;
+  },
+
+  _savePlanningToCache(planning) {
+    try {
+      localStorage.setItem(this._PLANNING_CACHE_KEY, JSON.stringify({ planning, _ts: Date.now() }));
+    } catch { /* ignore */ }
+  },
+
   async _fetchPlanningSchedule() {
     try {
       const url = new URL(NATIONAL_CONFIG.appsScriptUrl || OD_CONFIG.appsScriptUrl);
@@ -360,6 +386,7 @@ const NationalApp = {
       const res = await fetch(url.toString()).then(r => r.json());
       if (res.success && res.planning) {
         this._planningSchedule = res.planning;
+        this._savePlanningToCache(res.planning);
         // Re-render landing if visible
         const landing = document.getElementById('campaign-landing');
         if (landing && landing.style.display !== 'none') {

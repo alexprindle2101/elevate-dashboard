@@ -2489,6 +2489,12 @@ const OwnerDev = {
         this._toast('Schedule saved');
         if (status) status.textContent = 'Saved';
         setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+        // Update NationalApp's cache so Coach view is instant
+        if (typeof NationalApp !== 'undefined') {
+          NationalApp._planningSchedule = [...this.state.planningData];
+          NationalApp._savePlanningToCache(this.state.planningData);
+          NationalApp._coachInitDone = false; // force re-render on next Coach tab switch
+        }
       } else {
         this._toast(res.message || 'Failed to save', 'error');
         if (status) status.textContent = 'Error';

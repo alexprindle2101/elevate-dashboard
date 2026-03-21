@@ -419,8 +419,6 @@ const NationalApp = {
    * Shows on the campaign's scheduled day each week, clears once the coach views recruiting tab.
    */
   _shouldShowNlrBadge(ownerName, campaign) {
-    // TEMP: force on for preview
-    return true;
     // Owner must have NLR mapping
     if (this._isNonPartner(ownerName, 'nlrWorkbookId') || this._isUnmapped(ownerName, 'nlrTab')) return false;
 
@@ -445,8 +443,6 @@ const NationalApp = {
    * Shows on the FIRST scheduled day of each calendar month, clears once coach views audit tab.
    */
   _shouldShowCamBadge(ownerName, campaign) {
-    // TEMP: force on for preview
-    return true;
     // Owner must have Cam mapping
     if (this._isNonPartner(ownerName, 'camCompany') || this._isUnmapped(ownerName, 'camCompany')) return false;
 

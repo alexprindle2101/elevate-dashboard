@@ -4016,8 +4016,9 @@ const NationalApp = {
     svg += `<defs><filter id="txtShadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#000" flood-opacity="0.4"/>
     </filter></defs>`;
-    const _isYellow = (c) => c === '#ffeb3b' || c === '#f9a825';
-    const _txtAttr = (color) => _isYellow(color) ? ' filter="url(#txtShadow)"' : '';
+    const _isLight = (c) => c === '#ffeb3b' || c === '#f9a825' || c === '#84cc16';
+    const _txtAttr = (color) => _isLight(color) ? ' filter="url(#txtShadow)"' : '';
+    const _barTextFill = (color) => _isLight(color) ? 'rgba(0,0,0,0.7)' : '#fff';
 
     // Light gridlines
     for (let v = 0; v <= yMax; v += step) {
@@ -4062,7 +4063,7 @@ const NationalApp = {
 
       // Showed count inside solid bar (if tall enough)
       if (sh > 0 && shH > 14) {
-        svg += `<text x="${cx}" y="${baseY - shH / 2 + 4}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="Inter,sans-serif"${_txtAttr(barColor)}>${sh}</text>`;
+        svg += `<text x="${cx}" y="${baseY - shH / 2 + 4}" text-anchor="middle" fill="${_barTextFill(barColor)}" font-size="9" font-weight="700" font-family="Inter,sans-serif">${sh}</text>`;
       }
 
       // Retention % above bar

@@ -69,17 +69,17 @@ const NationalApp = {
     }
     document.getElementById('user-name').textContent = this.state.session.name || this.state.session.email;
 
-    // Load planning schedule from cache immediately, refresh in background
+    // Load planning from cache, then fetch everything in parallel
     this._loadPlanningFromCache();
-    this._fetchPlanningSchedule();
 
-    // Fetch recruiting data to discover all campaigns, then show landing page
     this._showLoading('Loading campaigns...');
     try {
-      // Kick off one recruiting fetch to populate _allCampaignsData
-      await this.loadCampaignData('att-b2b');
+      await Promise.all([
+        this._fetchPlanningSchedule(),
+        this.loadCampaignData('att-b2b')
+      ]);
     } catch (err) {
-      console.warn('[NationalApp] Initial campaign fetch failed:', err.message);
+      console.warn('[NationalApp] Initial fetch failed:', err.message);
     }
     this._hideLoading();
     document.getElementById('dashboard').style.display = 'block';
@@ -101,38 +101,35 @@ const NationalApp = {
     this._coachCampaign = campaign;
     this.state.session = { email: session.email, name: session.name, loginTime: Date.now() };
 
-    // Load planning schedule: instant from cache, then refresh in background
+    // Load planning schedule from cache, then fetch fresh in parallel with data
     if (!this._planningSchedule) {
       this._loadPlanningFromCache();
     }
-    this._fetchPlanningSchedule();
 
     if (campaign) {
-      // Direct campaign selection — must fetch full data
+      // Direct campaign selection — wait for both planning + campaign data
       this._showLoading('Loading campaign data...');
       try {
-        await this.selectCampaign(campaign);
+        await Promise.all([
+          this._fetchPlanningSchedule(),
+          this.selectCampaign(campaign)
+        ]);
       } catch (err) {
         console.warn('[NationalApp] Coach view campaign fetch failed:', err.message);
       }
       this._hideLoading();
     } else {
-      // Landing page — try instant render from OwnerDev's mapping cache
-      const rendered = this._tryRenderLandingFromCache();
-      if (rendered) {
-        console.log('[NationalApp] Landing page rendered instantly from OwnerDev cache');
-        this._showLandingPage();
-      } else {
-        // No cache — fall back to full fetch
-        this._showLoading('Loading coaching data...');
-        try {
-          await this.loadCampaignData(Object.keys(NATIONAL_CONFIG.campaigns)[0] || 'frontier');
-        } catch (err) {
-          console.warn('[NationalApp] Coach view campaign fetch failed:', err.message);
-        }
-        this._hideLoading();
-        this._showLandingPage();
-      }
+      // Landing page — fetch planning + campaign data together, show loading until both ready
+      this._showLoading('Loading coaching data...');
+      const planningPromise = this._fetchPlanningSchedule();
+      const dataPromise = this._tryRenderLandingFromCache()
+        ? Promise.resolve(true)
+        : this.loadCampaignData(Object.keys(NATIONAL_CONFIG.campaigns)[0] || 'frontier').catch(err => {
+            console.warn('[NationalApp] Coach view campaign fetch failed:', err.message);
+          });
+      await Promise.all([planningPromise, dataPromise]);
+      this._hideLoading();
+      this._showLandingPage();
     }
 
     this._coachInitDone = true;

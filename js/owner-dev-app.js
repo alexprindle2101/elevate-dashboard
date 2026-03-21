@@ -65,6 +65,8 @@ const OwnerDev = {
       if (coachTab) { coachTab.style.display = ''; coachTab.classList.add('active'); }
       // Hide mapping view, show coach view
       document.getElementById('view-mapping').style.display = 'none';
+      const coachView = document.getElementById('view-coach');
+      if (coachView) coachView.style.display = '';
       document.getElementById('dashboard').style.display = 'block';
       this.state.activeTab = 'coach';
       if (typeof NationalApp !== 'undefined') {

@@ -3075,9 +3075,10 @@ const NationalApp = {
             <div class="hc-chart-legend">
               ${tableProductNames.length > 1 && this.state.campaign !== 'leafguard'
                 ? tableProductNames.map((pName, pi) => {
-                    const style = pi === 0
-                      ? 'background:#888'
-                      : 'background:repeating-conic-gradient(#888 0% 25%, rgba(255,255,255,0.3) 0% 50%) 0 0/6px 6px';
+                    let style;
+                    if (pi === 0) style = 'background:#888';
+                    else if (pi === 1) style = 'background:repeating-conic-gradient(#888 0% 25%, rgba(255,255,255,0.3) 0% 50%) 0 0/6px 6px';
+                    else style = 'background:repeating-linear-gradient(45deg,#888,#888 2px,rgba(255,255,255,0.3) 2px,rgba(255,255,255,0.3) 4px)';
                     return `<span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="${style}"></span>${this._esc(pName)}</span>`;
                   }).join('')
                   + '<span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:none;border-top:2px dashed #888;height:0;width:10px;border-radius:0"></span>Goal</span>'
@@ -3280,15 +3281,24 @@ const NationalApp = {
 
           if (actualH > 0) {
             const barPath = roundTop(bx, actualTop, subW, actualH, Math.min(rLeft, rRight) || 2);
-            // Product 0 = solid fill, product 1+ = diamond pattern overlay
             if (pi === 0) {
+              // Product 1: solid fill
               svg += `<path d="${barPath}" fill="${barColor}" opacity="0.85"/>`;
-            } else {
-              const patId = 'diamond-' + i + '-' + pi;
+            } else if (pi === 1) {
+              // Product 2: diamond checkerboard
+              const patId = 'pat-diamond-' + i + '-' + pi;
               svg += `<defs><pattern id="${patId}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                 <rect width="8" height="8" fill="${barColor}" opacity="0.85"/>
-                <rect x="0" y="0" width="4" height="4" fill="rgba(255,255,255,0.2)"/>
-                <rect x="4" y="4" width="4" height="4" fill="rgba(255,255,255,0.2)"/>
+                <rect x="0" y="0" width="4" height="4" fill="rgba(255,255,255,0.22)"/>
+                <rect x="4" y="4" width="4" height="4" fill="rgba(255,255,255,0.22)"/>
+              </pattern></defs>`;
+              svg += `<path d="${barPath}" fill="url(#${patId})"/>`;
+            } else {
+              // Product 3+: diagonal stripes
+              const patId = 'pat-stripe-' + i + '-' + pi;
+              svg += `<defs><pattern id="${patId}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="6" height="6" fill="${barColor}" opacity="0.85"/>
+                <rect x="0" y="0" width="3" height="6" fill="rgba(255,255,255,0.22)"/>
               </pattern></defs>`;
               svg += `<path d="${barPath}" fill="url(#${patId})"/>`;
             }

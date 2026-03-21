@@ -3842,9 +3842,13 @@ const NationalApp = {
     const weekLabels = revIdxs.map(wi => shortDate(weeks[wi]));
 
     // ── Build 3 retention % trend cards ──
-    const chart1 = this._buildRetentionCard('New Starts', '#22c55e', weekLabels, newStartsBooked, newStartsShowed, 'Booked new starts that actually show up');
-    const chart2 = this._buildRetentionCard('2nd Round Interviews', '#3b82f6', weekLabels, r2Booked, r2Showed, '1st round interview quality');
-    const chart3 = this._buildRetentionCard('1st Round Interviews', '#f59e0b', weekLabels, r1Booked, r1Showed, 'Recruiting hub / phone booker performance');
+    // Pass row indices + projected values for color matching with recruiting table
+    const projNS = rows[10]?.projected ?? 0;
+    const projR2 = rows[7]?.projected ?? 0;
+    const projR1 = rows[3]?.projected ?? 0;
+    const chart1 = this._buildRetentionCard('New Starts', weekLabels, newStartsBooked, newStartsShowed, 'Booked new starts that actually show up', 11, 10, projNS);
+    const chart2 = this._buildRetentionCard('2nd Round Interviews', weekLabels, r2Booked, r2Showed, '1st round interview quality', 8, 7, projR2);
+    const chart3 = this._buildRetentionCard('1st Round Interviews', weekLabels, r1Booked, r1Showed, 'Recruiting hub / phone booker performance', 4, 3, projR1);
 
     // ── Build table (back side — existing stacked cards) ──
     let tableHtml = '<div class="wow-cards">';
@@ -3897,7 +3901,17 @@ const NationalApp = {
   },
 
   // ── Build a single retention bar card (showed vs booked bars + hero number) ──
-  _buildRetentionCard(title, color, weekLabels, booked, showed, subtitle) {
+  // Map cell-* class to hex color for SVG
+  _cellColorHex(cls) {
+    if (cls === 'cell-blue') return '#22d3ee';
+    if (cls === 'cell-green') return '#84cc16';
+    if (cls === 'cell-yellow') return '#ffeb3b';
+    if (cls === 'cell-orange') return '#f9a825';
+    if (cls === 'cell-red') return '#e53935';
+    return '#8a95a5';
+  },
+
+  _buildRetentionCard(title, weekLabels, booked, showed, subtitle, retentionRowIdx, showedRowIdx, projected) {
     const n = weekLabels.length;
     const VISIBLE = 4;
 
@@ -3905,6 +3919,10 @@ const NationalApp = {
     const curShowed = showed[0] || 0;
     const curBooked = booked[0] || 0;
     const curPct = curBooked > 0 ? Math.round((curShowed / curBooked) * 100) : null;
+
+    // Hero number color — use showed value vs projected (same as table's ratio thresholds)
+    const heroColorCls = this._cellColor(curShowed, projected, false, showedRowIdx);
+    const heroColor = this._cellColorHex(heroColorCls);
 
     // SVG dimensions — viewBox scales to fill card, scroll if > VISIBLE weeks
     const svgH = 130;
@@ -3945,11 +3963,15 @@ const NationalApp = {
       svg += `<line x1="0" y1="${y}" x2="${vbW}" y2="${y}" stroke="#e8ecf1" stroke-width="0.5"/>`;
     }
 
-    // Bars per week
+    // Bars per week — color based on retention % using table thresholds
     for (let i = 0; i < n; i++) {
       const bk = booked[i] || 0;
       const sh = showed[i] || 0;
       const pct = bk > 0 ? Math.round((sh / bk) * 100) : null;
+
+      // Bar color from retention thresholds (same as table)
+      const barCls = pct !== null ? this._cellColor(pct, null, true, retentionRowIdx) : '';
+      const barColor = this._cellColorHex(barCls);
 
       const gx = i * SLOT_W + barOff;
       const cx = i * SLOT_W + SLOT_W / 2;
@@ -3957,23 +3979,22 @@ const NationalApp = {
       // Booked bar (ghost — the potential)
       const bkH = bk * yScale;
       if (bkH > 0) {
-        svg += `<path d="${roundTop(gx, baseY - bkH, barW, bkH, BAR_R)}" fill="${color}" opacity="0.13"/>`;
-        svg += `<path d="${roundTop(gx, baseY - bkH, barW, bkH, BAR_R)}" fill="none" stroke="${color}" stroke-width="1" opacity="0.35" stroke-dasharray="3,2"/>`;
+        svg += `<path d="${roundTop(gx, baseY - bkH, barW, bkH, BAR_R)}" fill="${barColor}" opacity="0.13"/>`;
+        svg += `<path d="${roundTop(gx, baseY - bkH, barW, bkH, BAR_R)}" fill="none" stroke="${barColor}" stroke-width="1" opacity="0.35" stroke-dasharray="3,2"/>`;
       }
 
       // Showed bar (solid — actual output)
       const shH = sh * yScale;
       if (shH > 0) {
-        svg += `<path d="${roundTop(gx, baseY - shH, barW, shH, BAR_R)}" fill="${color}" opacity="0.88"/>`;
+        svg += `<path d="${roundTop(gx, baseY - shH, barW, shH, BAR_R)}" fill="${barColor}" opacity="0.88"/>`;
       }
 
       // Booked count in ghost gap area (between showed top and booked top)
       const gapH = bkH - shH;
       if (bk > 0 && gapH > 12) {
         const gapMidY = baseY - shH - gapH / 2 + 3;
-        svg += `<text x="${cx}" y="${gapMidY}" text-anchor="middle" fill="${color}" font-size="8" font-weight="700" font-family="Inter,sans-serif" opacity="0.55">${bk}</text>`;
+        svg += `<text x="${cx}" y="${gapMidY}" text-anchor="middle" fill="${barColor}" font-size="8" font-weight="700" font-family="Inter,sans-serif" opacity="0.55">${bk}</text>`;
       } else if (bk > 0 && bk === sh && shH > 28) {
-        // Booked == showed: show booked near top of solid bar
         svg += `<text x="${cx}" y="${baseY - shH + 10}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="7" font-weight="600" font-family="Inter,sans-serif">${bk}</text>`;
       }
 
@@ -3985,7 +4006,7 @@ const NationalApp = {
       // Retention % above bar
       if (pct !== null) {
         const topY = Math.min(baseY - bkH, baseY - shH);
-        svg += `<text x="${cx}" y="${topY - 5}" text-anchor="middle" fill="${color}" font-size="8" font-weight="800" font-family="Inter,sans-serif">${pct}%</text>`;
+        svg += `<text x="${cx}" y="${topY - 5}" text-anchor="middle" fill="${barColor}" font-size="8" font-weight="800" font-family="Inter,sans-serif">${pct}%</text>`;
       }
 
       // Week label below
@@ -3994,8 +4015,9 @@ const NationalApp = {
 
     // Legend
     const legend = `<div class="hc-chart-legend" style="margin-top:4px">
-      <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:${color}"></span>Showed</span>
-      <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:${color};opacity:0.18;border:1.5px dashed ${color}"></span>Booked</span>
+      <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:#8a95a5"></span>Showed</span>
+      <span class="hc-chart-legend-item"><span class="hc-chart-legend-swatch" style="background:#8a95a5;opacity:0.18;border:1.5px dashed #8a95a5"></span>Booked</span>
+      <span class="hc-chart-legend-item" style="font-size:10px;color:#8a95a5">Colors = retention %</span>
     </div>`;
 
     return `
@@ -4006,7 +4028,7 @@ const NationalApp = {
             <div class="rc-card-subtitle">${subtitle}</div>
           </div>
           <div class="rc-card-hero">
-            <div class="rc-card-hero-num" style="color:${color}">${curShowed}</div>
+            <div class="rc-card-hero-num" style="color:${heroColor}">${curShowed}</div>
             <div class="rc-card-hero-label">showed</div>
           </div>
         </div>

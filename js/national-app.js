@@ -1275,15 +1275,31 @@ const NationalApp = {
       // allWeeks is newest-first; allWeeksChron is oldest-first
       // Check newest week first — if it has a health object (even all zeros), that's the current state
       const newestWeek = allWeeks[0];
+      let newestWeekIsStale = false;
       if (newestWeek) {
-        const nwData = (newestWeek.data || {})[name];
-        const nwHealth = nwData && (nwData.health || null);
-        if (nwHealth) {
-          // Newest week exists with health — use it as-is (empty = fresh week, not prefilled)
-          latestHealth = nwHealth;
+        // Detect stale data: if the newest week's date is >7 days old,
+        // a new week has started but consolidation hasn't run yet.
+        // In that case, treat headcount as empty (fresh week).
+        const nwParts = newestWeek.tabName.split('/');
+        if (nwParts.length >= 3) {
+          const nwDate = new Date(+nwParts[2], +nwParts[0] - 1, +nwParts[1]);
+          const daysSinceNewest = (now - nwDate) / (1000 * 60 * 60 * 24);
+          if (daysSinceNewest > 7) {
+            newestWeekIsStale = true;
+          }
         }
+
+        if (!newestWeekIsStale) {
+          const nwData = (newestWeek.data || {})[name];
+          const nwHealth = nwData && (nwData.health || null);
+          if (nwHealth) {
+            // Newest week exists with health — use it as-is (empty = fresh week, not prefilled)
+            latestHealth = nwHealth;
+          }
+        }
+        // If stale, latestHealth stays {} — inputs will show empty for fresh week
       }
-      let latestHealthSetFromNewest = !!Object.keys(latestHealth).length;
+      let latestHealthSetFromNewest = newestWeekIsStale || !!Object.keys(latestHealth).length;
       for (let wi = 0; wi < allWeeksChron.length; wi++) {
         const weekData = allWeeksChron[wi].data || {};
         const ownerData = weekData[name];

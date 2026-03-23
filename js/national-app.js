@@ -3757,8 +3757,7 @@ const NationalApp = {
   async _submitGoals(ownerIdx) {
     const owner = this.state.owners[ownerIdx];
     if (!owner) return;
-    const cfg = NATIONAL_CONFIG.campaigns[this.state.campaign];
-    if (!cfg) return;
+    const campaignLabel = this._getCampaignLabel();
 
     // Collect goal values from all goal inputs in the DOM (not just production.products,
     // since Set Goals shows ALL products including ones not yet sold)
@@ -3769,10 +3768,7 @@ const NationalApp = {
     if (goalInputs.length > 0) {
       goalInputs.forEach(el => {
         if (el.value) {
-          // Extract product name from the id: "goal-{product}-{ownerIdx}"
-          const idParts = el.id.replace('goal-', '').replace('-' + ownerIdx, '');
-          // Map back to original product name from the label
-          const label = el.closest('.goal-field')?.querySelector('.goal-field-label')?.textContent?.replace(' Goal', '') || idParts;
+          const label = el.closest('.goal-field')?.querySelector('.goal-field-label')?.textContent?.replace(' Goal', '') || '';
           goals[label] = parseInt(el.value) || 0;
           if (goals[label]) anyGoal = true;
         }
@@ -3795,7 +3791,7 @@ const NationalApp = {
         key: NATIONAL_CONFIG.apiKey,
         action: 'saveGoals',
         ownerName: owner._sheetName || owner.tab || owner.name,
-        campaignLabel: cfg.label,
+        campaignLabel: campaignLabel,
         campaignKey: this.state.campaign,
         goals: goals
       })

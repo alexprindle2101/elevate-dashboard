@@ -1372,6 +1372,21 @@ const NationalApp = {
         }
       }
 
+      // Ensure the newest week is in prodHistory (may have been skipped if health
+      // existed but production was null/empty, or if week index didn't match)
+      const newestWeekDate = allWeeksChron.length > 0 ? allWeeksChron[allWeeksChron.length - 1].tabName : null;
+      if (newestWeekDate && !prodHistory.some(p => p.date === newestWeekDate)) {
+        const inheritProducts = {};
+        for (let pi = prodHistory.length - 1; pi >= 0; pi--) {
+          const prev = prodHistory[pi];
+          if (prev.products && Object.keys(prev.products).length > 0) {
+            for (const pn of Object.keys(prev.products)) inheritProducts[pn] = { actual: 0, goal: 0 };
+            break;
+          }
+        }
+        prodHistory.push({ date: newestWeekDate, tA: 0, tG: 0, products: inheritProducts });
+      }
+
       // Build current production from most recent week with actual production data
       // (separate from headcount which uses the newest week even if all zeros)
       let currentProd = { totalGoal: 0, totalActual: 0, wirelessGoal: 0, wirelessActual: 0, products: {} };
@@ -2441,15 +2456,10 @@ const NationalApp = {
     let goalFieldsHtml = '';
     if (productNames.length > 0) {
       // LeafGuard: only show Gross Sales + Gross Leads goals (skip Personal Prod + Number of Sales)
-      // Other campaigns: skip products never sold with no current data/goal
-      const prodHist2 = owner.productionHistory || [];
+      // All other campaigns: show ALL products so coaches can set goals even for new product lines
       const goalProducts = this.state.campaign === 'leafguard'
         ? productNames.filter(p => p === 'Gross Sales' || p === 'Gross Leads')
-        : productNames.filter(p => {
-            const pd = productEntries[p];
-            if (pd.actual || pd.goal) return true;
-            return prodHist2.some(w => w.products && w.products[p] && (w.products[p].actual > 0));
-          });
+        : productNames;
       for (const pName of goalProducts) {
         goalFieldsHtml += `
           <div class="goal-field">

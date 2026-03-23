@@ -1273,14 +1273,26 @@ const NationalApp = {
       const hcHistory = [];
       const prodHistory = [];
       // allWeeks is newest-first; allWeeksChron is oldest-first
+      // Check newest week first — if it has a health object (even all zeros), that's the current state
+      const newestWeek = allWeeks[0];
+      if (newestWeek) {
+        const nwData = (newestWeek.data || {})[name];
+        const nwHealth = nwData && (nwData.health || null);
+        if (nwHealth) {
+          // Newest week exists with health — use it as-is (empty = fresh week, not prefilled)
+          latestHealth = nwHealth;
+        }
+      }
+      let latestHealthSetFromNewest = !!Object.keys(latestHealth).length;
       for (let wi = 0; wi < allWeeksChron.length; wi++) {
         const weekData = allWeeksChron[wi].data || {};
         const ownerData = weekData[name];
         const health = ownerData && (ownerData.health || null);
         if (health) {
           const h = health;
-          // Only use as latestHealth if it has meaningful data (skip weeks with no data entered)
-          if ((h.active || 0) > 0 || (h.leaders || 0) > 0 || (h.training || 0) > 0) {
+          // Only use as latestHealth if newest week didn't already set it
+          // and this week has meaningful data (skip empty older weeks)
+          if (!latestHealthSetFromNewest && ((h.active || 0) > 0 || (h.leaders || 0) > 0 || (h.training || 0) > 0)) {
             latestHealth = h;
           }
           if ((h.leaders || 0) > 0) lastNonZeroLeaders = h.leaders;

@@ -288,7 +288,7 @@ function doPost(e) {
                    body.active, body.leaders, body.dist, body.training, body.campaignLabel);
         break;
       case 'updateProduction':
-        result = updateProductionRow(body.ownerName, body.date,
+        result = updateProductionRow(body.ownerName, body.date, body.campaignLabel, body.products,
                    body.internet, body.wireless, body.dtv, body.goals);
         break;
       case 'saveGoals':
@@ -2854,8 +2854,8 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
   return { ok: true, row: targetRow, owner: ownerName, date: formatDate(nextMonday), written: written };
 }
 
-function updateProductionRow(ownerName, date, internet, wireless, dtv, goals) {
-  if (!ownerName || !date) return { error: 'ownerName and date are required' };
+function updateProductionRow(ownerName, date, campaignLabel, products, internet, wireless, dtv, goals) {
+  if (!ownerName) return { error: 'ownerName is required' };
 
   var ss;
   try {
@@ -2864,32 +2864,85 @@ function updateProductionRow(ownerName, date, internet, wireless, dtv, goals) {
     return { error: 'Cannot open national sheet: ' + err.message };
   }
 
-  var sheet = ss.getSheetByName('_B2B_Headcount');
-  if (!sheet) return { error: '_B2B_Headcount tab not found' };
+  // Write to consolidated campaign tab (same pattern as updateHeadcountRow)
+  if (campaignLabel) {
+    var sheet = ss.getSheetByName(campaignLabel);
+    if (!sheet) return { error: 'Tab "' + campaignLabel + '" not found' };
 
-  var data = sheet.getDataRange().getValues();
-  var normDate = _normalizeDate(date);
-  var targetRow = -1;
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0].map(function(h) { return String(h).trim(); });
+    var colMap = {};
+    for (var c = 0; c < headers.length; c++) colMap[headers[c]] = c;
 
-  for (var i = 1; i < data.length; i++) {
-    var rowOwner = String(data[i][0] || '').trim();
-    var rowDate  = _normalizeDate(data[i][1]);
-    if (rowOwner === ownerName && rowDate === normDate) {
-      targetRow = i + 1; // 1-based sheet row
-      break;
+    var colOwner = colMap['Owner'];
+    if (colOwner === undefined) return { error: 'Owner column not found in "' + campaignLabel + '"' };
+
+    // Find the row: if date provided, match owner+date; otherwise first match (most recent)
+    var targetRow = -1;
+    var targetDate = '';
+    var normDate = date ? _normalizeDate(date) : null;
+    for (var i = 1; i < data.length; i++) {
+      var rowOwner = String(data[i][colOwner] || '').trim();
+      if (rowOwner.toLowerCase() === ownerName.toLowerCase()) {
+        if (normDate) {
+          var colWeek = colMap['Week'];
+          var rowDate = colWeek !== undefined ? _normalizeDate(data[i][colWeek]) : '';
+          if (rowDate === normDate) {
+            targetRow = i + 1;
+            targetDate = data[i][colWeek];
+            break;
+          }
+        } else {
+          targetRow = i + 1;
+          targetDate = colMap['Week'] !== undefined ? data[i][colMap['Week']] : '';
+          break;
+        }
+      }
     }
+
+    if (targetRow === -1) {
+      // If date-specific match failed, fall back to most recent row for this owner
+      for (var i = 1; i < data.length; i++) {
+        var rowOwner = String(data[i][colOwner] || '').trim();
+        if (rowOwner.toLowerCase() === ownerName.toLowerCase()) {
+          targetRow = i + 1;
+          targetDate = colMap['Week'] !== undefined ? data[i][colMap['Week']] : '';
+          break;
+        }
+      }
+      if (targetRow === -1) {
+        return { error: 'No row found for owner "' + ownerName + '" in "' + campaignLabel + '"' };
+      }
+    }
+
+    // Write per-product values using "Prod: <Product>" and "Goal: <Product>" columns
+    var written = [];
+    if (products && typeof products === 'object') {
+      for (var pName in products) {
+        var prodCol = colMap['Prod: ' + pName];
+        var goalCol = colMap['Goal: ' + pName];
+        if (prodCol !== undefined) {
+          sheet.getRange(targetRow, prodCol + 1).setValue(parseInt(products[pName].actual) || 0);
+          written.push('Prod: ' + pName + '=' + (products[pName].actual || 0));
+        }
+        if (goalCol !== undefined && products[pName].goal) {
+          sheet.getRange(targetRow, goalCol + 1).setValue(parseInt(products[pName].goal) || 0);
+          written.push('Goal: ' + pName + '=' + (products[pName].goal || 0));
+        }
+      }
+    } else {
+      // Legacy fallback: single Production LW / Production Goals columns
+      var colProd = colMap['Production LW'] !== undefined ? colMap['Production LW'] : colMap['Production'];
+      var colGoals = colMap['Production Goals'] !== undefined ? colMap['Production Goals'] : colMap['Goals'];
+      if (colProd !== undefined) sheet.getRange(targetRow, colProd + 1).setValue(parseInt(internet) || 0);
+      if (colGoals !== undefined) sheet.getRange(targetRow, colGoals + 1).setValue(parseInt(goals) || 0);
+      written.push('prod=' + (internet || 0) + ' goals=' + (goals || 0));
+    }
+
+    return { ok: true, row: targetRow, owner: ownerName, date: formatDate(targetDate), tab: campaignLabel, written: written };
   }
 
-  if (targetRow === -1) {
-    return { error: 'Row not found for owner "' + ownerName + '" date "' + normDate + '"' };
-  }
-
-  // Update columns G-J (Internet, Wireless, DTV, Goals) — 1-based cols 7-10
-  sheet.getRange(targetRow, 7, 1, 4).setValues([
-    [parseInt(internet) || 0, parseInt(wireless) || 0, parseInt(dtv) || 0, String(goals || '')]
-  ]);
-
-  return { ok: true, row: targetRow, owner: ownerName, date: normDate };
+  return { error: 'campaignLabel is required' };
 }
 
 // ── Normalize any date value to MM/DD/YYYY string (no timezone) ──

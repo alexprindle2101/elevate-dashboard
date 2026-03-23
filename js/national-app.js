@@ -3649,6 +3649,8 @@ const NationalApp = {
 
   async _saveProdRow(owner, entry) {
     const sheetName = owner._sheetName || owner.tab || owner.name;
+    const cfg = NATIONAL_CONFIG.campaigns[this.state.campaign];
+    const campaignLabel = cfg?.label || '';
     // Build per-product payload for backend
     const products = entry.products || {};
     const productKeys = Object.keys(products);
@@ -3661,6 +3663,7 @@ const NationalApp = {
           action: 'updateProduction',
           ownerName: sheetName,
           date: entry.date,
+          campaignLabel: campaignLabel,
           // Send per-product data for campaigns that have it
           products: productKeys.length > 0 ? products : null,
           // Legacy fallback params
@@ -3973,6 +3976,8 @@ const NationalApp = {
     try {
       if (note) { note.textContent = 'Saving...'; note.classList.add('show'); }
       const sheetName = owner._sheetName || owner.tab || owner.name;
+      const cfg = NATIONAL_CONFIG.campaigns[this.state.campaign];
+      const campaignLabel = cfg?.label || '';
       // Determine the date for the production row (newest week)
       const prodDate = prodHist.length > 0 ? prodHist[prodHist.length - 1].date : this._latestWeekDate;
       const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
@@ -3983,6 +3988,7 @@ const NationalApp = {
           action: 'updateProduction',
           ownerName: sheetName,
           date: prodDate,
+          campaignLabel: campaignLabel,
           products: productNames.length > 0 ? updates : null,
           internet: totalActual,
           wireless: 0,

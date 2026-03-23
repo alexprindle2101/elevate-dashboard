@@ -2575,6 +2575,8 @@ const NationalApp = {
 
     if (!active && !leaders && !training) return; // Don't submit empty
 
+    this._flashBtn(document.getElementById('hc-submit-' + ownerIdx));
+
     // Update local state
     owner.headcount.active = active;
     owner.headcount.leaders = leaders;
@@ -3782,6 +3784,8 @@ const NationalApp = {
     }
 
     if (!anyGoal) return;
+
+    this._flashBtn(document.querySelector('#health-goals .hc-submit-btn'));
 
     // Fire and forget — save in background so the coach can move on immediately
     fetch(NATIONAL_CONFIG.appsScriptUrl, {
@@ -5832,6 +5836,16 @@ const NationalApp = {
     const d = document.createElement('div');
     d.textContent = s || '';
     return d.innerHTML;
+  },
+
+  // Quick visual confirmation flash on a button (green check → back to original)
+  _flashBtn(btn) {
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.textContent = '✓';
+    btn.style.transition = 'background .2s';
+    btn.style.background = 'var(--green, #22c55e)';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 600);
   },
 
   // Get the display label for the current campaign (used as the sheet tab name).

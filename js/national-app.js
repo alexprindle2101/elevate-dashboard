@@ -1565,30 +1565,32 @@ const NationalApp = {
     };
   },
 
-  // ── Rank owners by most recent week's production (for non-att-res campaigns) ──
-  // If the newest week has no production (fresh week), use the last week with actual data
+  // ── Rank owners by current week's production (for non-att-res campaigns) ──
+  // Only ranks owners who have production entered for the current week.
+  // If nobody has data yet (fresh week), all ranks are cleared (no stale rankings).
   _rankOwnersByProduction() {
-    const sorted = [...this.state.owners]
-      .map((o, idx) => {
-        let prod = o.production?.totalActual || 0;
-        // If current production is 0 (fresh week), find last week with data from history
-        if (!prod && o.productionHistory?.length) {
-          for (let i = o.productionHistory.length - 1; i >= 0; i--) {
-            if (o.productionHistory[i].tA > 0) { prod = o.productionHistory[i].tA; break; }
-          }
-        }
-        return { idx, prod };
-      })
+    // Only rank owners with actual current-week production
+    const withProd = this.state.owners
+      .map((o, idx) => ({ idx, prod: o.production?.totalActual || 0 }))
+      .filter(e => e.prod > 0)
       .sort((a, b) => b.prod - a.prod);
 
-    sorted.forEach((entry, rank) => {
+    // Clear all ranks first
+    this.state.owners.forEach(o => { o.d2dRank = null; o.d2dTotalUnits = 0; });
+
+    // Assign ranks only to owners with production
+    withProd.forEach((entry, rank) => {
       const owner = this.state.owners[entry.idx];
       owner.d2dRank = rank + 1;
       owner.d2dTotalUnits = entry.prod;
     });
 
-    console.log('[NationalApp] Production ranking: top 3 —',
-      sorted.slice(0, 3).map((e, i) => '#' + (i+1) + ' ' + this.state.owners[e.idx].name + ' (' + e.prod + ')').join(', '));
+    if (withProd.length) {
+      console.log('[NationalApp] Production ranking: top 3 —',
+        withProd.slice(0, 3).map((e, i) => '#' + (i+1) + ' ' + this.state.owners[e.idx].name + ' (' + e.prod + ')').join(', '));
+    } else {
+      console.log('[NationalApp] Production ranking: no data yet for current week');
+    }
   },
 
   // ── Calculate projected weekly numbers from leader count ──

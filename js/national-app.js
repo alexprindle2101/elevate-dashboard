@@ -1409,21 +1409,13 @@ const NationalApp = {
         currentProd.totalActual = lp;
         currentProd.totalGoal = (typeof latestProdHealth.goals === 'number') ? latestProdHealth.goals : 0;
       }
-      // Check if the newest week is missing production data
-      // If so, override currentProd to show empty/editable state instead of last week's values
-      const newestProdEntry = prodHistory.length > 0 ? prodHistory[prodHistory.length - 1] : null;
-      const newestWeekMissingProd = newestProdEntry && newestProdEntry.tA === 0 && newestProdEntry.tG === 0;
-      if (newestWeekMissingProd) {
-        currentProd = { totalGoal: 0, totalActual: 0, wirelessGoal: 0, wirelessActual: 0, products: {} };
-        // Inherit product names from the entry (which inherited from prior weeks)
-        if (newestProdEntry.products && Object.keys(newestProdEntry.products).length > 0) {
-          for (const pn of Object.keys(newestProdEntry.products)) {
-            currentProd.products[pn] = { actual: 0, goal: 0 };
-          }
-        }
-      }
+      // Check if LAST WEEK's production is missing — the newest prodHistory entry is always
+      // the upcoming week (all zeros by design). The Production Review card shows last week,
+      // so check the second-to-last entry (or the last entry if there's only one).
+      const lastWeekProdIdx = prodHistory.length >= 2 ? prodHistory.length - 2 : prodHistory.length - 1;
+      const lastWeekProdEntry = prodHistory.length > 0 ? prodHistory[lastWeekProdIdx] : null;
+      const newestWeekMissingProd = lastWeekProdEntry && lastWeekProdEntry.tA === 0 && lastWeekProdEntry.tG === 0;
       // If currentProd has no products but prodHistory does, inherit product names
-      // so editable cards show the right columns for the newest empty week
       if (!Object.keys(currentProd.products).length && prodHistory.length > 0) {
         const fallbackPH = prodHistory.find(p => p.products && Object.keys(p.products).length > 0);
         if (fallbackPH) {
@@ -1814,7 +1806,7 @@ const NationalApp = {
     }
   },
 
-  _COACH_CACHE_VERSION: 2, // bump to invalidate all caches after code changes
+  _COACH_CACHE_VERSION: 3, // bump to invalidate all caches after code changes
   _COACH_CACHE_MAX_AGE: 15 * 60 * 1000, // 15 min per-campaign cache
 
   async selectCampaign(campaignKey) {
@@ -2452,8 +2444,8 @@ const NationalApp = {
     } else if (productNames.length > 0) {
       // Show per-product cards only — hide products with no goal, no current units, and no history
       const prodHist = owner.productionHistory || [];
-      // Determine if production is missing (all zeros) → make cards editable
-      const prodMissing = !prod.totalActual && !prod.totalGoal;
+      // Use the flag from build: true when last week's production was all zeros
+      const prodMissing = !!owner._newestWeekMissingProd;
       for (const pName of productNames) {
         const pData = productEntries[pName];
         if (!pData.actual && !pData.goal) {
@@ -2467,12 +2459,12 @@ const NationalApp = {
       }
     } else {
       // Fallback: single total card
-      const prodMissing = !prod.totalActual && !prod.totalGoal;
+      const prodMissing = !!owner._newestWeekMissingProd;
       prodCardsHtml = prodMissing
         ? this._prodCardEditable('Total Units', prod.totalActual, prod.totalGoal, ownerIdx)
         : this._prodCard('Total Units', prod.totalActual, prod.totalGoal);
     }
-    const prodMissing = !prod.totalActual && !prod.totalGoal;
+    const prodMissing = !!owner._newestWeekMissingProd;
     prodEl.innerHTML = `
       <div class="coaching-label">Production Review <span class="coaching-sublabel">Last Week</span>${prodMissing ? ' <span style="color:var(--orange);font-size:12px;font-weight:500;">— No data entered</span>' : ''}</div>
       <div class="prod-cards">${prodCardsHtml}</div>

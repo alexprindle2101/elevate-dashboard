@@ -1405,12 +1405,25 @@ const NationalApp = {
         currentProd.totalActual = lp;
         currentProd.totalGoal = (typeof latestProdHealth.goals === 'number') ? latestProdHealth.goals : 0;
       }
+      // Check if the newest week is missing production data
+      // If so, override currentProd to show empty/editable state instead of last week's values
+      const newestProdEntry = prodHistory.length > 0 ? prodHistory[prodHistory.length - 1] : null;
+      const newestWeekMissingProd = newestProdEntry && newestProdEntry.tA === 0 && newestProdEntry.tG === 0;
+      if (newestWeekMissingProd) {
+        currentProd = { totalGoal: 0, totalActual: 0, wirelessGoal: 0, wirelessActual: 0, products: {} };
+        // Inherit product names from the entry (which inherited from prior weeks)
+        if (newestProdEntry.products && Object.keys(newestProdEntry.products).length > 0) {
+          for (const pn of Object.keys(newestProdEntry.products)) {
+            currentProd.products[pn] = { actual: 0, goal: 0 };
+          }
+        }
+      }
       // If currentProd has no products but prodHistory does, inherit product names
       // so editable cards show the right columns for the newest empty week
       if (!Object.keys(currentProd.products).length && prodHistory.length > 0) {
-        const newestPH = prodHistory[prodHistory.length - 1];
-        if (newestPH.products && Object.keys(newestPH.products).length > 0) {
-          for (const pn of Object.keys(newestPH.products)) {
+        const fallbackPH = prodHistory.find(p => p.products && Object.keys(p.products).length > 0);
+        if (fallbackPH) {
+          for (const pn of Object.keys(fallbackPH.products)) {
             currentProd.products[pn] = { actual: 0, goal: 0 };
           }
         }
@@ -3731,21 +3744,23 @@ const NationalApp = {
     const cfg = NATIONAL_CONFIG.campaigns[this.state.campaign];
     if (!cfg) return;
 
-    // Collect goal values from all per-product inputs
-    const prod = owner.production || {};
-    const productNames = Object.keys(prod.products || {});
+    // Collect goal values from all goal inputs in the DOM (not just production.products,
+    // since Set Goals shows ALL products including ones not yet sold)
     const goals = {};
     let anyGoal = false;
 
-    if (productNames.length > 0) {
-      for (const pName of productNames) {
-        const inputId = 'goal-' + pName.toLowerCase().replace(/\s+/g, '-') + '-' + ownerIdx;
-        const el = document.getElementById(inputId);
-        if (el && el.value) {
-          goals[pName] = parseInt(el.value) || 0;
-          if (goals[pName]) anyGoal = true;
+    const goalInputs = document.querySelectorAll('#health-goals .goal-input');
+    if (goalInputs.length > 0) {
+      goalInputs.forEach(el => {
+        if (el.value) {
+          // Extract product name from the id: "goal-{product}-{ownerIdx}"
+          const idParts = el.id.replace('goal-', '').replace('-' + ownerIdx, '');
+          // Map back to original product name from the label
+          const label = el.closest('.goal-field')?.querySelector('.goal-field-label')?.textContent?.replace(' Goal', '') || idParts;
+          goals[label] = parseInt(el.value) || 0;
+          if (goals[label]) anyGoal = true;
         }
-      }
+      });
     } else {
       const totalEl = document.getElementById('goal-total-' + ownerIdx);
       if (totalEl && totalEl.value) {

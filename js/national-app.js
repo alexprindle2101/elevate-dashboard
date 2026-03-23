@@ -1003,23 +1003,27 @@ const NationalApp = {
       }
 
       // Set current production from latest row (per-category breakdown)
-      const prod = nlr.current.production;
-      if (prod && typeof prod === 'object') {
-        let totalP = 0, totalG = 0;
-        for (const pName in prod) {
-          owner.production.products[pName] = {
-            actual: prod[pName].production || 0,
-            goal: prod[pName].goals || 0
-          };
-          totalP += prod[pName].production || 0;
-          totalG += prod[pName].goals || 0;
+      // BUT skip if the newest consolidated week has no production — that means
+      // the coach needs to manually enter it, and we shouldn't override with NLR data
+      if (!owner._newestWeekMissingProd) {
+        const prod = nlr.current.production;
+        if (prod && typeof prod === 'object') {
+          let totalP = 0, totalG = 0;
+          for (const pName in prod) {
+            owner.production.products[pName] = {
+              actual: prod[pName].production || 0,
+              goal: prod[pName].goals || 0
+            };
+            totalP += prod[pName].production || 0;
+            totalG += prod[pName].goals || 0;
+          }
+          owner.production.totalActual = totalP;
+          owner.production.totalGoal = totalG;
+        } else {
+          // Fallback: single total (backward compat)
+          owner.production.totalActual = nlr.current.productionLW || 0;
+          owner.production.totalGoal = nlr.current.productionGoals || 0;
         }
-        owner.production.totalActual = totalP;
-        owner.production.totalGoal = totalG;
-      } else {
-        // Fallback: single total (backward compat)
-        owner.production.totalActual = nlr.current.productionLW || 0;
-        owner.production.totalGoal = nlr.current.productionGoals || 0;
       }
 
       // Build headcount history from ALL trend rows
@@ -1443,6 +1447,7 @@ const NationalApp = {
         headcountHistory: hcHistory,
         production: currentProd,
         productionHistory: prodHistory,
+        _newestWeekMissingProd: !!newestWeekMissingProd,
         nextGoals: { totalUnits: 0, wirelessUnits: 0 },
         recruiting: {
           leaders: lastNonZeroLeaders || latestHeadcount.leaders || 0,
@@ -3649,8 +3654,7 @@ const NationalApp = {
 
   async _saveProdRow(owner, entry) {
     const sheetName = owner._sheetName || owner.tab || owner.name;
-    const cfg = NATIONAL_CONFIG.campaigns[this.state.campaign];
-    const campaignLabel = cfg?.label || '';
+    const campaignLabel = this._getCampaignLabel();
     // Build per-product payload for backend
     const products = entry.products || {};
     const productKeys = Object.keys(products);
@@ -3976,8 +3980,7 @@ const NationalApp = {
     try {
       if (note) { note.textContent = 'Saving...'; note.classList.add('show'); }
       const sheetName = owner._sheetName || owner.tab || owner.name;
-      const cfg = NATIONAL_CONFIG.campaigns[this.state.campaign];
-      const campaignLabel = cfg?.label || '';
+      const campaignLabel = this._getCampaignLabel();
       // Determine the date for the production row (newest week)
       const prodDate = prodHist.length > 0 ? prodHist[prodHist.length - 1].date : this._latestWeekDate;
       const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
@@ -5849,6 +5852,21 @@ const NationalApp = {
     const d = document.createElement('div');
     d.textContent = s || '';
     return d.innerHTML;
+  },
+
+  // Get the display label for the current campaign (used as the sheet tab name).
+  // Checks multiple sources since config may not be populated on all code paths.
+  _getCampaignLabel() {
+    const key = this.state.campaign;
+    if (!key) return '';
+    // 1. NATIONAL_CONFIG (set by _populateCampaignSelector or loadCampaignData)
+    const cfg = NATIONAL_CONFIG.campaigns[key];
+    if (cfg?.label) return cfg.label;
+    // 2. _allCampaignsData (in-memory cache from server)
+    const acd = this._allCampaignsData?.[key];
+    if (acd?.label) return acd.label;
+    // 3. Title-case the key as last resort (frontier → Frontier)
+    return key.charAt(0).toUpperCase() + key.slice(1).replace(/-./g, m => ' ' + m[1].toUpperCase());
   },
 
   // Invalidate ALL caches so next load fetches fresh data from server.

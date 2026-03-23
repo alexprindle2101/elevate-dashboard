@@ -1809,7 +1809,7 @@ const NationalApp = {
     }
   },
 
-  _COACH_CACHE_VERSION: 8, // bump to invalidate all caches after code changes
+  _COACH_CACHE_VERSION: 9, // bump to invalidate all caches after code changes
   _COACH_CACHE_MAX_AGE: 15 * 60 * 1000, // 15 min per-campaign cache
 
   async selectCampaign(campaignKey) {

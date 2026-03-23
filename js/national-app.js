@@ -3694,6 +3694,9 @@ const NationalApp = {
       else {
         console.log('[Prod Save] Saved', sheetName, entry.date, productKeys.length ? productKeys : 'legacy');
         this._invalidateOdCache();
+        // Re-rank owners live as production data comes in
+        this._rankOwnersByProduction();
+        this.renderOwnersList();
       }
     } catch (err) {
       console.warn('[Prod Save] Network error:', err.message);
@@ -4015,11 +4018,15 @@ const NationalApp = {
       if (result.error) throw new Error(result.error);
       console.log('[Prod Cards] Saved:', sheetName, prodDate, updates);
       this._invalidateOdCache();
+      // Clear the missing-prod flag since we just entered data
+      owner._newestWeekMissingProd = false;
       if (note) {
         note.textContent = 'Saved ✓';
         setTimeout(() => note.classList.remove('show'), 3000);
       }
-      // Re-render health tab to swap cards from editable to display
+      // Re-rank owners and refresh the list + health tab
+      this._rankOwnersByProduction();
+      this.renderOwnersList();
       this.renderHealthTab(owner);
     } catch (err) {
       console.error('[Prod Cards] Save failed:', err);

@@ -1268,36 +1268,44 @@ const NationalApp = {
       // ── Extract health data from week data ──
       // New format: ownerData is {metrics:[...], health:{...}}
       // Legacy format: ownerData is array with .health property (lost in JSON)
-      let latestHealth = {};
+      // Headcount and production are tracked separately:
+      //   - Headcount: use newest week (even if all zeros = fresh week, inputs should be blank)
+      //   - Production: use most recent week with actual data (for rankings/display)
+      let latestHeadcount = {};  // headcount from newest week (may be zeros)
+      let latestProdHealth = {}; // health from most recent week with production data
       let lastNonZeroLeaders = 0; // Track last non-zero leader count for recruiting table
       const hcHistory = [];
       const prodHistory = [];
       // allWeeks is newest-first; allWeeksChron is oldest-first
-      // Check newest week first — if it has a health object (even all zeros), that's the current state
+      // Check newest week first for headcount — if it has a health object (even all zeros),
+      // that's the current headcount state (fresh week = blank inputs, not prefilled)
       const newestWeek = allWeeks[0];
+      let headcountSetFromNewest = false;
       if (newestWeek) {
         const nwData = (newestWeek.data || {})[name];
         const nwHealth = nwData && (nwData.health || null);
         if (nwHealth) {
-          // Newest week exists with health — use it as-is (empty = fresh week, not prefilled)
-          latestHealth = nwHealth;
-        }
-        // Debug: trace headcount source for first few owners
-        if (this.state.owners?.length === undefined || ownerNames.indexOf(name) < 3) {
-          console.log(`[HC-DEBUG] ${name}: newestWeek=${newestWeek.tabName}, hasOwnerData=${!!nwData}, hasHealth=${!!nwHealth}, health=`, nwHealth, 'allWeekDates=', allWeeks.map(w => w.tabName).slice(0, 5));
+          latestHeadcount = nwHealth;
+          headcountSetFromNewest = true;
         }
       }
-      let latestHealthSetFromNewest = !!Object.keys(latestHealth).length;
       for (let wi = 0; wi < allWeeksChron.length; wi++) {
         const weekData = allWeeksChron[wi].data || {};
         const ownerData = weekData[name];
         const health = ownerData && (ownerData.health || null);
         if (health) {
           const h = health;
-          // Only use as latestHealth if newest week didn't already set it
-          // and this week has meaningful data (skip empty older weeks)
-          if (!latestHealthSetFromNewest && ((h.active || 0) > 0 || (h.leaders || 0) > 0 || (h.training || 0) > 0)) {
-            latestHealth = h;
+          // Headcount fallback: only if newest week didn't have this owner's data
+          if (!headcountSetFromNewest && ((h.active || 0) > 0 || (h.leaders || 0) > 0 || (h.training || 0) > 0)) {
+            latestHeadcount = h;
+          }
+          // Production: track the most recent week with actual production data
+          // (allWeeksChron is oldest-first, so last match wins = newest with data)
+          // Production should show last week's values even when headcount resets on a fresh week
+          const prod = h.production;
+          if (prod && typeof prod === 'object') {
+            const hasProd = Object.keys(prod).some(k => k !== 'Total' && (prod[k]?.production > 0 || prod[k]?.goals > 0));
+            if (hasProd) latestProdHealth = h;
           }
           if ((h.leaders || 0) > 0) lastNonZeroLeaders = h.leaders;
           const hcActive = h.active || 0, hcLeaders = h.leaders || 0, hcTraining = h.training || 0;
@@ -1334,9 +1342,10 @@ const NationalApp = {
         }
       }
 
-      // Build current production from latest health
+      // Build current production from most recent week with actual production data
+      // (separate from headcount which uses the newest week even if all zeros)
       let currentProd = { totalGoal: 0, totalActual: 0, wirelessGoal: 0, wirelessActual: 0, products: {} };
-      const lp = latestHealth.production;
+      const lp = latestProdHealth.production;
       if (lp && typeof lp === 'object' && !Array.isArray(lp)) {
         let totalP = 0, totalG = 0;
         for (const pName in lp) {
@@ -1349,7 +1358,7 @@ const NationalApp = {
         currentProd.totalGoal = totalG;
       } else if (typeof lp === 'number') {
         currentProd.totalActual = lp;
-        currentProd.totalGoal = (typeof latestHealth.goals === 'number') ? latestHealth.goals : 0;
+        currentProd.totalGoal = (typeof latestProdHealth.goals === 'number') ? latestProdHealth.goals : 0;
       }
 
       return {
@@ -1357,25 +1366,25 @@ const NationalApp = {
         tab: name,
         statusCode: null,
         headcount: {
-          active: latestHealth.active || 0,
-          leaders: latestHealth.leaders || 0,
-          closers: latestHealth.closers || 0,
-          leadGen: latestHealth.leadGen || 0,
-          training: latestHealth.training || 0
+          active: latestHeadcount.active || 0,
+          leaders: latestHeadcount.leaders || 0,
+          closers: latestHeadcount.closers || 0,
+          leadGen: latestHeadcount.leadGen || 0,
+          training: latestHeadcount.training || 0
         },
         headcountHistory: hcHistory,
         production: currentProd,
         productionHistory: prodHistory,
         nextGoals: { totalUnits: 0, wirelessUnits: 0 },
         recruiting: {
-          leaders: lastNonZeroLeaders || latestHealth.leaders || 0,
+          leaders: lastNonZeroLeaders || latestHeadcount.leaders || 0,
           weeks: campaignLabels,
-          rows: this._buildRows(lastNonZeroLeaders || latestHealth.leaders || 0, actuals4)
+          rows: this._buildRows(lastNonZeroLeaders || latestHeadcount.leaders || 0, actuals4)
         },
         recruitingFull: {
-          leaders: lastNonZeroLeaders || latestHealth.leaders || 0,
+          leaders: lastNonZeroLeaders || latestHeadcount.leaders || 0,
           weeks: allLabels,
-          rows: this._buildRows(lastNonZeroLeaders || latestHealth.leaders || 0, actualsFull)
+          rows: this._buildRows(lastNonZeroLeaders || latestHeadcount.leaders || 0, actualsFull)
         },
         sales: {
           summary: null,
@@ -2275,7 +2284,6 @@ const NationalApp = {
     // ── Section 1: Headcount Check (pre-fill with current values so coaches can update all week) ──
     const headcountEl = document.getElementById('health-headcount');
     const isLG = this.state.campaign === 'leafguard';
-    console.log(`[HC-DEBUG] renderHealthTab for ${owner.name}: hc=`, JSON.parse(JSON.stringify(hc)), 'hcHistory=', owner.headcountHistory?.length, 'entries');
     const _hcVal = (field) => hc[field] ? hc[field] : '';
     const _hcDist = isLG
       ? (hc.active && hc.closers ? Math.max(hc.active - hc.closers, 0) : '—')

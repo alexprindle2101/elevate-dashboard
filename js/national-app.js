@@ -1239,6 +1239,9 @@ const NationalApp = {
     const campaignWeeks = pastWeeks.slice(0, 4).reverse();
     const campaignLabels = campaignWeeks.map(w => w.tabName);
 
+    // The actual "last week" date — pastWeeks[0] is this week, pastWeeks[1] is last week
+    const lastWeekTabName = pastWeeks.length >= 2 ? pastWeeks[1].tabName : null;
+
     // Owner detail: ALL weeks, left-to-right chronological
     const allWeeksChron = [...allWeeks].reverse();
     const allLabels = allWeeksChron.map(w => w.tabName);
@@ -1392,19 +1395,12 @@ const NationalApp = {
       }
 
       // Build current production strictly from LAST WEEK only.
-      // The last prodHistory entry is always the upcoming week (all zeros for goal-setting).
-      // We need the entry before that, BUT only if its date is actually within the last ~2 weeks.
-      // If it's from months ago (like Adam Cole's 09/07/2025), it's not "last week" — treat as 0.
-      const lastWeekProdIdx = prodHistory.length >= 2 ? prodHistory.length - 2 : prodHistory.length - 1;
-      let lastWeekProdEntry = prodHistory.length > 0 ? prodHistory[lastWeekProdIdx] : null;
-      // Validate the date is recent (within 16 days to allow for slight date offsets)
-      if (lastWeekProdEntry && lastWeekProdEntry.date) {
-        const parts = lastWeekProdEntry.date.split('/');
-        if (parts.length === 3) {
-          const entryDate = new Date(+parts[2], +parts[0] - 1, +parts[1]);
-          const daysSince = (Date.now() - entryDate.getTime()) / (1000 * 60 * 60 * 24);
-          if (daysSince > 16) lastWeekProdEntry = null; // too old, not last week
-        }
+      // Find the prodHistory entry whose date matches the actual last week tab name.
+      // If no entry matches, production is 0 (owner has no data for last week).
+      let lastWeekProdEntry = null;
+      if (lastWeekTabName) {
+        // Normalize: lastWeekTabName is "MM/DD/YYYY", prodHistory dates are "MM/DD/YYYY"
+        lastWeekProdEntry = prodHistory.find(p => p.date === lastWeekTabName) || null;
       }
       let currentProd = { totalGoal: 0, totalActual: 0, wirelessGoal: 0, wirelessActual: 0, products: {} };
       if (lastWeekProdEntry && lastWeekProdEntry.products) {
@@ -1813,7 +1809,7 @@ const NationalApp = {
     }
   },
 
-  _COACH_CACHE_VERSION: 5, // bump to invalidate all caches after code changes
+  _COACH_CACHE_VERSION: 6, // bump to invalidate all caches after code changes
   _COACH_CACHE_MAX_AGE: 15 * 60 * 1000, // 15 min per-campaign cache
 
   async selectCampaign(campaignKey) {

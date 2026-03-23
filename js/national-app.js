@@ -2469,8 +2469,8 @@ const NationalApp = {
     if (distEl) distEl.textContent = (activeEl?.value && leadersEl?.value) ? dist : '—';
   },
 
-  // ── Submit headcount — updates the most recent row (no duplicates) ──
-  _submitHeadcount(ownerIdx) {
+  // ── Submit headcount — updates the most recent row in the consolidated sheet ──
+  async _submitHeadcount(ownerIdx) {
     const owner = this.state.owners[ownerIdx];
     if (!owner) return;
 
@@ -2482,23 +2482,34 @@ const NationalApp = {
 
     if (!active && !leaders && !training) return; // Don't submit empty
 
-    // Update state
+    // Update local state
     owner.headcount.active = active;
     owner.headcount.leaders = leaders;
     owner.headcount.training = training;
     if (closers) owner.headcount.closers = closers;
 
-    // Update the latest history entry in-place (don't push a new one)
+    // Update headcountHistory: find or create the current (newest) week entry
     const hist = owner.headcountHistory || [];
-    if (hist.length > 0) {
-      const latest = hist[hist.length - 1];
-      latest.active = active;
-      latest.leaders = leaders;
-      latest.training = training;
-      if (closers) latest.closers = closers;
+    // The newest week date — use _latestWeekDate or derive from current week
+    const newestWeekDate = this._latestWeekDate || (() => {
+      const now = new Date();
+      const day = now.getDay(); // 0=Sun
+      const sun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+      return (sun.getMonth() + 1) + '/' + sun.getDate() + '/' + sun.getFullYear();
+    })();
+    // Check if the newest week already has an entry in history
+    const existingIdx = hist.findIndex(h => h.date === newestWeekDate);
+    const hcEntry = { date: newestWeekDate, active, leaders, training, closers: closers || 0, leadGen: 0 };
+    if (existingIdx >= 0) {
+      // Update existing entry for this week
+      hist[existingIdx] = hcEntry;
+    } else {
+      // New week — push to end (history is oldest-first)
+      hist.push(hcEntry);
     }
+    owner.headcountHistory = hist;
 
-    // Re-render the trend table
+    // Re-render the trend chart
     this._renderHeadcountTrend(owner, ownerIdx);
 
     // Recalculate recruiting projected values based on new leader count
@@ -2506,20 +2517,43 @@ const NationalApp = {
       owner.recruiting.leaders = leaders;
       const actuals = owner.recruiting.rows.map(r => r.values);
       owner.recruiting.rows = this._buildRows(leaders, actuals);
-      // Re-render recruiting tab if it's currently visible
       if (this.state.currentTab === 'recruiting') {
         this.renderRecruitingTab(owner);
       }
     }
 
-    // Show confirmation
+    // ── Write to spreadsheet via Apps Script ──
+    const campaignLabel = NATIONAL_CONFIG.campaigns[this.state.campaign]?.label || '';
+    const dist = Math.max(active - leaders, 0);
     const note = document.getElementById('hc-submit-note-' + ownerIdx);
-    if (note) {
-      const now = new Date();
-      const dateStr = (now.getMonth() + 1) + '/' + now.getDate();
-      note.textContent = 'Updated ' + dateStr;
-      note.classList.add('show');
-      setTimeout(() => note.classList.remove('show'), 3000);
+    try {
+      if (note) { note.textContent = 'Saving...'; note.classList.add('show'); }
+      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          key: NATIONAL_CONFIG.apiKey,
+          action: 'updateHeadcount',
+          ownerName: owner.name,
+          date: newestWeekDate,
+          active, leaders, dist, training,
+          campaignLabel
+        })
+      });
+      const result = await resp.json();
+      if (result.error) throw new Error(result.error);
+      console.log('[NationalApp] Headcount saved:', result);
+      if (note) {
+        note.textContent = `Saved ✓ (row ${result.row})`;
+        setTimeout(() => note.classList.remove('show'), 3000);
+      }
+    } catch (err) {
+      console.error('[NationalApp] Headcount save failed:', err);
+      if (note) {
+        note.textContent = 'Save failed — ' + err.message;
+        note.style.color = '#e53535';
+        setTimeout(() => { note.classList.remove('show'); note.style.color = ''; }, 5000);
+      }
     }
   },
 

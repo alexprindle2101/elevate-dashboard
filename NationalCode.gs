@@ -2824,11 +2824,11 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
   var colOwner = colMap['Owner'];
   if (colOwner === undefined) return { error: 'Owner column not found' };
 
-  // Calculate next week's Monday
+  // Calculate next week's Sunday
   var now = new Date();
-  var dayOfWeek = (now.getDay() + 6) % 7; // Mon=0
-  var nextMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (7 - dayOfWeek));
-  var nextMondayKey = _normalizeDateKey_(nextMonday);
+  var daysUntilSunday = (7 - now.getDay()) || 7; // Sun=7, Mon=6, ..., Sat=1
+  var nextSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSunday);
+  var nextSundayKey = _normalizeDateKey_(nextSunday);
 
   // Find existing row for this owner + next week
   var targetRow = -1;
@@ -2837,7 +2837,7 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
     if (rowOwner !== ownerName.toLowerCase()) continue;
     var rowDate = data[i][colWeek];
     var rowKey = _normalizeDateKey_(rowDate instanceof Date ? rowDate : _parseTabDate(String(rowDate)));
-    if (rowKey === nextMondayKey) {
+    if (rowKey === nextSundayKey) {
       targetRow = i + 1; // 1-based
       break;
     }
@@ -2849,7 +2849,7 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
     var newRow = [];
     for (var h2 = 0; h2 < numCols; h2++) newRow.push(0);
     // Write as formatted string to avoid timezone/time issues in Sheets
-    newRow[colWeek] = formatDate(nextMonday);
+    newRow[colWeek] = formatDate(nextSunday);
     newRow[colOwner] = ownerName;
     sheet.insertRowAfter(1);
     sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
@@ -2871,7 +2871,7 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
     }
   }
 
-  return { ok: true, row: targetRow, owner: ownerName, date: formatDate(nextMonday), written: written };
+  return { ok: true, row: targetRow, owner: ownerName, date: formatDate(nextSunday), written: written };
 }
 
 function updateProductionRow(ownerName, date, campaignLabel, products, internet, wireless, dtv, goals) {

@@ -1867,6 +1867,7 @@ const NationalApp = {
       console.log('[NationalApp] Rendering campaign from cache:', campaignKey);
       this.state.owners = cached.owners;
       this.state.campaignTotals = cached.campaignTotals || {};
+      this._latestWeekDate = cached.latestWeekDate || null;
       // Ensure _allCampaignsData reflects this campaign so landing page card stays visible
       if (!this._allCampaignsData) this._allCampaignsData = {};
       if (!this._allCampaignsData[campaignKey] || !(this._allCampaignsData[campaignKey].owners || []).length) {
@@ -1980,7 +1981,8 @@ const NationalApp = {
         _ts: Date.now(),
         _v: this._COACH_CACHE_VERSION,
         owners: this.state.owners,
-        campaignTotals: this.state.campaignTotals
+        campaignTotals: this.state.campaignTotals,
+        latestWeekDate: this._latestWeekDate || null
       }));
     } catch (err) {
       console.warn('[NationalApp] Coach cache write failed:', err.message);

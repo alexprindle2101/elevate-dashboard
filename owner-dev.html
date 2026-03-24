@@ -248,8 +248,12 @@
     <section class="owners-section">
       <div class="section-header">
         <h2>Owners</h2>
-        <div class="section-actions">
+        <div class="section-actions" style="display:flex;align-items:center;gap:8px;">
           <input type="text" id="owner-search" class="search-input" placeholder="Search owners..." oninput="NationalApp.filterOwners(this.value)">
+          <button id="owner-sort-toggle" onclick="NationalApp._toggleOwnerSort()" title="Toggle sort order"
+            style="background:none;border:1px solid var(--border,#dde);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;white-space:nowrap;color:var(--silver,#708090);">
+            A→Z
+          </button>
         </div>
       </div>
       <div id="owners-list" class="owners-grid">
@@ -368,7 +372,7 @@
      ═══════════════════════════════════════════════════════ -->
 <script src="js/owner-dev-config.js?v=3"></script>
 <script src="js/national-config.js?v=17"></script>
-<script src="js/national-app.js?v=144"></script>
+<script src="js/national-app.js?v=145"></script>
 <script src="js/owner-dev-app.js?v=21"></script>
 
 </body>

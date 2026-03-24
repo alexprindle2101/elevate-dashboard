@@ -1498,8 +1498,21 @@ const NationalApp = {
       };
     });
 
-    // Store latest week date for overview display
-    this._latestWeekDate = pastWeeks.length ? pastWeeks[0].tabName : null;
+    // Store latest week date for overview display (capped to current week's Sunday)
+    if (pastWeeks.length) {
+      const rawLatest = pastWeeks[0].tabName;
+      // Cap to current week's Sunday so +7 offset campaigns don't target future dates
+      const now = new Date();
+      const thisSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 12, 0, 0);
+      const thisSundayKey = String(thisSunday.getMonth() + 1).padStart(2, '0') + '/' +
+        String(thisSunday.getDate()).padStart(2, '0') + '/' + thisSunday.getFullYear();
+      // Parse rawLatest to compare
+      const parts = rawLatest.split('/');
+      const rawDate = new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1]), 12, 0, 0);
+      this._latestWeekDate = rawDate > thisSunday ? thisSundayKey : rawLatest;
+    } else {
+      this._latestWeekDate = null;
+    }
 
     // Campaign-level totals + aggregate recruiting (4 weeks only)
     this._buildCampaignAggregates(campaignLabels);

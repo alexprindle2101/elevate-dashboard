@@ -5961,9 +5961,11 @@ const NationalApp = {
         if (k.startsWith('coach_cache_')) localStorage.removeItem(k);
       }
     } catch {}
-    // Also bust the in-memory campaign cache so re-entering triggers fresh server fetch
+    // Bust the in-memory weeks/detailed data so re-entering triggers fresh server fetch,
+    // but keep the lightweight owners/label so the landing page card stays visible
     if (this._allCampaignsData && this.state.campaign) {
-      delete this._allCampaignsData[this.state.campaign];
+      const cd = this._allCampaignsData[this.state.campaign];
+      if (cd) delete cd.weeks; // remove detailed data; loadCampaignData will refetch
     }
   },
 

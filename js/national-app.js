@@ -1412,13 +1412,31 @@ const NationalApp = {
         prodHistory.push({ date: newestWeekDate, tA: 0, tG: inheritTG, products: inheritProducts });
       }
 
+      // Ensure lastWeekTabName has a prodHistory entry (weeks with 0 prod + 0 goals get skipped above)
+      if (lastWeekTabName && !prodHistory.some(p => p.date === lastWeekTabName)) {
+        const inheritProducts = {};
+        for (let pi = prodHistory.length - 1; pi >= 0; pi--) {
+          const prev = prodHistory[pi];
+          if (prev.products && Object.keys(prev.products).length > 0) {
+            for (const pn of Object.keys(prev.products)) inheritProducts[pn] = { actual: 0, goal: 0 };
+            break;
+          }
+        }
+        prodHistory.push({ date: lastWeekTabName, tA: 0, tG: 0, products: inheritProducts });
+        prodHistory.sort((a, b) => {
+          const da = a.date.split('/'), db = b.date.split('/');
+          const ta = new Date(da[2], da[0] - 1, da[1]).getTime();
+          const tb = new Date(db[2], db[0] - 1, db[1]).getTime();
+          return ta - tb;
+        });
+      }
+
       // Build current production strictly from LAST WEEK only.
       // Find the prodHistory entry whose date matches the actual last week tab name.
       // If no entry matches, production is 0 (owner has no data for last week).
       let lastWeekProdEntry = null;
       let lastWeekProdIdx = -1;
       if (lastWeekTabName) {
-        // Normalize: lastWeekTabName is "MM/DD/YYYY", prodHistory dates are "MM/DD/YYYY"
         lastWeekProdIdx = prodHistory.findIndex(p => p.date === lastWeekTabName);
         lastWeekProdEntry = lastWeekProdIdx >= 0 ? prodHistory[lastWeekProdIdx] : null;
       }

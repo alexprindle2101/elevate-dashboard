@@ -2455,7 +2455,13 @@ const OwnerDev = {
     list.innerHTML = this._reorderState.owners.map((name, idx) =>
       `<div class="reorder-item" draggable="true" data-idx="${idx}">
         <span class="reorder-drag-handle">&#x2630;</span>
-        <span class="reorder-item-rank">${idx + 1}</span>
+        <input type="number" class="reorder-item-rank-input" value="${idx + 1}" min="1" max="${this._reorderState.owners.length}"
+          onclick="event.stopPropagation();this.select();"
+          onkeydown="if(event.key==='Enter'){this.blur();}"
+          onblur="OwnerDev._moveOwnerToPosition(${idx}, parseInt(this.value) - 1)"
+          style="width:36px;text-align:center;font-weight:700;font-size:14px;border:1px solid transparent;border-radius:4px;background:transparent;cursor:pointer;padding:2px;color:var(--silver,#708090);"
+          onfocus="this.style.borderColor='var(--teal,#2dd4bf)';this.style.background='#fff';"
+        >
         <span class="reorder-item-name">${this._esc(name)}</span>
       </div>`
     ).join('');
@@ -2515,9 +2521,36 @@ const OwnerDev = {
     });
   },
 
+  _moveOwnerToPosition(fromIdx, toIdx) {
+    if (!this._reorderState) return;
+    const owners = this._reorderState.owners;
+    // Clamp to valid range
+    toIdx = Math.max(0, Math.min(owners.length - 1, toIdx));
+    if (isNaN(toIdx) || fromIdx === toIdx) {
+      this._renderReorderList(); // Reset display
+      return;
+    }
+    const [moved] = owners.splice(fromIdx, 1);
+    owners.splice(toIdx, 0, moved);
+    this._reorderState.owners = owners;
+    this.state._planningDirty = true;
+
+    // Update planning data
+    const entry = this.state.planningData.find(
+      p => p.campaignKey === this._reorderState.campaignKey && p.day === this._reorderState.day
+    );
+    if (entry) entry.ownerOrder = [...owners];
+
+    this._renderReorderList();
+  },
+
   closeReorderModal() {
     document.getElementById('owner-reorder-modal').style.display = 'none';
     this._reorderState = null;
+    // Auto-save if changes were made
+    if (this.state._planningDirty) {
+      this.savePlanning();
+    }
   },
 
   // ── Save Planning ──

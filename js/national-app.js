@@ -1498,21 +1498,8 @@ const NationalApp = {
       };
     });
 
-    // Store latest week date for overview display (capped to current week's Sunday)
-    if (pastWeeks.length) {
-      const rawLatest = pastWeeks[0].tabName;
-      // Cap to current week's Sunday so +7 offset campaigns don't target future dates
-      const now = new Date();
-      const thisSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 12, 0, 0);
-      const thisSundayKey = String(thisSunday.getMonth() + 1).padStart(2, '0') + '/' +
-        String(thisSunday.getDate()).padStart(2, '0') + '/' + thisSunday.getFullYear();
-      // Parse rawLatest to compare
-      const parts = rawLatest.split('/');
-      const rawDate = new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1]), 12, 0, 0);
-      this._latestWeekDate = rawDate > thisSunday ? thisSundayKey : rawLatest;
-    } else {
-      this._latestWeekDate = null;
-    }
+    // Store latest week date for overview display
+    this._latestWeekDate = pastWeeks.length ? pastWeeks[0].tabName : null;
 
     // Campaign-level totals + aggregate recruiting (4 weeks only)
     this._buildCampaignAggregates(campaignLabels);
@@ -3836,6 +3823,18 @@ const NationalApp = {
 
     this._flashBtn(document.querySelector('#health-goals .hc-submit-btn'));
 
+    // Compute next week's date from the latest week in consolidated data
+    // This is deterministic — doesn't depend on server time
+    let goalTargetDate = '';
+    if (this._latestWeekDate) {
+      const p = this._latestWeekDate.split('/');
+      const latest = new Date(Number(p[2]), Number(p[0]) - 1, Number(p[1]), 12, 0, 0);
+      const next = new Date(latest.getTime() + 7 * 86400000);
+      goalTargetDate = String(next.getMonth() + 1).padStart(2, '0') + '/' +
+        String(next.getDate()).padStart(2, '0') + '/' + next.getFullYear();
+    }
+    console.log('[Goals] Submitting for date:', goalTargetDate, 'latestWeek:', this._latestWeekDate);
+
     // Fire and forget — save in background so the coach can move on immediately
     fetch(NATIONAL_CONFIG.appsScriptUrl, {
       method: 'POST',
@@ -3846,7 +3845,8 @@ const NationalApp = {
         ownerName: owner._sheetName || owner.tab || owner.name,
         campaignLabel: campaignLabel,
         campaignKey: this.state.campaign,
-        goals: goals
+        goals: goals,
+        targetDate: goalTargetDate
       })
     }).then(r => r.json()).then(result => {
       if (result.error) console.warn('[Goals] Error:', result.error);

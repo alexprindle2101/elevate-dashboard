@@ -292,7 +292,7 @@ function doPost(e) {
                    body.internet, body.wireless, body.dtv, body.goals);
         break;
       case 'saveGoals':
-        result = saveGoalsRow_(body.ownerName, body.campaignLabel, body.campaignKey, body.goals);
+        result = saveGoalsRow_(body.ownerName, body.campaignLabel, body.campaignKey, body.goals, body.targetDate);
         break;
       case 'addOwnerNote':
         result = addOwnerNote_(body.campaign, body.ownerName, body.coachName, body.text);
@@ -2805,7 +2805,7 @@ function updateHeadcountRow(ownerName, date, active, leaders, dist, training, ca
  * @param {string} campaignKey - e.g. "frontier", "att-nds"
  * @param {Object} goals - { productName: goalValue, ... }
  */
-function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
+function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals, targetDate) {
   if (!ownerName || !campaignLabel || !goals) return { error: 'Missing required params' };
 
   var ss;
@@ -2824,11 +2824,20 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
   var colOwner = colMap['Owner'];
   if (colOwner === undefined) return { error: 'Owner column not found' };
 
-  // Calculate next week's Sunday
-  var now = new Date();
-  var daysUntilSunday = (7 - now.getDay()) || 7; // Sun=7, Mon=6, ..., Sat=1
-  var nextSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSunday);
-  var nextSundayKey = _normalizeDateKey_(nextSunday);
+  // Use frontend-provided target date if available, otherwise compute next Sunday
+  var nextSundayKey;
+  var nextSunday;
+  if (targetDate) {
+    nextSundayKey = targetDate; // Already in MM/DD/YYYY format from frontend
+    var tp = targetDate.split('/');
+    nextSunday = new Date(Number(tp[2]), Number(tp[0]) - 1, Number(tp[1]), 12, 0, 0);
+  } else {
+    var now = new Date();
+    var daysUntilSunday = (7 - now.getDay()) || 7;
+    nextSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSunday, 12, 0, 0);
+    nextSundayKey = _normalizeDateKey_(nextSunday);
+  }
+  Logger.log('saveGoalsRow_: owner=' + ownerName + ' targetDate=' + (targetDate || 'none') + ' nextSundayKey=' + nextSundayKey);
 
   // Find existing row for this owner + next week
   var targetRow = -1;
@@ -2837,11 +2846,14 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
     if (rowOwner !== ownerName.toLowerCase()) continue;
     var rowDate = data[i][colWeek];
     var rowKey = _normalizeDateKey_(rowDate instanceof Date ? rowDate : _parseTabDate(String(rowDate)));
+    Logger.log('saveGoalsRow_: row ' + (i+1) + ' owner=' + rowOwner + ' rowDate=' + rowDate + ' rowKey=' + rowKey + ' match=' + (rowKey === nextSundayKey));
     if (rowKey === nextSundayKey) {
       targetRow = i + 1; // 1-based
       break;
     }
   }
+
+  Logger.log('saveGoalsRow_: targetRow=' + targetRow + ' (will create new: ' + (targetRow === -1) + ')');
 
   // If no row exists for next week, create one
   if (targetRow === -1) {

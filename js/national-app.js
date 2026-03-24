@@ -3823,18 +3823,6 @@ const NationalApp = {
 
     this._flashBtn(document.querySelector('#health-goals .hc-submit-btn'));
 
-    // Compute next week's date from the latest week in consolidated data
-    // This is deterministic — doesn't depend on server time
-    let goalTargetDate = '';
-    if (this._latestWeekDate) {
-      const p = this._latestWeekDate.split('/');
-      const latest = new Date(Number(p[2]), Number(p[0]) - 1, Number(p[1]), 12, 0, 0);
-      const next = new Date(latest.getTime() + 7 * 86400000);
-      goalTargetDate = String(next.getMonth() + 1).padStart(2, '0') + '/' +
-        String(next.getDate()).padStart(2, '0') + '/' + next.getFullYear();
-    }
-    console.log('[Goals] Submitting for date:', goalTargetDate, 'latestWeek:', this._latestWeekDate);
-
     // Fire and forget — save in background so the coach can move on immediately
     fetch(NATIONAL_CONFIG.appsScriptUrl, {
       method: 'POST',
@@ -3845,8 +3833,7 @@ const NationalApp = {
         ownerName: owner._sheetName || owner.tab || owner.name,
         campaignLabel: campaignLabel,
         campaignKey: this.state.campaign,
-        goals: goals,
-        targetDate: goalTargetDate
+        goals: goals
       })
     }).then(r => r.json()).then(result => {
       if (result.error) console.warn('[Goals] Error:', result.error);

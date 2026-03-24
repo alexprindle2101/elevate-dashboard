@@ -499,6 +499,11 @@ const NationalApp = {
         if (landing && landing.style.display !== 'none') {
           this._showLandingPage();
         }
+        // Re-sort owners list if already rendered (ensures scheduled order on first load)
+        const ownersList = document.getElementById('owners-list');
+        if (ownersList && ownersList.children.length > 0) {
+          this.renderOwnersList();
+        }
       }
     } catch (err) {
       console.warn('[NationalApp] Failed to fetch planning schedule:', err.message);

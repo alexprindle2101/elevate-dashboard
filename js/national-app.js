@@ -4881,7 +4881,7 @@ const NationalApp = {
         <div class="coaching-section">
           <div class="coaching-label">Owner Overview</div>
           <div class="empty-state">
-            <div class="empty-state-text">No production data yet. Click "Import Recruiting" to pull sales data.</div>
+            <div class="empty-state-text">No sales data available for this owner.</div>
           </div>
         </div>`;
     }
@@ -5003,7 +5003,7 @@ const NationalApp = {
         <div class="coaching-section">
           <div class="coaching-label">Rep Breakdown</div>
           <div class="empty-state">
-            <div class="empty-state-text">No rep data yet. Click "Refresh Data" to pull sales data from Tableau.</div>
+            <div class="empty-state-text">No rep data available for this owner.</div>
           </div>
         </div>`;
     }

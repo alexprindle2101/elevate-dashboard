@@ -1856,7 +1856,7 @@ function writeUpdateOrder(body, ss, officeId) {
   // Update each field if provided
   if (body.repName !== undefined)   sheet.getRange(rowIndex, OL.REP_NAME + 1).setValue(String(body.repName).trim());
   if (body.dsi !== undefined)       sheet.getRange(rowIndex, OL.DSI + 1).setValue(String(body.dsi).trim());
-  if (body.dateOfSale !== undefined) sheet.getRange(rowIndex, OL.DATE_OF_SALE + 1).setValue(new Date(body.dateOfSale));
+  if (body.dateOfSale !== undefined) sheet.getRange(rowIndex, OL.DATE_OF_SALE + 1).setValue(new Date(body.dateOfSale + 'T12:00:00'));
   if (body.air !== undefined)       sheet.getRange(rowIndex, OL.AIR + 1).setValue(Number(body.air) || 0);
   if (body.cell !== undefined)      sheet.getRange(rowIndex, OL.CELL + 1).setValue(Number(body.cell) || 0);
   if (body.fiber !== undefined)     sheet.getRange(rowIndex, OL.FIBER + 1).setValue(Number(body.fiber) || 0);

@@ -5462,8 +5462,12 @@ function consolidateCampaign_(campaignKey, campaign, destSS) {
       Logger.log('consolidateCampaign_ NO TAB for: "' + ownerName + '" in ' + campaignKey);
       // No tab found — still include owner with a minimal placeholder row
       // so they appear in the owner list (with no data)
+      // Snap to Sunday so placeholder rows align with real data rows
       var campaignHeaders = getConsolidatedHeaders_(campaignKey);
-      var emptyRow = [new Date(), ownerName];
+      var now = new Date();
+      var dayOfWeek = now.getDay(); // 0=Sun
+      var sundayPlaceholder = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek, 12, 0, 0);
+      var emptyRow = [sundayPlaceholder, ownerName];
       for (var ei = 2; ei < campaignHeaders.length; ei++) emptyRow.push(0);
       rows.push(emptyRow);
       continue;
@@ -5522,6 +5526,58 @@ function consolidateCampaign_(campaignKey, campaign, destSS) {
 
   // Build campaign-specific headers
   var campaignHeaders = getConsolidatedHeaders_(campaignKey);
+  var products = CAMPAIGN_PRODUCTS[campaignKey] || ['Total'];
+  var extraHC = CAMPAIGN_EXTRA_HC[campaignKey] || [];
+
+  // ── Read existing goals before clearing (to preserve manual entries) ──
+  var existingGoals = {}; // 'ownerLower|dateKey' → { productName: goalValue, ... }
+  if (destTab) {
+    var existingData = destTab.getDataRange().getValues();
+    if (existingData.length > 1) {
+      var exHeaders = existingData[0].map(function(h) { return String(h).trim(); });
+      var goalCols = [];
+      for (var gc = 0; gc < exHeaders.length; gc++) {
+        if (exHeaders[gc].indexOf('Goal: ') === 0) {
+          goalCols.push({ colIdx: gc, productName: exHeaders[gc].replace('Goal: ', '') });
+        }
+      }
+      var exOwnerCol = exHeaders.indexOf('Owner');
+      var exWeekCol = exHeaders.indexOf('Week');
+      if (exOwnerCol >= 0 && exWeekCol >= 0) {
+        for (var ei = 1; ei < existingData.length; ei++) {
+          var exOwner = String(existingData[ei][exOwnerCol] || '').trim().toLowerCase();
+          var exDate = existingData[ei][exWeekCol];
+          if (!exOwner || !exDate) continue;
+          var exDateKey = _normalizeDateKey_(exDate instanceof Date ? exDate : _parseTabDate(String(exDate)));
+          var ownerGoals = {};
+          var hasGoals = false;
+          for (var gci = 0; gci < goalCols.length; gci++) {
+            var gVal = parseInt(existingData[ei][goalCols[gci].colIdx]) || 0;
+            if (gVal) { ownerGoals[goalCols[gci].productName] = gVal; hasGoals = true; }
+          }
+          if (hasGoals) existingGoals[exOwner + '|' + exDateKey] = ownerGoals;
+        }
+      }
+    }
+    Logger.log('consolidateCampaign_ preserved ' + Object.keys(existingGoals).length + ' goal entries');
+  }
+
+  // ── Restore goals into rows ──
+  var prodStart = 6 + extraHC.length;
+  for (var ri = 0; ri < rows.length; ri++) {
+    var rOwner = String(rows[ri][1] || '').trim().toLowerCase();
+    var rDateKey = _normalizeDateKey_(rows[ri][0]);
+    var savedGoals = existingGoals[rOwner + '|' + rDateKey];
+    if (savedGoals) {
+      for (var pi = 0; pi < products.length; pi++) {
+        var goalIdx = prodStart + pi * 2 + 1;
+        // Only restore if current value is 0 (don't overwrite source-provided goals)
+        if (!rows[ri][goalIdx]) {
+          rows[ri][goalIdx] = savedGoals[products[pi]] || 0;
+        }
+      }
+    }
+  }
 
   // Clear and write
   destTab.clear();
@@ -6185,13 +6241,17 @@ function readConsolidatedRecruiting(weekCount, campaignFilter) {
       var owner = String(row[colOwner] || '').trim();
       if (!dateVal || !owner) continue;
 
-      var dateKey = formatDate(dateVal);
+      // Snap to Sunday so all dates align to week boundaries
+      // (timezone shifts when reading from Sheet can nudge a Sunday midnight to Saturday)
+      var dateKey = _normalizeDateKey_(dateVal);
+      if (!dateKey) continue;
       ownerSet[owner] = true;
 
       if (!weekMap[dateKey]) {
+        var parts = dateKey.split('/');
         weekMap[dateKey] = {
           tabName: dateKey,
-          date: (dateVal instanceof Date) ? dateVal : _parseTabDate(String(dateVal)),
+          date: new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1]), 12, 0, 0),
           data: {}
         };
       }
@@ -6463,8 +6523,9 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
     if (tn && SKIP_TABS_.indexOf(tn.toLowerCase()) < 0) allTabNames.push(tn);
   }
 
-  // ── Read existing headcount from destination tab (to preserve manual entries) ──
+  // ── Read existing headcount + goals from destination tab (to preserve manual entries) ──
   var existingHC = {}; // 'ownerLower|dateKey' → { active, leaders, dist, training, closers, leadGen }
+  var existingGoals = {}; // 'ownerLower|dateKey' → { productName: goalValue, ... }
   var destTab = destSS.getSheetByName(campaign.label);
   var campaignHeaders = getConsolidatedHeaders_(campaignKey);
   if (destTab) {
@@ -6473,6 +6534,14 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
       var exHeaders = existingData[0].map(function(h) { return String(h).trim(); });
       var exColMap = {};
       for (var c = 0; c < exHeaders.length; c++) exColMap[exHeaders[c]] = c;
+
+      // Identify goal columns
+      var goalCols = []; // [{ colIdx, productName }]
+      for (var gc = 0; gc < exHeaders.length; gc++) {
+        if (exHeaders[gc].indexOf('Goal: ') === 0) {
+          goalCols.push({ colIdx: gc, productName: exHeaders[gc].replace('Goal: ', '') });
+        }
+      }
 
       for (var ei = 1; ei < existingData.length; ei++) {
         var exOwner = String(existingData[ei][exColMap['Owner']] || '').trim().toLowerCase();
@@ -6494,9 +6563,23 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
             closers: exClosers, leadGen: exLeadGen
           };
         }
+
+        // Preserve any non-zero goals
+        var ownerGoals = {};
+        var hasGoals = false;
+        for (var gci = 0; gci < goalCols.length; gci++) {
+          var gVal = parseInt(existingData[ei][goalCols[gci].colIdx]) || 0;
+          if (gVal) {
+            ownerGoals[goalCols[gci].productName] = gVal;
+            hasGoals = true;
+          }
+        }
+        if (hasGoals) {
+          existingGoals[exOwner + '|' + exDateKey] = ownerGoals;
+        }
       }
     }
-    Logger.log('consolidateCampaignSlim_ preserved ' + Object.keys(existingHC).length + ' headcount entries');
+    Logger.log('consolidateCampaignSlim_ preserved ' + Object.keys(existingHC).length + ' headcount entries, ' + Object.keys(existingGoals).length + ' goal entries');
   }
 
   var products = CAMPAIGN_PRODUCTS[campaignKey] || ['Total'];
@@ -6521,8 +6604,11 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
     }
 
     if (!tab) {
-      // No tab — still include owner with empty row
-      var emptyRow = [new Date(), ownerName];
+      // No tab — still include owner with empty row (snap to Sunday so dates stay consistent)
+      var now = new Date();
+      var dayOfWeek = now.getDay(); // 0=Sun … 6=Sat
+      var sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek, 12, 0, 0);
+      var emptyRow = [sunday, ownerName];
       for (var ei2 = 2; ei2 < campaignHeaders.length; ei2++) emptyRow.push(0);
       rows.push(emptyRow);
       continue;
@@ -6606,11 +6692,13 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
           else row[extraStart + exi] = 0;
         }
 
-        // Zero out Goal columns (odd indices in the prod/goal section)
+        // Restore existing goals (instead of zeroing them out)
         var prodStart = 6 + extraHC.length;
+        var rowDateKey = _normalizeDateKey_(row[0]);
+        var savedGoals = existingGoals[ownerLower + '|' + rowDateKey];
         for (var pi = 0; pi < products.length; pi++) {
           // row[prodStart + pi*2] = production value (keep)
-          row[prodStart + pi * 2 + 1] = 0; // goal → 0
+          row[prodStart + pi * 2 + 1] = (savedGoals && savedGoals[products[pi]]) ? savedGoals[products[pi]] : 0;
         }
 
         rows.push(row);
@@ -6648,9 +6736,11 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
       else if (exn === 'leadgen') preservedRow.push(hcEntry.leadGen || 0);
       else preservedRow.push(0);
     }
-    // Zero production + goals + recruiting for these older rows
+    // Restore production + goals for these older rows
+    var oldGoals = existingGoals[hcKey2];
     for (var pi2 = 0; pi2 < products.length; pi2++) {
-      preservedRow.push(0); preservedRow.push(0); // prod, goal
+      preservedRow.push(0); // prod
+      preservedRow.push((oldGoals && oldGoals[products[pi2]]) ? oldGoals[products[pi2]] : 0); // goal
     }
     for (var rci = 0; rci < 12; rci++) preservedRow.push(0); // recruiting
     rows.push(preservedRow);

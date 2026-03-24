@@ -2285,14 +2285,10 @@ const NationalApp = {
       const rankBadge = o.d2dRank
         ? `<span class="owner-rank-badge${rankCls}" title="#${o.d2dRank} — ${_prodLabel}">#${o.d2dRank}</span>`
         : '';
-      const hasGoal = o.production && o.production.totalGoal > 0;
-      const goalDoneCls = hasGoal ? ' owner-card-goal-done' : '';
-      const goalCheck = hasGoal ? '<span class="owner-card-goal-check" title="Goal set">✓</span>' : '';
       return `
-        <div class="owner-card${cardCls}${goalDoneCls}" onclick="NationalApp.openOwnerDetail(${idx})">
+        <div class="owner-card${cardCls}" onclick="NationalApp.openOwnerDetail(${idx})">
           ${rankBadge}
           <span class="owner-card-name">${this._esc(o.name)}</span>
-          ${goalCheck}
           <span class="owner-card-arrow">→</span>
         </div>`;
     }).join('');

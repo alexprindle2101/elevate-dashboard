@@ -4886,8 +4886,8 @@ const NationalApp = {
     // ── Card 2: Rep Breakdown Table ──
     const repsEl = document.getElementById('sales-reps-table');
     if (s.reps.length) {
-      const _stickyTh0 = 'position:sticky;left:0;z-index:2;background:var(--card-bg,#ddeaf5);width:30px;';
-      const _stickyTh1 = 'position:sticky;left:30px;z-index:2;background:var(--card-bg,#ddeaf5);cursor:pointer;user-select:none;';
+      const _stickyTh0 = 'position:sticky;left:0;z-index:3;background:var(--card-bg,#ddeaf5);width:30px;';
+      const _stickyTh1 = 'position:sticky;left:30px;z-index:3;background:var(--card-bg,#ddeaf5);cursor:pointer;user-select:none;box-shadow:2px 0 4px rgba(0,0,0,0.06);';
       const _sh = (label, col) => `<th class="num sortable-th" onclick="NationalApp._sortSalesReps('${col}')" style="cursor:pointer;user-select:none;">${label} <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>`;
       const repHeaders = isNDS
         ? `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
@@ -4930,8 +4930,8 @@ const NationalApp = {
            ${_sh('New Wrls %','newWrlsPct')}
            ${_sh('BYOD %','byodPct')}`;
 
-      const _stickyTd0 = 'position:sticky;left:0;z-index:1;background:inherit;';
-      const _stickyTd1 = 'position:sticky;left:30px;z-index:1;background:inherit;';
+      const _stickyTd0 = 'position:sticky;left:0;z-index:2;background:var(--card-bg,#fff);';
+      const _stickyTd1 = 'position:sticky;left:30px;z-index:2;background:var(--card-bg,#fff);box-shadow:2px 0 4px rgba(0,0,0,0.06);';
       const _ownerName = owner.name;
       const _campaign = this.state.campaign;
       const _repRow = (rep, ri, cells) => {

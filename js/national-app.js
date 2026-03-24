@@ -1842,18 +1842,25 @@ const NationalApp = {
       console.log('[NationalApp] Prefetching campaign data:', key);
       try {
         // Save current state, load campaign, cache it, restore state
+        // Guard: if user selected a different campaign during prefetch, abort
         const savedOwners = this.state.owners;
         const savedTotals = this.state.campaignTotals;
         const savedCampaign = this.state.campaign;
+        const savedLatestWeek = this._latestWeekDate;
 
+        this._prefetchingActive = true;
         this.state.campaign = key;
         await this.loadCampaignData(key);
         this._writeCoachCampaignCache(key);
 
-        // Restore previous state
-        this.state.owners = savedOwners;
-        this.state.campaignTotals = savedTotals;
-        this.state.campaign = savedCampaign;
+        // Restore previous state ONLY if user hasn't navigated away
+        if (this.state.campaign === key) {
+          this.state.owners = savedOwners;
+          this.state.campaignTotals = savedTotals;
+          this.state.campaign = savedCampaign;
+          this._latestWeekDate = savedLatestWeek;
+        }
+        this._prefetchingActive = false;
 
         console.log('[NationalApp] Prefetched + cached:', key);
       } catch (err) {
@@ -1867,6 +1874,8 @@ const NationalApp = {
   _COACH_CACHE_MAX_AGE: 15 * 60 * 1000, // 15 min per-campaign cache
 
   async selectCampaign(campaignKey) {
+    // If a prefetch is mid-flight, let it know the user navigated
+    this._prefetchingActive = false;
     this.state.campaign = campaignKey;
     this.state.selectedOwner = null;
 

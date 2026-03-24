@@ -4035,7 +4035,13 @@ const NationalApp = {
     // Fire and forget — save in background
     const sheetName = owner._sheetName || owner.tab || owner.name;
     const campaignLabel = this._getCampaignLabel(owner);
-    const prodDate = (targetEntry && targetEntry.date) || this._latestWeekDate || (prodHist.length > 0 ? prodHist[prodHist.length - 1].date : '');
+    const prodDate = (targetEntry && targetEntry.date) || this._latestWeekDate || (prodHist.length > 0 ? prodHist[prodHist.length - 1].date : (() => {
+      // Derive current week Sunday as fallback for new owners with no history
+      const now = new Date();
+      const day = now.getDay();
+      const sun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+      return String(sun.getMonth() + 1).padStart(2, '0') + '/' + String(sun.getDate()).padStart(2, '0') + '/' + sun.getFullYear();
+    })());
     fetch(NATIONAL_CONFIG.appsScriptUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },

@@ -582,6 +582,20 @@ input, select, textarea { font-family: inherit; }
 }
 .owner-card:hover .owner-card-arrow { color: var(--teal); }
 
+/* Goal-done state: subtle grey-out with checkmark */
+.owner-card.owner-card-goal-done {
+  opacity: 0.55;
+  background: #f8f9fa;
+}
+.owner-card.owner-card-goal-done:hover { opacity: 0.85; }
+.owner-card-goal-check {
+  color: var(--teal);
+  font-size: 16px;
+  font-weight: 700;
+  margin-left: auto;
+  margin-right: 4px;
+}
+
 /* Rank badge on owner cards */
 .owner-rank-badge {
   display: inline-flex;

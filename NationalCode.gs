@@ -4445,7 +4445,7 @@ function readFiosOwnerSales(ownerName) {
   // Reverse alias lookup: consolidated name → Credico name
   var FIOS_ALIASES = {
     'abhriham potturu': ['potturu, abhriham', 'potturu, abhiram'],
-    'aj': ['ademaj, gent'],
+    'gent ademaj': ['ademaj, gent'],
     'day dobson-diaz': ['dobson-diaz, day', "dobson-diaz, ja'darry-a"],
     'jp morrone': ['morrone, john philip'],
     'ricky madureira': ['madureira, richard']

@@ -4911,12 +4911,12 @@ const NationalApp = {
     if (sm) {
       const activeHC = owner.headcount?.active || 0;
       const avgUnitsPerActiveRep = activeHC > 0
-        ? Math.round(((sm.frontier || 0) + (sm.lines || 0)) / activeHC * 10) / 10
+        ? Math.round(((sm.fios || 0) + (sm.lines || 0)) / activeHC * 10) / 10
         : '—';
 
       const kpis = isFios
         ? [
-            { label: 'Frontier', value: sm.frontier ?? 0, cls: 'big' },
+            { label: 'Fios', value: sm.fios ?? 0, cls: 'big' },
             { label: 'Lines', value: sm.lines ?? 0 },
             { label: 'Scoring HC', value: sm.scoringHC ?? 0, sub: 'Reps with 1+ sale' },
             { label: 'Productive HC', value: sm.productiveHC ?? 0, sub: 'Reps with 6+ units' },
@@ -5052,7 +5052,7 @@ const NationalApp = {
       const _sh = (label, col) => `<th class="num sortable-th" onclick="NationalApp._sortSalesReps('${col}')" style="cursor:pointer;user-select:none;">${label} <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>`;
       const repHeaders = isFios
         ? `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
-           ${_sh('Frontier','frontier')}
+           ${_sh('Fios','fios')}
            ${_sh('Gig %','gigPct')}
            ${_sh('Autobill %','autobillPct')}
            ${_sh('Avg Days','avgDaysPast')}
@@ -5116,7 +5116,7 @@ const NationalApp = {
       };
       const repRows = isFios
         ? s.reps.map((rep, ri) => _repRow(rep, ri, `
-              <td class="num">${rep.frontier ?? 0}</td>
+              <td class="num">${rep.fios ?? 0}</td>
               <td class="num">${rep.gigPct ?? 0}%</td>
               <td class="num">${rep.autobillPct ?? 0}%</td>
               <td class="num">${rep.avgDaysPast ?? 0}</td>

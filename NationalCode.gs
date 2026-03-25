@@ -1220,54 +1220,57 @@ function _campaignSlug(label) {
 
 function readD2DResRanking() {
   var ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
-  var sheet = ss.getSheetByName('_D2D_Res_Ranking');
-  if (!sheet) return { ranking: [], error: '_D2D_Res_Ranking tab not found' };
+  var sheet = ss.getSheetByName('AT&T Res Metrics');
+  if (!sheet) return { ranking: [], error: 'AT&T Res Metrics tab not found' };
 
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return { ranking: [] };
 
   var headers = data[0].map(function(h) { return String(h).trim(); });
 
-  // Find key columns
-  var rankIdx = headers.indexOf('Rank');
-  var ownerIdx = headers.indexOf('Owner');
-  var totalIdx = headers.indexOf('Total Units');
-  var officesIdx = headers.indexOf('Offices');
+  var nameIdx = headers.indexOf('Name');
+  var niIdx = headers.indexOf('New Internet');
+  var upgIdx = headers.indexOf('Upgrade Internet');
+  var wirelessIdx = headers.indexOf('Wireless');
+  var dtvIdx = headers.indexOf('DTV');
 
-  if (ownerIdx === -1) return { ranking: [], error: 'Owner column not found' };
+  if (nameIdx === -1) return { ranking: [], error: 'Name column not found' };
 
-  // Product columns = everything after Offices (or after Total Units if no Offices)
-  var productStart = (officesIdx !== -1 ? officesIdx : totalIdx !== -1 ? totalIdx : ownerIdx) + 1;
-  var productHeaders = [];
-  for (var h = productStart; h < headers.length; h++) {
-    if (headers[h]) productHeaders.push({ idx: h, name: headers[h] });
-  }
-
-  var ranking = [];
+  // Collect owner rows only (non-indented names = owner summary rows)
+  var owners = [];
   for (var r = 1; r < data.length; r++) {
     var row = data[r];
-    var owner = String(row[ownerIdx] || '').trim();
-    if (!owner) continue;
-    // Stop at metadata rows (e.g. "Last Sync")
-    var rankVal = rankIdx !== -1 ? row[rankIdx] : r;
-    if (typeof rankVal === 'string' && rankVal.toLowerCase().indexOf('last') !== -1) break;
+    var name = String(row[nameIdx] || '');
+    // Skip rep rows (indented with leading spaces)
+    if (name.charAt(0) === ' ') continue;
+    name = name.trim();
+    if (!name) continue;
 
-    var entry = {
-      rank: Number(rankVal) || r,
-      owner: owner,
-      totalUnits: totalIdx !== -1 ? (Number(row[totalIdx]) || 0) : 0,
-      offices: officesIdx !== -1 ? String(row[officesIdx] || '') : '',
-      products: {}
-    };
+    var ni = niIdx !== -1 ? (Number(row[niIdx]) || 0) : 0;
+    var upg = upgIdx !== -1 ? (Number(row[upgIdx]) || 0) : 0;
+    var wireless = wirelessIdx !== -1 ? (Number(row[wirelessIdx]) || 0) : 0;
+    var dtv = dtvIdx !== -1 ? (Number(row[dtvIdx]) || 0) : 0;
+    var totalUnits = ni + upg + wireless + dtv;
 
-    for (var p = 0; p < productHeaders.length; p++) {
-      entry.products[productHeaders[p].name] = Number(row[productHeaders[p].idx]) || 0;
-    }
-
-    ranking.push(entry);
+    owners.push({
+      owner: name,
+      totalUnits: totalUnits,
+      products: {
+        'NEW INTERNET': ni,
+        'UPGRADE INTERNET': upg,
+        'WIRELESS': wireless,
+        'VIDEO': dtv
+      }
+    });
   }
 
-  return { ranking: ranking };
+  // Sort by total units descending and assign rank
+  owners.sort(function(a, b) { return b.totalUnits - a.totalUnits; });
+  for (var i = 0; i < owners.length; i++) {
+    owners[i].rank = i + 1;
+  }
+
+  return { ranking: owners };
 }
 
 function readOwnerCamMapping() {
@@ -4430,7 +4433,7 @@ function readFiosOwnerSales(ownerName) {
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return { error: 'No data in Verizon Sales' };
 
-  // Headers: Name, Frontier, TV, Orders, Gig %, Autobill %, Avg Days Past 1st Avail, Lines, Port %, NEW, CPO, BYOD, Scoring HC, Productive HC, Avg Units/Rep
+  // Headers: Name, Fios, TV, Orders, Gig %, Autobill %, Avg Days Past 1st Avail, Lines, Port %, NEW, CPO, BYOD, Scoring HC, Productive HC, Avg Units/Rep
   var headers = data[0].map(function(h) { return String(h).trim(); });
   var colMap = {};
   for (var c = 0; c < headers.length; c++) colMap[headers[c]] = c;
@@ -4477,7 +4480,7 @@ function readFiosOwnerSales(ownerName) {
   };
 
   var summary = {
-    frontier:     val('Frontier'),
+    fios:         val('Fios'),
     tv:           val('TV'),
     orderCount:   val('Orders'),
     gigPct:       val('Gig %'),
@@ -4491,7 +4494,7 @@ function readFiosOwnerSales(ownerName) {
     scoringHC:    val('Scoring HC'),
     productiveHC: val('Productive HC'),
     avgUnitsRep:  val('Avg Units/Rep'),
-    totalVolume:  val('Frontier') + val('TV'),
+    totalVolume:  val('Fios') + val('TV'),
     repCount:     val('Scoring HC')
   };
 
@@ -4512,7 +4515,7 @@ function readFiosOwnerSales(ownerName) {
 
     reps.push({
       name:         repName,
-      frontier:     repVal('Frontier'),
+      fios:         repVal('Fios'),
       tv:           repVal('TV'),
       orderCount:   repVal('Orders'),
       gigPct:       repVal('Gig %'),
@@ -4523,7 +4526,7 @@ function readFiosOwnerSales(ownerName) {
       newPhones:    repVal('NEW'),
       cpo:          repVal('CPO'),
       byod:         repVal('BYOD'),
-      totalUnits:   repVal('Frontier') + repVal('TV') + repVal('Lines')
+      totalUnits:   repVal('Fios') + repVal('TV') + repVal('Lines')
     });
   }
 

@@ -746,6 +746,33 @@ const NationalApp = {
     }
   },
 
+  async _fetchFiosOwnerSales(owner) {
+    owner._fiosSalesFetching = true;
+    try {
+      const url = NATIONAL_CONFIG.appsScriptUrl +
+        '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+        '&action=fiosOwnerSales' +
+        '&owner=' + encodeURIComponent(owner.name) +
+        '&_t=' + Date.now();
+      const resp = await this._fetchWithTimeout(fetch(url), 30000);
+      const result = await resp.json();
+      owner._fiosSalesFetching = false;
+      if (!result.error && (result.summary || result.reps)) {
+        owner.sales = { summary: result.summary, reps: result.reps || [] };
+        owner._fiosSalesFetched = true;
+        console.log('[NationalApp] FIOS sales loaded for', owner.name, ':', result.reps?.length, 'reps');
+      } else {
+        console.warn('[NationalApp] FIOS sales empty for', owner.name, ':', result.error || 'no data');
+      }
+    } catch (err) {
+      console.warn('[NationalApp] FIOS sales fetch failed for', owner.name, ':', err.message);
+      owner._fiosSalesFetching = false;
+    }
+    if (this.state.selectedOwner === owner && this.state.currentTab === 'sales') {
+      this.renderSalesTab(owner);
+    }
+  },
+
   // ── Fetch B2B production/sales data from local _B2B_Production tab ──
   async _fetchB2BProduction() {
     const url = NATIONAL_CONFIG.appsScriptUrl +
@@ -2379,7 +2406,7 @@ const NationalApp = {
     document.querySelector('.detail-tab[data-tab="health"]').classList.add('active');
 
     // Hide Sales tab for specific campaigns
-    const hideSales = ['frontier', 'verizon-fios', 'leafguard', 'lumen'];
+    const hideSales = ['frontier', 'leafguard', 'lumen'];
     const salesTab = document.querySelector('.detail-tab[data-tab="sales"]');
     if (salesTab) salesTab.style.display = hideSales.includes(this.state.campaign) ? 'none' : '';
 
@@ -2397,11 +2424,15 @@ const NationalApp = {
     // Lazy-load sales data for this owner (non-blocking)
     const isNDS = this.state.campaign && this.state.campaign.indexOf('nds') >= 0;
     const isRes = this.state.campaign === 'att-res';
+    const isFios = this.state.campaign === 'verizon-fios';
     if (isNDS && !owner._ndsSalesFetched) {
       this._fetchNDSOwnerSales(owner);
     }
     if (isRes && !owner._resSalesFetched) {
       this._fetchResOwnerSales(owner);
+    }
+    if (isFios && !owner._fiosSalesFetched) {
+      this._fetchFiosOwnerSales(owner);
     }
   },
 
@@ -4834,7 +4865,7 @@ const NationalApp = {
     // Sales data comes from Tableau — no Non-Partner gate needed here
 
     // Show loading if sales data is still being fetched
-    if (owner._ndsSalesFetching || owner._resSalesFetching) {
+    if (owner._ndsSalesFetching || owner._resSalesFetching || owner._fiosSalesFetching) {
       const summaryEl = document.getElementById('sales-summary');
       const repsEl = document.getElementById('sales-reps-table');
       if (summaryEl) summaryEl.innerHTML = '<div class="coaching-section" style="text-align:center;padding:40px;"><div class="loading-spinner"></div><div style="margin-top:12px;font-size:13px;color:#708090;">Loading sales data...</div></div>';
@@ -4846,13 +4877,23 @@ const NationalApp = {
     const sm = s.summary;
     const isNDS = this.state.campaign && (this.state.campaign.indexOf('nds') >= 0 || this.state.campaign.indexOf('NDS') >= 0);
     const isRes = this.state.campaign === 'att-res';
+    const isFios = this.state.campaign === 'verizon-fios';
     // Store reps for checkbox flag/unflag reference
     this._currentSalesReps = s.reps || [];
 
     // ── Card 1: Owner Summary ──
     const summaryEl = document.getElementById('sales-summary');
     if (sm) {
-      const kpis = isNDS
+      const kpis = isFios
+        ? [
+            { label: 'Frontier', value: sm.frontier ?? 0, cls: 'big' },
+            { label: 'TV', value: sm.tv ?? 0 },
+            { label: 'Lines', value: sm.lines ?? 0 },
+            { label: 'Orders', value: sm.orderCount ?? 0 },
+            { label: 'Scoring HC', value: sm.scoringHC ?? 0 },
+            { label: 'Productive HC', value: sm.productiveHC ?? 0 }
+          ]
+        : isNDS
         ? [
             { label: 'New/Ports LW', value: sm.newPorts || sm.totalVolume, cls: 'big' },
             { label: 'Rep Count', value: sm.repCount },
@@ -4870,7 +4911,27 @@ const NationalApp = {
             { label: 'Order Count', value: sm.orderCount ?? '—' }
           ];
 
-      const metricsHtml = isNDS
+      const metricsHtml = isFios
+        ? `<div class="sales-metrics-grid">
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">FIOS Performance</div>
+              <div class="sales-metric-row"><span>Gig %</span><span class="num">${sm.gigPct ?? 0}%</span></div>
+              <div class="sales-metric-row"><span>Autobill %</span><span class="num">${sm.autobillPct ?? 0}%</span></div>
+              <div class="sales-metric-row"><span>Avg Days Past 1st Avail</span><span class="num">${sm.avgDaysPast ?? 0}</span></div>
+            </div>
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Wireless Breakdown</div>
+              <div class="sales-metric-row"><span>Port %</span><span class="num">${sm.portPct ?? 0}%</span></div>
+              <div class="sales-metric-row"><span>NEW Phones</span><span class="num">${sm.newPhones ?? 0}</span></div>
+              <div class="sales-metric-row"><span>CPO</span><span class="num">${sm.cpo ?? 0}</span></div>
+              <div class="sales-metric-row"><span>BYOD</span><span class="num">${sm.byod ?? 0}</span></div>
+            </div>
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Office Metrics</div>
+              <div class="sales-metric-row"><span>Avg Units / Rep</span><span class="num">${sm.avgUnitsRep ?? 0}</span></div>
+            </div>
+          </div>`
+        : isNDS
         ? `<div class="sales-metrics-grid">
             <div class="sales-metric-group">
               <div class="sales-metric-group-label">Quality Metrics</div>
@@ -4963,7 +5024,20 @@ const NationalApp = {
       const _stickyTh0 = 'position:sticky;left:0;z-index:3;background:var(--card-bg,#ddeaf5);width:30px;';
       const _stickyTh1 = 'position:sticky;left:30px;z-index:3;background:var(--card-bg,#ddeaf5);cursor:pointer;user-select:none;box-shadow:2px 0 4px rgba(0,0,0,0.06);';
       const _sh = (label, col) => `<th class="num sortable-th" onclick="NationalApp._sortSalesReps('${col}')" style="cursor:pointer;user-select:none;">${label} <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>`;
-      const repHeaders = isNDS
+      const repHeaders = isFios
+        ? `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
+           ${_sh('Frontier','frontier')}
+           ${_sh('TV','tv')}
+           ${_sh('Orders','orderCount')}
+           ${_sh('Gig %','gigPct')}
+           ${_sh('Autobill %','autobillPct')}
+           ${_sh('Avg Days','avgDaysPast')}
+           ${_sh('Lines','lines')}
+           ${_sh('Port %','portPct')}
+           ${_sh('NEW','newPhones')}
+           ${_sh('CPO','cpo')}
+           ${_sh('BYOD','byod')}`
+        : isNDS
         ? `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
            ${_sh('New/Ports','newPorts')}
            ${_sh('Orders','orderCount')}
@@ -5016,7 +5090,20 @@ const NationalApp = {
           ${cells}
         </tr>`;
       };
-      const repRows = isNDS
+      const repRows = isFios
+        ? s.reps.map((rep, ri) => _repRow(rep, ri, `
+              <td class="num">${rep.frontier ?? 0}</td>
+              <td class="num">${rep.tv ?? 0}</td>
+              <td class="num">${rep.orderCount ?? 0}</td>
+              <td class="num">${rep.gigPct ?? 0}%</td>
+              <td class="num">${rep.autobillPct ?? 0}%</td>
+              <td class="num">${rep.avgDaysPast ?? 0}</td>
+              <td class="num">${rep.lines ?? 0}</td>
+              <td class="num">${rep.portPct ?? 0}%</td>
+              <td class="num">${rep.newPhones ?? 0}</td>
+              <td class="num">${rep.cpo ?? 0}</td>
+              <td class="num">${rep.byod ?? 0}</td>`)).join('')
+        : isNDS
         ? s.reps.map((rep, ri) => _repRow(rep, ri, `
               <td class="num">${rep.newPorts || rep.totalVolume}</td>
               <td class="num">${rep.orderCount}</td>

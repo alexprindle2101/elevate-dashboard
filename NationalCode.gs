@@ -122,6 +122,12 @@ function doGet(e) {
       return jsonResp(readNDSOwnerSales(ownerParam));
     }
 
+    // ── Verizon FIOS per-owner sales data (from Credico sync sheet) ──
+    if (action === 'fiosOwnerSales') {
+      var ownerParam = e.parameter.owner || '';
+      return jsonResp(readFiosOwnerSales(ownerParam));
+    }
+
     // ── AT&T Res per-owner sales data (Campaign Tracker Section 3) ──
     if (action === 'resOwnerSales') {
       var ownerParam = e.parameter.owner || '';
@@ -2744,7 +2750,26 @@ function updateHeadcountRow(ownerName, date, active, leaders, dist, training, ca
         fallbackDate = rowDate;
       }
     }
-    // Use fallback if no exact date match
+    // If a specific date was requested but not found, create a new row instead of falling back
+    if (targetRow === -1 && normDate) {
+      // Insert new row after header
+      var numCols = headers.length;
+      var newRow = [];
+      for (var nr = 0; nr < numCols; nr++) newRow.push(0);
+      // Set date and owner
+      var dateParts = normDate.split('/');
+      if (colWeek !== undefined) newRow[colWeek] = new Date(Number(dateParts[2]), Number(dateParts[0]) - 1, Number(dateParts[1]), 12, 0, 0);
+      if (colOwner !== undefined) newRow[colOwner] = ownerName;
+      if (colActive !== undefined) newRow[colActive] = parseInt(active) || 0;
+      if (colLeaders !== undefined) newRow[colLeaders] = parseInt(leaders) || 0;
+      if (colDist !== undefined) newRow[colDist] = parseInt(dist) || 0;
+      if (colTraining !== undefined) newRow[colTraining] = parseInt(training) || 0;
+      sheet.insertRowAfter(1);
+      sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
+      return { ok: true, row: 2, owner: ownerName, date: normDate, tab: campaignLabel, created: true };
+    }
+
+    // Use fallback if no date was specified
     if (targetRow === -1 && fallbackRow !== -1) {
       targetRow = fallbackRow;
       targetDate = fallbackDate;
@@ -4386,6 +4411,107 @@ function readNDSOwnerSales(ownerName) {
   if (summary) summary.repCount = reps.length;
 
   return { summary: summary, reps: reps, tab: tab.getName() };
+}
+
+// ── Verizon FIOS per-owner sales (from Credico sync "Verizon Sales" tab) ──
+function readFiosOwnerSales(ownerName) {
+  if (!ownerName) return { error: 'No owner specified' };
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
+  } catch (err) {
+    return { error: 'Cannot open national sheet: ' + err.message };
+  }
+
+  var sheet = ss.getSheetByName('Verizon Sales');
+  if (!sheet) return { error: 'Verizon Sales tab not found' };
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { error: 'No data in Verizon Sales' };
+
+  // Headers: Name, Frontier, TV, Orders, Gig %, Autobill %, Avg Days Past 1st Avail, Lines, Port %, NEW, CPO, BYOD, Scoring HC, Productive HC, Avg Units/Rep
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+  var colMap = {};
+  for (var c = 0; c < headers.length; c++) colMap[headers[c]] = c;
+
+  var ownerLower = ownerName.toLowerCase().trim();
+
+  // Find the owner row (not indented) and collect rep rows (indented) below it
+  var ownerRowIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    var name = String(data[i][0] || '').trim();
+    // Owner rows are not indented; skip if starts with space
+    if (name.charAt(0) === ' ') continue;
+    if (name.toLowerCase() === ownerLower) {
+      ownerRowIdx = i;
+      break;
+    }
+  }
+
+  if (ownerRowIdx < 0) return { error: 'Owner not found: ' + ownerName };
+
+  var ownerRow = data[ownerRowIdx];
+  var val = function(colName) {
+    var idx = colMap[colName];
+    if (idx === undefined) return 0;
+    var v = ownerRow[idx];
+    if (typeof v === 'string') v = v.replace('%', '');
+    return Number(v) || 0;
+  };
+
+  var summary = {
+    frontier:     val('Frontier'),
+    tv:           val('TV'),
+    orderCount:   val('Orders'),
+    gigPct:       val('Gig %'),
+    autobillPct:  val('Autobill %'),
+    avgDaysPast:  val('Avg Days Past 1st Avail'),
+    lines:        val('Lines'),
+    portPct:      val('Port %'),
+    newPhones:    val('NEW'),
+    cpo:          val('CPO'),
+    byod:         val('BYOD'),
+    scoringHC:    val('Scoring HC'),
+    productiveHC: val('Productive HC'),
+    avgUnitsRep:  val('Avg Units/Rep'),
+    totalVolume:  val('Frontier') + val('TV'),
+    repCount:     val('Scoring HC')
+  };
+
+  // Collect rep rows (indented, immediately after owner row)
+  var reps = [];
+  for (var r = ownerRowIdx + 1; r < data.length; r++) {
+    var repName = String(data[r][0] || '');
+    if (!repName || repName.charAt(0) !== ' ') break; // next owner or end
+    repName = repName.trim();
+
+    var repVal = function(colName) {
+      var idx = colMap[colName];
+      if (idx === undefined) return 0;
+      var v = data[r][idx];
+      if (typeof v === 'string') v = v.replace('%', '');
+      return Number(v) || 0;
+    };
+
+    reps.push({
+      name:         repName,
+      frontier:     repVal('Frontier'),
+      tv:           repVal('TV'),
+      orderCount:   repVal('Orders'),
+      gigPct:       repVal('Gig %'),
+      autobillPct:  repVal('Autobill %'),
+      avgDaysPast:  repVal('Avg Days Past 1st Avail'),
+      lines:        repVal('Lines'),
+      portPct:      repVal('Port %'),
+      newPhones:    repVal('NEW'),
+      cpo:          repVal('CPO'),
+      byod:         repVal('BYOD'),
+      totalUnits:   repVal('Frontier') + repVal('TV') + repVal('Lines')
+    });
+  }
+
+  return { summary: summary, reps: reps, tab: 'Verizon Sales' };
 }
 
 // ── AT&T Residential per-owner sales (Campaign Tracker Section 3) ──

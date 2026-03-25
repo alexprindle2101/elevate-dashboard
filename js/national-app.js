@@ -1846,6 +1846,9 @@ const NationalApp = {
    * Uses an isolated scratch state so we never mutate the live state.
    */
   async _prefetchTodaysCampaigns() {
+    // Disabled — prefetch race condition corrupts active campaign state.
+    // TODO: refactor to use isolated state object instead of mutating this.state
+    return;
     const sched = this._planningSchedule || [];
     if (!sched.length) return;
 

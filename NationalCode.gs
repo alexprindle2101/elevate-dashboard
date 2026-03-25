@@ -4436,6 +4436,11 @@ function readFiosOwnerSales(ownerName) {
   for (var c = 0; c < headers.length; c++) colMap[headers[c]] = c;
 
   var ownerLower = ownerName.toLowerCase().trim();
+  // Build "Last, First" version for matching Credico format
+  var ownerParts = ownerLower.split(/\s+/);
+  var ownerLastFirst = ownerParts.length >= 2
+    ? ownerParts[ownerParts.length - 1] + ', ' + ownerParts.slice(0, -1).join(' ')
+    : ownerLower;
 
   // Find the owner row (not indented) and collect rep rows (indented) below it
   var ownerRowIdx = -1;
@@ -4443,7 +4448,8 @@ function readFiosOwnerSales(ownerName) {
     var name = String(data[i][0] || '').trim();
     // Owner rows are not indented; skip if starts with space
     if (name.charAt(0) === ' ') continue;
-    if (name.toLowerCase() === ownerLower) {
+    var nameLower = name.toLowerCase();
+    if (nameLower === ownerLower || nameLower === ownerLastFirst) {
       ownerRowIdx = i;
       break;
     }

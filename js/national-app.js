@@ -1870,29 +1870,24 @@ const NationalApp = {
 
       console.log('[NationalApp] Prefetching campaign data:', key);
       try {
-        // Snapshot live state, swap in scratch state for the prefetch
-        const liveOwners = this.state.owners;
-        const liveTotals = this.state.campaignTotals;
-        const liveCampaign = this.state.campaign;
-        const liveLatestWeek = this._latestWeekDate;
-        const liveCamMapping = this.state.camMapping;
+        // Save current state before prefetch
+        const savedOwners = this.state.owners;
+        const savedTotals = this.state.campaignTotals;
+        const savedCampaign = this.state.campaign;
+        const savedLatestWeek = this._latestWeekDate;
 
         this._prefetchingActive = true;
         this.state.campaign = key;
-        this.state.owners = [];
-        this.state.campaignTotals = {};
         await this.loadCampaignData(key);
-
-        // Cache the prefetched data (uses current this.state.owners which is scratch)
         this._writeCoachCampaignCache(key);
 
-        // ALWAYS restore live state — the prefetch should never leave
-        // its scratch data behind, regardless of user navigation
-        this.state.owners = liveOwners;
-        this.state.campaignTotals = liveTotals;
-        this.state.campaign = liveCampaign;
-        this._latestWeekDate = liveLatestWeek;
-        this.state.camMapping = liveCamMapping;
+        // Restore previous state ONLY if user hasn't navigated away
+        if (this.state.campaign === key) {
+          this.state.owners = savedOwners;
+          this.state.campaignTotals = savedTotals;
+          this.state.campaign = savedCampaign;
+          this._latestWeekDate = savedLatestWeek;
+        }
         this._prefetchingActive = false;
 
         console.log('[NationalApp] Prefetched + cached:', key);

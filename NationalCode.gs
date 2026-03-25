@@ -4446,7 +4446,7 @@ function readFiosOwnerSales(ownerName) {
   var FIOS_ALIASES = {
     'abhriham potturu': ['potturu, abhriham', 'potturu, abhiram'],
     'aj': ['ademaj, gent'],
-    'day': ['dobson-diaz, day', "dobson-diaz, ja'darry-a"],
+    'day dobson-diaz': ['dobson-diaz, day', "dobson-diaz, ja'darry-a"],
     'jp morrone': ['morrone, john philip'],
     'ricky madureira': ['madureira, richard']
   };

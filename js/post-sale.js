@@ -179,7 +179,7 @@ const PostSale = {
 
       <div class="wizard-field">
         <label class="wizard-label">Date of Sale</label>
-        <input type="date" class="wizard-input" id="ps-date" value="${d.dateOfSale}" max="${new Date().toISOString().split('T')[0]}">
+        <input type="date" class="wizard-input" id="ps-date" value="${d.dateOfSale}" max="${(() => { const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0'); })()}">
       </div>
 
       ${this._campaign === 'attb2b' ? `

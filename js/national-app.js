@@ -1735,12 +1735,13 @@ const NationalApp = {
     const container = document.getElementById('campaign-cards');
     if (!container) return;
 
-    // Only include campaigns that have owners
+    // Include campaigns that have owners OR are in the config (so empty ones can still be refreshed)
     const allKeys = new Set([...Object.keys(campaigns), ...Object.keys(configCampaigns)]);
     const activeKeys = [...allKeys].filter(key => {
       const cd = campaigns[key];
-      if (!cd) return false;
-      return (cd.owners || []).length > 0;
+      const inConfig = !!configCampaigns[key];
+      if (!cd && !inConfig) return false;
+      return (cd && (cd.owners || []).length > 0) || inConfig;
     });
     // Debug: log all campaigns and their owner counts
     console.log('[NationalApp] _showLandingPage — campaigns:', [...allKeys].map(k => k + ':' + (campaigns[k]?.owners?.length || 0)).join(', '));
@@ -1842,6 +1843,7 @@ const NationalApp = {
   /**
    * Prefetch full campaign data for today's scheduled campaigns.
    * Runs in background so clicking into a campaign is near-instant.
+   * Uses an isolated scratch state so we never mutate the live state.
    */
   async _prefetchTodaysCampaigns() {
     const sched = this._planningSchedule || [];
@@ -1868,30 +1870,35 @@ const NationalApp = {
 
       console.log('[NationalApp] Prefetching campaign data:', key);
       try {
-        // Save current state, load campaign, cache it, restore state
-        // Guard: if user selected a different campaign during prefetch, abort
-        const savedOwners = this.state.owners;
-        const savedTotals = this.state.campaignTotals;
-        const savedCampaign = this.state.campaign;
-        const savedLatestWeek = this._latestWeekDate;
+        // Snapshot live state, swap in scratch state for the prefetch
+        const liveOwners = this.state.owners;
+        const liveTotals = this.state.campaignTotals;
+        const liveCampaign = this.state.campaign;
+        const liveLatestWeek = this._latestWeekDate;
+        const liveCamMapping = this.state.camMapping;
 
         this._prefetchingActive = true;
         this.state.campaign = key;
+        this.state.owners = [];
+        this.state.campaignTotals = {};
         await this.loadCampaignData(key);
+
+        // Cache the prefetched data (uses current this.state.owners which is scratch)
         this._writeCoachCampaignCache(key);
 
-        // Restore previous state ONLY if user hasn't navigated away
-        if (this.state.campaign === key) {
-          this.state.owners = savedOwners;
-          this.state.campaignTotals = savedTotals;
-          this.state.campaign = savedCampaign;
-          this._latestWeekDate = savedLatestWeek;
-        }
+        // ALWAYS restore live state — the prefetch should never leave
+        // its scratch data behind, regardless of user navigation
+        this.state.owners = liveOwners;
+        this.state.campaignTotals = liveTotals;
+        this.state.campaign = liveCampaign;
+        this._latestWeekDate = liveLatestWeek;
+        this.state.camMapping = liveCamMapping;
         this._prefetchingActive = false;
 
         console.log('[NationalApp] Prefetched + cached:', key);
       } catch (err) {
         console.warn('[NationalApp] Prefetch failed for', key, ':', err.message);
+        this._prefetchingActive = false;
       }
       this._prefetching[key] = false;
     }
@@ -2375,10 +2382,11 @@ const NationalApp = {
   filterOwners(query) {
     const q = query.toLowerCase();
     const cards = document.querySelectorAll('.owner-card');
-    cards.forEach((card, idx) => {
-      const owner = this.state.owners[idx];
-      if (!owner) return;
-      card.style.display = owner.name.toLowerCase().includes(q) ? '' : 'none';
+    cards.forEach(card => {
+      // Read the name directly from the DOM instead of relying on array index
+      const nameEl = card.querySelector('.owner-card-name');
+      const name = nameEl ? nameEl.textContent.toLowerCase() : '';
+      card.style.display = name.includes(q) ? '' : 'none';
     });
   },
 

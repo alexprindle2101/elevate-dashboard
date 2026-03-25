@@ -529,10 +529,13 @@ const OwnerDev = {
     if (isFirstLoad) {
       this._hideLoading();
       document.getElementById('dashboard').style.display = 'block';
+      this._renderFilterPills();
+      this._renderStats();
+      this.renderMapping();
     }
-    this._renderFilterPills();
-    this._renderStats();
-    this.renderMapping();
+    // For background refreshes, defer the re-render until all data is in
+    // to avoid jarring mid-interaction table rebuilds (scroll/dropdown resets).
+    // The final re-render after auto-mapping will handle it.
 
     // ── Priority 2: Remaining data (settles in background) ──
     const [usersResult, camResult, nlrResult, tabMapResult] =
@@ -588,9 +591,18 @@ const OwnerDev = {
       campaignTabsCached: Object.keys(this.state.campaignTabsCache).length
     });
 
-    // Write to cache if we got campaign data
-    if (cacheData.campaigns) {
+    // Only write cache if we got a reasonably complete dataset.
+    // Partial data (e.g. campaigns loaded but companies/NLR timed out)
+    // should NOT overwrite a previously-complete cache.
+    const cacheComplete = cacheData.campaigns && cacheData.mappings
+      && cacheData.users && (cacheData.camCompanies || cacheData.nlrWorkbooks);
+    if (cacheComplete) {
       this._writeCache(cacheData);
+    } else if (cacheData.campaigns) {
+      console.warn('[OwnerDev] Skipping cache write — incomplete data (missing:',
+        [!cacheData.mappings && 'mappings', !cacheData.users && 'users',
+         !cacheData.camCompanies && 'camCompanies', !cacheData.nlrWorkbooks && 'nlrWorkbooks']
+          .filter(Boolean).join(', ') + ')');
     }
 
     // Run auto-mapping
@@ -601,10 +613,31 @@ const OwnerDev = {
       if (Object.keys(this.state.campaignTabsCache).length > 0) await this._autoMapCampaignTabs();
     }
 
-    // Final re-render with all data (auto-mapping may have updated statuses)
-    this._renderFilterPills();
-    this._renderStats();
-    this.renderMapping();
+    // Final re-render with all data (auto-mapping may have updated statuses).
+    // Skip if user is on a different tab (coach/planning) — they'll get
+    // fresh data when they switch back to mapping.
+    if (this.state.activeTab === 'mapping') {
+      // Check for an open dropdown or focused input — avoid nuking mid-edit state
+      const hasOpenDropdown = document.querySelector('.search-dropdown[style*="display: block"]')
+        || document.querySelector('.search-dropdown.open');
+      const activeEl = document.activeElement;
+      const isEditing = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT')
+        && activeEl.closest('#mapping-tbody');
+      if (!hasOpenDropdown && !isEditing) {
+        this._renderFilterPills();
+        this._renderStats();
+        this.renderMapping();
+      } else {
+        // At minimum update stats (lightweight, doesn't touch the table)
+        this._renderFilterPills();
+        this._renderStats();
+        console.log('[OwnerDev] Deferred table re-render (user mid-edit)');
+        this._pendingRerender = true;
+      }
+    } else {
+      // Mark that mapping tab needs a re-render when user switches back
+      this._pendingRerender = true;
+    }
   },
 
   /**
@@ -913,6 +946,14 @@ const OwnerDev = {
     if (coachView) coachView.style.display = tab === 'coach' ? '' : 'none';
     const planningView = document.getElementById('view-planning');
     if (planningView) planningView.style.display = tab === 'planning' ? '' : 'none';
+
+    // Flush any deferred mapping re-render when returning to mapping tab
+    if (tab === 'mapping' && this._pendingRerender) {
+      this._pendingRerender = false;
+      this._renderFilterPills();
+      this._renderStats();
+      this.renderMapping();
+    }
 
     if (tab === 'team') {
       this.renderTeam();

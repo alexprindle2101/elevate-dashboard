@@ -5622,7 +5622,7 @@ function consolidateCampaign_(campaignKey, campaign, destSS) {
       var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, displayData, campaignKey);
 
       // Extract recruiting rows from Section 1 (horizontal — inline with health, same row per week)
-      var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End);
+      var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End, campaignKey);
       Logger.log('consolidateCampaign_ ' + ownerName + ': s2Start=' + sections.section2Start + ', recruitingRows=' + recruitingRows.length + ', healthRows=' + healthRows.length);
 
       // All campaigns except LeafGuard have source dates offset by -7 days.
@@ -5896,6 +5896,43 @@ function extractHealthRows_(data, start, end, displayData, campaignKey) {
       goalsRaw: goalsRaw
     });
   }
+
+  // ── Sequential year correction for campaigns with no-year dates (e.g. Lumen "WE 3/20") ──
+  // Only apply to campaigns whose source dates have no year component.
+  // Dates are in chronological order. Walk backward from today and fix year rollovers.
+  var NO_YEAR_CAMPAIGNS = ['lumen'];
+  Logger.log('[YearFix-Health] campaignKey=' + campaignKey + ' resultLen=' + result.length + ' willRun=' + (campaignKey && NO_YEAR_CAMPAIGNS.indexOf(campaignKey) >= 0 && result.length >= 2));
+  if (campaignKey && NO_YEAR_CAMPAIGNS.indexOf(campaignKey) >= 0 && result.length >= 2) {
+    Logger.log('[YearFix-Health] ENTERING correction block');
+    var now = new Date();
+    var curYear = now.getFullYear();
+
+    var last = result[result.length - 1].date;
+    var candidateCur = new Date(curYear, last.getMonth(), last.getDate());
+    var candidatePrev = new Date(curYear - 1, last.getMonth(), last.getDate());
+    var fourWeeksAhead = new Date(now.getTime() + 28 * 86400000);
+    if (candidateCur.getTime() <= fourWeeksAhead.getTime()) {
+      result[result.length - 1].date = candidateCur;
+    } else {
+      result[result.length - 1].date = candidatePrev;
+    }
+    Logger.log('[YearFix-Health] anchor=' + result[result.length - 1].date.toLocaleDateString());
+
+    for (var fix = result.length - 2; fix >= 0; fix--) {
+      var curr = result[fix + 1].date;
+      var prev = result[fix].date;
+      var adjusted = new Date(curr.getFullYear(), prev.getMonth(), prev.getDate());
+      if (adjusted.getTime() > curr.getTime()) {
+        adjusted = new Date(curr.getFullYear() - 1, prev.getMonth(), prev.getDate());
+      }
+      if (adjusted.getTime() !== prev.getTime()) {
+        Logger.log('[YearFix-Health] idx=' + fix + ' ' + prev.toLocaleDateString() + ' → ' + adjusted.toLocaleDateString());
+      }
+      result[fix].date = adjusted;
+    }
+    Logger.log('[YearFix-Health] correction complete');
+  }
+
   return result;
 }
 
@@ -5910,7 +5947,7 @@ function extractHealthRows_(data, start, end, displayData, campaignKey) {
  *   2nd Rounds Booked, 2nd Rounds Showed, Retention,
  *   New Start Scheduled / NS Booked, New Starts Showed / NS Showed, Retention
  */
-function extractHorizontalRecruitingRows_(data, start, end) {
+function extractHorizontalRecruitingRows_(data, start, end, campaignKey) {
   if (start < 0 || end < start) return [];
 
   // Find the actual header row — skip empty rows at the start
@@ -5991,6 +6028,24 @@ function extractHorizontalRecruitingRows_(data, start, end) {
     var hasData = metrics.some(function(v) { return v !== 0; });
     if (hasData) {
       result.push({ date: d, metrics: metrics });
+    }
+  }
+
+  // ── Sequential year correction for recruiting (same as health) ──
+  var NO_YEAR_CAMPAIGNS_R = ['lumen'];
+  if (campaignKey && NO_YEAR_CAMPAIGNS_R.indexOf(campaignKey) >= 0 && result.length >= 2) {
+    var now = new Date();
+    var curYear = now.getFullYear();
+    var last = result[result.length - 1].date;
+    var candidateCur = new Date(curYear, last.getMonth(), last.getDate());
+    var fourWeeksAhead = new Date(now.getTime() + 28 * 86400000);
+    result[result.length - 1].date = (candidateCur.getTime() <= fourWeeksAhead.getTime()) ? candidateCur : new Date(curYear - 1, last.getMonth(), last.getDate());
+    for (var fix = result.length - 2; fix >= 0; fix--) {
+      var curr = result[fix + 1].date;
+      var prev = result[fix].date;
+      var adjusted = new Date(curr.getFullYear(), prev.getMonth(), prev.getDate());
+      if (adjusted.getTime() > curr.getTime()) adjusted = new Date(curr.getFullYear() - 1, prev.getMonth(), prev.getDate());
+      result[fix].date = adjusted;
     }
   }
 
@@ -6084,6 +6139,31 @@ function extractRecruitingRows_(data, start, end) {
     var hasData = metrics.some(function(v) { return v !== 0; });
     if (hasData) {
       result.push({ date: date, metrics: metrics });
+    }
+  }
+
+  // ── Sequential year correction for campaigns with no-year dates (e.g. Lumen) ──
+  var NO_YEAR_CAMPAIGNS = ['lumen'];
+  if (campaignKey && NO_YEAR_CAMPAIGNS.indexOf(campaignKey) >= 0 && result.length >= 2) {
+    var now = new Date();
+    var curYear = now.getFullYear();
+    var last = result[result.length - 1].date;
+    var candidateCur = new Date(curYear, last.getMonth(), last.getDate());
+    var candidatePrev = new Date(curYear - 1, last.getMonth(), last.getDate());
+    var fourWeeksAhead = new Date(now.getTime() + 28 * 86400000);
+    if (candidateCur.getTime() <= fourWeeksAhead.getTime()) {
+      result[result.length - 1].date = candidateCur;
+    } else {
+      result[result.length - 1].date = candidatePrev;
+    }
+    for (var fix = result.length - 2; fix >= 0; fix--) {
+      var curr = result[fix + 1].date;
+      var prev = result[fix].date;
+      var adjusted = new Date(curr.getFullYear(), prev.getMonth(), prev.getDate());
+      if (adjusted.getTime() > curr.getTime()) {
+        adjusted = new Date(curr.getFullYear() - 1, prev.getMonth(), prev.getDate());
+      }
+      result[fix].date = adjusted;
     }
   }
 
@@ -6810,7 +6890,7 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
 
       // Extract health (for production only) and recruiting
       var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, displayData, campaignKey);
-      var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End);
+      var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End, campaignKey);
 
       // +7 day offset for non-LeafGuard
       if (campaignKey !== 'leafguard') {
@@ -7443,6 +7523,55 @@ function TEST_rogers_pipeline() {
       parts.push(headers[c] + '=' + row[c]);
     }
     Logger.log('Row[' + i + '] ' + parts.join(', '));
+  }
+}
+
+// Debug: trace Lumen date parsing for Angel Padilla
+function TEST_lumen_dates() {
+  var ss = SpreadsheetApp.openById('1P4DYlcV1hgNkaAapk3tWD7ytcRXw4K1n7R6EMKPCoSA');
+  var tab = ss.getSheetByName('Angel P');
+  if (!tab) {
+    // Try variations
+    var sheets = ss.getSheets();
+    for (var i = 0; i < sheets.length; i++) {
+      var n = sheets[i].getName().toLowerCase();
+      if (n.indexOf('angel') >= 0) { tab = sheets[i]; break; }
+    }
+  }
+  if (!tab) { Logger.log('No Angel tab found'); return; }
+  Logger.log('Using tab: ' + tab.getName());
+
+  var data = tab.getDataRange().getValues();
+  var sections = findSections(data);
+  Logger.log('Sections: ' + JSON.stringify(sections));
+
+  // Find the dates column
+  var headerIdx = sections.section1Start;
+  for (var hi = sections.section1Start; hi <= Math.min(sections.section1Start + 3, sections.section1End); hi++) {
+    var rowText = data[hi].map(function(c) { return String(c).trim(); }).join('');
+    if (rowText.length > 0) { headerIdx = hi; break; }
+  }
+  var headers = data[headerIdx].map(function(h) { return String(h).toLowerCase().trim(); });
+  var dateCol = findCol(headers, ['dates', 'date']);
+  Logger.log('Date col: ' + dateCol);
+
+  // Log EVERY date value, its type, and what _parseTabDate returns
+  Logger.log('=== RAW DATE VALUES ===');
+  for (var i = headerIdx + 1; i <= sections.section1End; i++) {
+    var raw = data[i][dateCol];
+    var isDate = raw instanceof Date;
+    var parsed = isDate ? raw : _parseTabDate(String(raw || ''));
+    Logger.log('Row ' + i + ': raw="' + raw + '" type=' + typeof raw + ' isDate=' + isDate +
+      ' → parsed=' + (parsed ? parsed.toLocaleDateString() : 'null'));
+  }
+
+  // Now run full extraction with campaignKey='lumen' and log corrected dates
+  var displayData = tab.getDataRange().getDisplayValues();
+  var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, displayData, 'lumen');
+  Logger.log('=== CORRECTED HEALTH ROWS (' + healthRows.length + ') ===');
+  for (var i = 0; i < healthRows.length; i++) {
+    var h = healthRows[i];
+    Logger.log('Health[' + i + '] date=' + h.date.toLocaleDateString() + ' active=' + h.active + ' prod=' + h.productionRaw);
   }
 }
 

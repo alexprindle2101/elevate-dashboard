@@ -1009,7 +1009,11 @@ function checkLeaderboardPosts() {
 
     try {
       // Build the leaderboardText endpoint URL
-      var url = 'https://script.google.com/macros/s/' + appsScriptUrl + '/exec'
+      // appsScriptUrl may be a full URL or just the deployment ID
+      var baseUrl = appsScriptUrl.indexOf('http') === 0
+        ? appsScriptUrl
+        : 'https://script.google.com/macros/s/' + appsScriptUrl + '/exec';
+      var url = baseUrl
         + '?action=leaderboardText'
         + '&key=' + encodeURIComponent(apiKey)
         + '&officeId=' + encodeURIComponent(office.officeId)

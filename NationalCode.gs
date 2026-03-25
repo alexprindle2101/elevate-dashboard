@@ -4533,119 +4533,114 @@ function readFiosOwnerSales(ownerName) {
   return { summary: summary, reps: reps, tab: 'Verizon Sales' };
 }
 
-// ── AT&T Residential per-owner sales (Campaign Tracker Section 3) ──
+// ── AT&T Residential per-owner sales (from Tableau sync "AT&T Res Metrics" tab) ──
 function readResOwnerSales(ownerName) {
   if (!ownerName) return { error: 'No owner specified' };
-  if (!SHEETS.CAMPAIGN_TRACKER) return { error: 'Campaign Tracker sheet not configured' };
 
   var ss;
   try {
-    ss = SpreadsheetApp.openById(SHEETS.CAMPAIGN_TRACKER);
+    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
   } catch (err) {
-    return { error: 'Cannot open Campaign Tracker: ' + err.message };
+    return { error: 'Cannot open national sheet: ' + err.message };
   }
 
-  // Find owner tab — exact then fuzzy
+  var sheet = ss.getSheetByName('AT&T Res Metrics');
+  if (!sheet) return { error: 'AT&T Res Metrics tab not found' };
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { error: 'No data in AT&T Res Metrics' };
+
+  // Headers: Name, New Internet, Upgrade Internet, Wireless, DTV, ABP Mix %, 1Gig+ Mix %, Tech Install %, ...
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+  var colMap = {};
+  for (var c = 0; c < headers.length; c++) colMap[headers[c]] = c;
+
   var ownerLower = ownerName.toLowerCase().trim();
-  var allSheets = ss.getSheets();
-  var tab = null;
 
-  for (var i = 0; i < allSheets.length; i++) {
-    if (allSheets[i].getName().toLowerCase().trim() === ownerLower) {
-      tab = allSheets[i];
+  // Find the owner row (not indented)
+  var ownerRowIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    var name = String(data[i][0] || '').trim();
+    if (name.charAt(0) === ' ') continue; // skip rep rows
+    if (name.toLowerCase() === ownerLower) {
+      ownerRowIdx = i;
       break;
     }
   }
 
-  if (!tab) {
-    var allTabNames = allSheets.map(function(s) { return s.getName(); });
-    var tabByName = {};
-    allSheets.forEach(function(s) { tabByName[s.getName().toLowerCase().trim()] = s; });
-    tab = _fuzzyFindTab_(ownerName, allTabNames, tabByName);
-  }
+  if (ownerRowIdx < 0) return { error: 'Owner not found: ' + ownerName };
 
-  if (!tab) return { error: 'No tab found for: ' + ownerName };
-
-  var lastRow = tab.getLastRow();
-  var lastCol = Math.min(tab.getLastColumn(), 20);
-  if (lastRow < 5 || lastCol < 3) return { error: 'Tab too small: ' + tab.getName() };
-
-  var data = tab.getRange(1, 1, lastRow, lastCol).getValues();
-
-  // Find "Rep Name" or "Name" header row (sales section — search from row 20 down)
-  var headersRow = -1;
-  for (var i = 20; i < data.length; i++) {
-    var cellA = String(data[i][0] || '').trim().toLowerCase();
-    if (cellA === 'rep name' || cellA === 'name') {
-      headersRow = i;
-      break;
-    }
-  }
-  if (headersRow < 0) return { error: 'No "Rep Name" header found in: ' + tab.getName() };
-
-  var hdrs = data[headersRow].map(function(h) { return String(h || '').trim().toLowerCase(); });
-
-  var colIdx = function(patterns) {
-    for (var p = 0; p < patterns.length; p++) {
-      for (var c = 0; c < hdrs.length; c++) {
-        if (hdrs[c].indexOf(patterns[p]) >= 0) return c;
-      }
-    }
-    return -1;
+  var ownerRow = data[ownerRowIdx];
+  var val = function(colName) {
+    var idx = colMap[colName];
+    if (idx === undefined) return 0;
+    var v = ownerRow[idx];
+    if (typeof v === 'string') v = v.replace('%', '');
+    return Number(v) || 0;
   };
 
-  var cols = {
-    rep:             0,
-    newInternet:     colIdx(['new internet count', 'new internet']),
-    upgradeInternet: colIdx(['upgrade internet count', 'upgrade internet']),
-    videoSales:      colIdx(['video sales', 'video']),
-    salesAll:        colIdx(['sales (all)', 'sales all', 'total sales']),
-    abpMix:          colIdx(['abp mix', 'abp']),
-    gigMix:          colIdx(['1gig', 'gig+ mix', 'gig mix']),
-    techInstall:     colIdx(['tech install']),
-    wirelessSales:   colIdx(['wireless']),
-    voiceSales:      colIdx(['voice'])
+  var summary = {
+    newInternet:     val('New Internet'),
+    upgradeInternet: val('Upgrade Internet'),
+    wirelessSales:   val('Wireless'),
+    videoSales:      val('DTV'),
+    totalVolume:     val('New Internet') + val('Upgrade Internet') + val('Wireless') + val('DTV'),
+    abpMix:          val('ABP Mix %'),
+    gigMix:          val('1Gig+ Mix %'),
+    techInstall:     val('Tech Install %'),
+    jepNI:           val('Jep NI (4wk)'),
+    pastDueNI:       val('Past Due NI (4wk)'),
+    sched6Days:      val('Sched 6+ Days (4wk)'),
+    sales30d:        val('0-30d NI Sales'),
+    cancels30d:      val('0-30d NI Cancels'),
+    activations30d:  val('0-30d NI Activations'),
+    disconnects30d:  val('0-30d NI Disconnects'),
+    churnRate30d:    val('0-30d Churn Rate'),
+    actRate3060d:    val('30-60d Activation Rate')
   };
+  summary.repCount = 0;
 
-  var summary = null;
+  // Collect rep rows (indented, immediately after owner row)
   var reps = [];
+  for (var r = ownerRowIdx + 1; r < data.length; r++) {
+    var repName = String(data[r][0] || '');
+    if (!repName || repName.charAt(0) !== ' ') break;
+    repName = repName.trim();
 
-  for (var i = headersRow + 1; i < data.length; i++) {
-    var row = data[i];
-    var repName = String(row[cols.rep] || '').trim();
-    if (!repName) break;
-
-    var newInt = cols.newInternet >= 0 ? num(row[cols.newInternet]) : 0;
-    var upgInt = cols.upgradeInternet >= 0 ? num(row[cols.upgradeInternet]) : 0;
-    var video  = cols.videoSales >= 0 ? num(row[cols.videoSales]) : 0;
-    var wireless = cols.wirelessSales >= 0 ? num(row[cols.wirelessSales]) : 0;
-    var voice  = cols.voiceSales >= 0 ? num(row[cols.voiceSales]) : 0;
-    var total  = cols.salesAll >= 0 ? num(row[cols.salesAll]) : (newInt + upgInt + video + wireless + voice);
-
-    var entry = {
-      name:            repName,
-      rep:             repName,
-      newInternet:     newInt,
-      upgradeInternet: upgInt,
-      videoSales:      video,
-      wirelessSales:   wireless,
-      voiceSales:      voice,
-      totalVolume:     total,
-      abpMix:          cols.abpMix >= 0 ? numDec(row[cols.abpMix]) : 0,
-      gigMix:          cols.gigMix >= 0 ? numDec(row[cols.gigMix]) : 0,
-      techInstall:     cols.techInstall >= 0 ? numDec(row[cols.techInstall]) : 0
+    var repVal = function(colName) {
+      var idx = colMap[colName];
+      if (idx === undefined) return 0;
+      var v = data[r][idx];
+      if (typeof v === 'string') v = v.replace('%', '');
+      return Number(v) || 0;
     };
 
-    if (repName.toLowerCase() === 'total') {
-      summary = entry;
-    } else {
-      reps.push(entry);
-    }
+    reps.push({
+      name:            repName,
+      rep:             repName,
+      newInternet:     repVal('New Internet'),
+      upgradeInternet: repVal('Upgrade Internet'),
+      wirelessSales:   repVal('Wireless'),
+      videoSales:      repVal('DTV'),
+      totalVolume:     repVal('New Internet') + repVal('Upgrade Internet') + repVal('Wireless') + repVal('DTV'),
+      abpMix:          repVal('ABP Mix %'),
+      gigMix:          repVal('1Gig+ Mix %'),
+      techInstall:     repVal('Tech Install %'),
+      jepNI:           repVal('Jep NI (4wk)'),
+      pastDueNI:       repVal('Past Due NI (4wk)'),
+      sched6Days:      repVal('Sched 6+ Days (4wk)'),
+      sales30d:        repVal('0-30d NI Sales'),
+      cancels30d:      repVal('0-30d NI Cancels'),
+      activations30d:  repVal('0-30d NI Activations'),
+      disconnects30d:  repVal('0-30d NI Disconnects'),
+      churnRate30d:    repVal('0-30d Churn Rate'),
+      actRate3060d:    repVal('30-60d Activation Rate')
+    });
   }
 
-  if (summary) summary.repCount = reps.length;
+  summary.repCount = reps.length;
 
-  return { summary: summary, reps: reps, tab: tab.getName() };
+  return { summary: summary, reps: reps, tab: 'AT&T Res Metrics' };
 }
 
 // ═══════════════════════════════════════════════════════

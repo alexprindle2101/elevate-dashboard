@@ -4930,7 +4930,9 @@ const NationalApp = {
           ]
         : isRes
         ? [
-            { label: 'Total Volume', value: sm.totalVolume ?? '—', cls: 'big' },
+            { label: 'New Internet', value: sm.newInternet ?? 0, cls: 'big' },
+            { label: 'Wireless', value: sm.wirelessSales ?? 0 },
+            { label: 'DTV', value: sm.videoSales ?? 0 },
             { label: 'Rep Count', value: sm.repCount ?? '—' }
           ]
         : [
@@ -4983,17 +4985,29 @@ const NationalApp = {
           ? `<div class="sales-metrics-grid">
             <div class="sales-metric-group">
               <div class="sales-metric-group-label">Sales Breakdown</div>
-              <div class="sales-metric-row"><span>New Internet</span><span class="num">${sm.newInternet ?? '—'}</span></div>
-              <div class="sales-metric-row"><span>Upgrade Internet</span><span class="num">${sm.upgradeInternet ?? '—'}</span></div>
-              <div class="sales-metric-row"><span>Video</span><span class="num">${sm.videoSales ?? '—'}</span></div>
-              <div class="sales-metric-row"><span>Wireless</span><span class="num">${sm.wirelessSales ?? '—'}</span></div>
-              <div class="sales-metric-row"><span>Voice</span><span class="num">${sm.voiceSales ?? '—'}</span></div>
+              <div class="sales-metric-row"><span>New Internet</span><span class="num">${sm.newInternet ?? 0}</span></div>
+              <div class="sales-metric-row"><span>Upgrade Internet</span><span class="num">${sm.upgradeInternet ?? 0}</span></div>
+              <div class="sales-metric-row"><span>DTV</span><span class="num">${sm.videoSales ?? 0}</span></div>
+              <div class="sales-metric-row"><span>Wireless</span><span class="num">${sm.wirelessSales ?? 0}</span></div>
             </div>
             <div class="sales-metric-group">
               <div class="sales-metric-group-label">Performance %</div>
               <div class="sales-metric-row"><span>ABP Mix</span><span class="num">${this._pct(sm.abpMix)}</span></div>
               <div class="sales-metric-row"><span>1Gig+ Mix</span><span class="num">${this._pct(sm.gigMix)}</span></div>
               <div class="sales-metric-row"><span>Tech Install</span><span class="num">${this._pct(sm.techInstall)}</span></div>
+            </div>
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Quality (4 wk Rolling)</div>
+              <div class="sales-metric-row"><span>Jep NI</span><span class="num">${sm.jepNI ?? 0}</span></div>
+              <div class="sales-metric-row"><span>Past Due NI</span><span class="num">${sm.pastDueNI ?? 0}</span></div>
+              <div class="sales-metric-row"><span>Sched 6+ Days</span><span class="num">${sm.sched6Days ?? 0}</span></div>
+            </div>
+            <div class="sales-metric-group">
+              <div class="sales-metric-group-label">Churn (0-30 Day)</div>
+              <div class="sales-metric-row"><span>NI Sales</span><span class="num">${sm.sales30d ?? 0}</span></div>
+              <div class="sales-metric-row"><span>NI Cancels</span><span class="num">${sm.cancels30d ?? 0}</span></div>
+              <div class="sales-metric-row"><span>Churn Rate</span><span class="num">${this._pct(sm.churnRate30d)}</span></div>
+              <div class="sales-metric-row"><span>30-60d Act. Rate</span><span class="num">${this._pct(sm.actRate3060d)}</span></div>
             </div>
           </div>`
           : `<div class="sales-metrics-grid">
@@ -5078,15 +5092,18 @@ const NationalApp = {
            ${_sh('After 7:30 %','after730pmPct')}`
         : isRes
         ? `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
-           ${_sh('Volume','totalVolume')}
-           ${_sh('New Internet','newInternet')}
-           ${_sh('Upgrade Internet','upgradeInternet')}
-           ${_sh('Video','videoSales')}
+           ${_sh('NI','newInternet')}
+           ${_sh('Upgrade','upgradeInternet')}
            ${_sh('Wireless','wirelessSales')}
-           ${_sh('Voice','voiceSales')}
-           ${_sh('ABP Mix','abpMix')}
-           ${_sh('1Gig+ Mix','gigMix')}
-           ${_sh('Tech Install','techInstall')}`
+           ${_sh('DTV','videoSales')}
+           ${_sh('ABP %','abpMix')}
+           ${_sh('1Gig+ %','gigMix')}
+           ${_sh('Tech Install %','techInstall')}
+           ${_sh('Jep NI','jepNI')}
+           ${_sh('Past Due','pastDueNI')}
+           ${_sh('Sched 6+','sched6Days')}
+           ${_sh('Churn %','churnRate30d')}
+           ${_sh('30-60d Act %','actRate3060d')}`
         : `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
            ${_sh('Volume','totalVolume')}
            ${_sh('Orders','orderCount')}
@@ -5142,15 +5159,18 @@ const NationalApp = {
               <td class="num">${this._pct(rep.after730pmPct)}</td>`)).join('')
         : isRes
         ? s.reps.map((rep, ri) => _repRow(rep, ri, `
-              <td class="num">${rep.totalVolume}</td>
-              <td class="num">${rep.newInternet ?? '—'}</td>
-              <td class="num">${rep.upgradeInternet ?? '—'}</td>
-              <td class="num">${rep.videoSales ?? '—'}</td>
-              <td class="num">${rep.wirelessSales ?? '—'}</td>
-              <td class="num">${rep.voiceSales ?? '—'}</td>
+              <td class="num">${rep.newInternet ?? 0}</td>
+              <td class="num">${rep.upgradeInternet ?? 0}</td>
+              <td class="num">${rep.wirelessSales ?? 0}</td>
+              <td class="num">${rep.videoSales ?? 0}</td>
               <td class="num">${this._pct(rep.abpMix)}</td>
               <td class="num">${this._pct(rep.gigMix)}</td>
-              <td class="num">${this._pct(rep.techInstall)}</td>`)).join('')
+              <td class="num">${this._pct(rep.techInstall)}</td>
+              <td class="num">${rep.jepNI ?? 0}</td>
+              <td class="num">${rep.pastDueNI ?? 0}</td>
+              <td class="num">${rep.sched6Days ?? 0}</td>
+              <td class="num">${this._pct(rep.churnRate30d)}</td>
+              <td class="num">${this._pct(rep.actRate3060d)}</td>`)).join('')
         : s.reps.map((rep, ri) => _repRow(rep, ri, `
               <td class="num">${rep.totalVolume}</td>
               <td class="num">${rep.orderCount ?? '—'}</td>

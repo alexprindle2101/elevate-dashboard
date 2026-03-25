@@ -4997,17 +4997,10 @@ const NationalApp = {
               <div class="sales-metric-row"><span>Tech Install</span><span class="num">${this._pct(sm.techInstall)}</span></div>
             </div>
             <div class="sales-metric-group">
-              <div class="sales-metric-group-label">Quality (4 wk Rolling)</div>
-              <div class="sales-metric-row"><span>Jep NI</span><span class="num">${sm.jepNI ?? 0}</span></div>
-              <div class="sales-metric-row"><span>Past Due NI</span><span class="num">${sm.pastDueNI ?? 0}</span></div>
+              <div class="sales-metric-group-label">Fiber Quality (4 WK Rolling)</div>
+              <div class="sales-metric-row"><span>Fiber Jep</span><span class="num">${sm.jepNI ?? 0}</span></div>
+              <div class="sales-metric-row"><span>Installs Past Due</span><span class="num">${sm.pastDueNI ?? 0}</span></div>
               <div class="sales-metric-row"><span>Sched 6+ Days</span><span class="num">${sm.sched6Days ?? 0}</span></div>
-            </div>
-            <div class="sales-metric-group">
-              <div class="sales-metric-group-label">Churn (0-30 Day)</div>
-              <div class="sales-metric-row"><span>NI Sales</span><span class="num">${sm.sales30d ?? 0}</span></div>
-              <div class="sales-metric-row"><span>NI Cancels</span><span class="num">${sm.cancels30d ?? 0}</span></div>
-              <div class="sales-metric-row"><span>Churn Rate</span><span class="num">${this._pct(sm.churnRate30d)}</span></div>
-              <div class="sales-metric-row"><span>30-60d Act. Rate</span><span class="num">${this._pct(sm.actRate3060d)}</span></div>
             </div>
           </div>`
           : `<div class="sales-metrics-grid">
@@ -5099,11 +5092,9 @@ const NationalApp = {
            ${_sh('ABP %','abpMix')}
            ${_sh('1Gig+ %','gigMix')}
            ${_sh('Tech Install %','techInstall')}
-           ${_sh('Jep NI','jepNI')}
+           ${_sh('Fiber Jep','jepNI')}
            ${_sh('Past Due','pastDueNI')}
-           ${_sh('Sched 6+','sched6Days')}
-           ${_sh('Churn %','churnRate30d')}
-           ${_sh('30-60d Act %','actRate3060d')}`
+           ${_sh('Sched 6+','sched6Days')}`
         : `<th style="${_stickyTh0}"></th><th class="sortable-th" onclick="NationalApp._sortSalesReps('name')" style="${_stickyTh1}">Rep Name <span style="font-size:10px;opacity:0.5;">&#x25B2;&#x25BC;</span></th>
            ${_sh('Volume','totalVolume')}
            ${_sh('Orders','orderCount')}
@@ -5168,9 +5159,7 @@ const NationalApp = {
               <td class="num">${this._pct(rep.techInstall)}</td>
               <td class="num">${rep.jepNI ?? 0}</td>
               <td class="num">${rep.pastDueNI ?? 0}</td>
-              <td class="num">${rep.sched6Days ?? 0}</td>
-              <td class="num">${this._pct(rep.churnRate30d)}</td>
-              <td class="num">${this._pct(rep.actRate3060d)}</td>`)).join('')
+              <td class="num">${rep.sched6Days ?? 0}</td>`)).join('')
         : s.reps.map((rep, ri) => _repRow(rep, ri, `
               <td class="num">${rep.totalVolume}</td>
               <td class="num">${rep.orderCount ?? '—'}</td>

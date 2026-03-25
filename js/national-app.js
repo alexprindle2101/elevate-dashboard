@@ -292,7 +292,7 @@ const NationalApp = {
     // ── Build owners from recruiting data ──
     // Guard: if user navigated away during async fetch, don't overwrite their state
     // Exception: prefetch loads are allowed through since they restore state afterward
-    const isPrefetch = this._prefetchKey === campaignKey;
+    const isPrefetch = this._prefetchingActive;
     if (!isPrefetch && this.state.campaign !== campaignKey) {
       console.log('[NationalApp] Stale load for', campaignKey, '(user now on', this.state.campaign + ') — skipping state update');
       return;

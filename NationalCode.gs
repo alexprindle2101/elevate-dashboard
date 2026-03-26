@@ -17,7 +17,7 @@ var OD_CAMPAIGNS = {
   'rogers':          { label: 'Rogers',             sheetId: '1o1MPKrAzzeaU2JWMODkR9M3uY5rOhIKo-Q64armeTvE' },
   'leafguard':       { label: 'LeafGuard',          sheetId: '10Fy5XFWCuBmDwvpl4PG4FJT4krwX2ZqN12ARvQLpSuM', ownerSource: 'tabs', excludeTabs: ['Blank Copy'] },
   'lumen':           { label: 'Lumen',              sheetId: '1P4DYlcV1hgNkaAapk3tWD7ytcRXw4K1n7R6EMKPCoSA', sourceTab: 'Campaign', sectionHeader: 'LUMEN' },
-  'att-b2b':         { label: 'AT&T B2B',           sheetId: '1sxauFjNjq4_rRYM2PAl5cyOyHF3Hg4OkO-t_hLKDJB8', ownerSource: 'visible-tabs', excludeTabs: [] }
+  'att-b2b':         { label: 'AT&T B2B',           sheetId: '1sxauFjNjq4_rRYM2PAl5cyOyHF3Hg4OkO-t_hLKDJB8', ownerSource: 'visible-tabs', excludeTabs: ["B2B Enery 1:1's"] }
 };
 var OD_NLR_FOLDER = '1hARjh3UH48CWhbYrYBJxFVwgynxapCjG';
 

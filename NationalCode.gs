@@ -129,6 +129,12 @@ function doGet(e) {
       return jsonResp(readFiosOwnerSales(ownerParam));
     }
 
+    // ── AT&T B2B per-owner sales data (from Tableau sync) ──
+    if (action === 'b2bOwnerSales') {
+      var ownerParam = e.parameter.owner || '';
+      return jsonResp(readB2BOwnerSales(ownerParam));
+    }
+
     // ── AT&T Res per-owner sales data (Campaign Tracker Section 3) ──
     if (action === 'resOwnerSales') {
       var ownerParam = e.parameter.owner || '';
@@ -4488,6 +4494,95 @@ function readNDSOwnerSales(ownerName) {
   if (summary) summary.repCount = reps.length;
 
   return { summary: summary, reps: reps, tab: tab.getName() };
+}
+
+// ── AT&T B2B per-owner sales (from Tableau sync "B2B Sales Metrics" tab) ──
+function readB2BOwnerSales(ownerName) {
+  if (!ownerName) return { error: 'No owner specified' };
+
+  var ss;
+  try { ss = SpreadsheetApp.openById(SHEETS.NATIONAL); }
+  catch (err) { return { error: 'Cannot open National sheet: ' + err.message }; }
+
+  var tab = ss.getSheetByName('B2B Sales Metrics');
+  if (!tab) return { error: 'B2B Sales Metrics tab not found' };
+
+  var data = tab.getDataRange().getValues();
+  if (data.length < 2) return { error: 'No data in B2B Sales Metrics' };
+
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+  var colMap = {};
+  for (var c = 0; c < headers.length; c++) colMap[headers[c]] = c;
+
+  // The tab format: owner rows (not indented) followed by indented rep rows ("  RepName")
+  // Find the owner section by matching Name column
+  var ownerLower = ownerName.toLowerCase().trim();
+  var summary = null;
+  var reps = [];
+  var inOwnerSection = false;
+
+  for (var i = 1; i < data.length; i++) {
+    var name = String(data[i][colMap['Name'] || 0] || '').trim();
+    if (!name) continue;
+
+    var isIndented = name.charAt(0) === ' ';
+    var cleanName = name.replace(/^\s+/, '');
+
+    if (!isIndented) {
+      // Owner row — check if this is our target
+      if (inOwnerSection) break; // We were in our section, now hit next owner — done
+      if (cleanName.toLowerCase() === ownerLower) {
+        inOwnerSection = true;
+        summary = _parseB2BRow_(data[i], colMap, cleanName);
+      }
+      continue;
+    }
+
+    // Indented rep row — only collect if we're in our owner's section
+    if (inOwnerSection) {
+      reps.push(_parseB2BRow_(data[i], colMap, cleanName));
+    }
+  }
+
+  if (!summary) return { error: 'Owner not found: ' + ownerName };
+  summary.repCount = reps.length;
+
+  return { summary: summary, reps: reps, tab: 'B2B Sales Metrics' };
+}
+
+function _parseB2BRow_(row, colMap, name) {
+  function v(colName) {
+    var idx = colMap[colName];
+    if (idx === undefined) return 0;
+    var val = row[idx];
+    if (typeof val === 'string') {
+      val = val.replace(/[%,]/g, '');
+      return parseFloat(val) || 0;
+    }
+    return Number(val) || 0;
+  }
+  return {
+    name: name,
+    rep: name,
+    totalVolume:  v('Total Volume'),
+    repCount:     v('Rep Count'),
+    salesPerRep:  v('Sales Per Rep'),
+    orderCount:   v('Order Count'),
+    ordersBefore: v('Before 12 PM'),
+    earlyPct:     v('Early %') / 100,
+    ordersAfter:  v('After 5 PM'),
+    latePct:      v('Late %') / 100,
+    internet:     v('Internet'),
+    voip:         v('VOIP'),
+    wireless:     v('Wireless'),
+    airAwb:       v('AIR/AWB'),
+    weekendPct:   v('Weekend Selling %') / 100,
+    tierPct:      v('Tier Attainment %') / 100,
+    abpPct:       v('ABP %') / 100,
+    cruPct:       v('CRU %') / 100,
+    newWrlsPct:   v('New Wireless %') / 100,
+    byodPct:      v('BYOD %') / 100
+  };
 }
 
 // ── Verizon FIOS per-owner sales (from Credico sync "Verizon Sales" tab) ──

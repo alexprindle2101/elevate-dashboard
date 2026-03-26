@@ -788,6 +788,34 @@ const NationalApp = {
     }
   },
 
+  // ── Fetch AT&T B2B sales data for a single owner on demand ──
+  async _fetchB2BOwnerSales(owner) {
+    owner._b2bSalesFetching = true;
+    try {
+      const url = NATIONAL_CONFIG.appsScriptUrl +
+        '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+        '&action=b2bOwnerSales' +
+        '&owner=' + encodeURIComponent(owner.name) +
+        '&_t=' + Date.now();
+      const resp = await this._fetchWithTimeout(fetch(url), 30000);
+      const result = await resp.json();
+      owner._b2bSalesFetching = false;
+      if (!result.error && (result.summary || result.reps)) {
+        owner.sales = { summary: result.summary, reps: result.reps || [] };
+        owner._b2bSalesFetched = true;
+        console.log('[NationalApp] B2B sales loaded for', owner.name, ':', result.reps?.length, 'reps');
+      } else {
+        console.warn('[NationalApp] B2B sales empty for', owner.name, ':', result.error || 'no data');
+      }
+    } catch (err) {
+      console.warn('[NationalApp] B2B sales fetch failed for', owner.name, ':', err.message);
+      owner._b2bSalesFetching = false;
+    }
+    if (this.state.selectedOwner === owner && this.state.currentTab === 'sales') {
+      this.renderSalesTab(owner);
+    }
+  },
+
   // ── Fetch B2B production/sales data from local _B2B_Production tab ──
   async _fetchB2BProduction() {
     const url = NATIONAL_CONFIG.appsScriptUrl +
@@ -2478,6 +2506,10 @@ const NationalApp = {
     }
     if (isFios && !owner._fiosSalesFetched) {
       this._fetchFiosOwnerSales(owner);
+    }
+    const isB2B = this.state.campaign === 'att-b2b';
+    if (isB2B && !owner._b2bSalesFetched) {
+      this._fetchB2BOwnerSales(owner);
     }
   },
 
@@ -4919,7 +4951,7 @@ const NationalApp = {
     // Sales data comes from Tableau — no Non-Partner gate needed here
 
     // Show loading if sales data is still being fetched
-    if (owner._ndsSalesFetching || owner._resSalesFetching || owner._fiosSalesFetching) {
+    if (owner._ndsSalesFetching || owner._resSalesFetching || owner._fiosSalesFetching || owner._b2bSalesFetching) {
       const summaryEl = document.getElementById('sales-summary');
       const repsEl = document.getElementById('sales-reps-table');
       if (summaryEl) summaryEl.innerHTML = '<div class="coaching-section" style="text-align:center;padding:40px;"><div class="loading-spinner"></div><div style="margin-top:12px;font-size:13px;color:#708090;">Loading sales data...</div></div>';
@@ -4932,6 +4964,7 @@ const NationalApp = {
     const isNDS = this.state.campaign && (this.state.campaign.indexOf('nds') >= 0 || this.state.campaign.indexOf('NDS') >= 0);
     const isRes = this.state.campaign === 'att-res';
     const isFios = this.state.campaign === 'verizon-fios';
+    const isB2B = this.state.campaign === 'att-b2b';
     // Store reps for checkbox flag/unflag reference
     this._currentSalesReps = s.reps || [];
 

@@ -5821,7 +5821,7 @@ var CAMPAIGN_PROD_COLUMNS = {
     'DTV':       { prod: ['dtv'], goal: [] }
   },
   'att-b2b': {
-    'Units':     { prod: ['personal production'], goal: ['production goals'] }
+    'Units':     { prod: ['production lw', 'production'], goal: ['production goals'] }
   }
 };
 

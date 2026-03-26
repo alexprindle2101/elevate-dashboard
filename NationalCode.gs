@@ -4803,6 +4803,30 @@ function odResolveVisibleCampaigns(email, role) {
     }
   }
 
+  // National Consultant: auto-access to campaigns owned by their Org Managers.
+  // An OM's managedBy field points to their National's email.
+  if (role === 'national') {
+    var usersRows = odReadTab('_OD_Users');
+    var myOrgManagers = [];
+    for (var u = 0; u < usersRows.length; u++) {
+      var uRole = String(usersRows[u].role || '').trim().toLowerCase();
+      var uManagedBy = String(usersRows[u].managedBy || '').trim().toLowerCase();
+      if (uRole === 'org_manager' && uManagedBy === email) {
+        myOrgManagers.push(String(usersRows[u].email || '').trim().toLowerCase());
+      }
+    }
+    if (myOrgManagers.length > 0) {
+      var ownershipRows = odReadTab('_OD_Campaign_Ownership');
+      for (var i = 0; i < ownershipRows.length; i++) {
+        var ownerEmail = String(ownershipRows[i].ownerEmail || '').trim().toLowerCase();
+        if (myOrgManagers.indexOf(ownerEmail) !== -1) {
+          var ck = String(ownershipRows[i].campaign || '').trim();
+          if (ck && !accessMap[ck]) accessMap[ck] = 'auto'; // auto-granted, view+edit via OM relationship
+        }
+      }
+    }
+  }
+
   // All roles: check explicit access grants
   var grantRows = odReadTab('_OD_Access_Grants');
   for (var i = 0; i < grantRows.length; i++) {
@@ -4811,9 +4835,10 @@ function odResolveVisibleCampaigns(email, role) {
     var ck = String(grantRows[i].campaign || '').trim();
     var level = String(grantRows[i].accessLevel || '').trim().toLowerCase();
     if (!ck || !level) continue;
-    // Don't downgrade: own > edit > view
+    // Don't downgrade: own > auto > edit > view
     var current = accessMap[ck];
     if (current === 'own') continue;
+    if (current === 'auto') continue; // auto (National's OM) is highest non-owner level
     if (current === 'edit' && level === 'view') continue;
     accessMap[ck] = level;
   }
@@ -4821,7 +4846,7 @@ function odResolveVisibleCampaigns(email, role) {
   var visible = Object.keys(accessMap);
   var editable = [];
   for (var k in accessMap) {
-    if (accessMap[k] === 'own' || accessMap[k] === 'edit') editable.push(k);
+    if (accessMap[k] === 'own' || accessMap[k] === 'edit' || accessMap[k] === 'auto') editable.push(k);
   }
 
   return { visible: visible, editable: editable, role: role, accessMap: accessMap };
@@ -4888,7 +4913,7 @@ function _odCanEditColumn(email, role, campaign, column, accessMap) {
   // Source Tab (campaign tab map) — needs campaign ownership or edit grant
   if (column === 'sourceTab' || column === 'tabName') {
     var access = accessMap ? accessMap[campaign] : null;
-    return access === 'own' || access === 'edit';
+    return access === 'own' || access === 'edit' || access === 'auto';
   }
   return false;
 }

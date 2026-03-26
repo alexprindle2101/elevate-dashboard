@@ -1123,7 +1123,7 @@ const OwnerDev = {
       } else if (colEdit.sourceTab) {
         // Org Manager/Admin: count missing source tabs for their campaigns only
         const campAccess = (this.state.campaignAccessMap || {})[row.campaign] || '';
-        if (campAccess === 'own' || campAccess === 'edit' || role === 'superadmin') {
+        if (campAccess === 'own' || campAccess === 'edit' || campAccess === 'auto' || role === 'superadmin') {
           const tabMap = this._findCampaignTabMap(row.campaign, row.ownerName);
           if (!tabMap?.tabName) totalUnmapped++;
         }
@@ -1172,7 +1172,7 @@ const OwnerDev = {
 
       // Per-campaign access level for sourceTab editability
       const campAccess = accessMap[row.campaign] || '';
-      const canEditSourceTab = colEdit.sourceTab && (campAccess === 'own' || campAccess === 'edit' || role === 'superadmin');
+      const canEditSourceTab = colEdit.sourceTab && (campAccess === 'own' || campAccess === 'edit' || campAccess === 'auto' || role === 'superadmin');
       const canEditBIS = colEdit.camCompany || false;
       const canEditNLR = colEdit.nlrFile || false;
 
@@ -1968,29 +1968,81 @@ const OwnerDev = {
       return;
     }
 
-    let html = '<table class="access-grants-table"><thead><tr><th>Campaign</th><th>Shared With</th><th>Access</th><th></th></tr></thead><tbody>';
+    // Build auto-access entries per campaign:
+    // 1. National Consultant (OM's managedBy = National's email)
+    // 2. Admins whose managedBy = this OM's email
+    // 3. All Aptel users
+    const allUsers = this.state.users || [];
+
+    let html = '<table class="access-grants-table"><thead><tr><th>Campaign</th><th>User</th><th>Access</th><th></th></tr></thead><tbody>';
 
     for (const camp of ownedCampaigns) {
       const campKey = camp.campaign;
       const campLabel = OD_CONFIG.campaignSources[campKey]?.label || campKey;
+      const ownerEmail = (camp.ownerEmail || '').toLowerCase();
+
+      // Explicit grants
       const grants = this.state.accessGrants.filter(g => g.campaign === campKey);
 
-      if (grants.length === 0) {
+      // Auto-access: find the Org Manager for this campaign
+      const om = allUsers.find(u => u.email?.toLowerCase() === ownerEmail);
+      const omManagedBy = (om?.managedBy || '').toLowerCase(); // National's email
+
+      const autoEntries = [];
+
+      // National Consultant (the OM reports to)
+      if (omManagedBy) {
+        const nat = allUsers.find(u => u.email?.toLowerCase() === omManagedBy);
+        if (nat) autoEntries.push({ name: nat.name || nat.email, role: 'National', level: 'edit' });
+      }
+
+      // Admins under this OM
+      allUsers.filter(u =>
+        (u.role || '').toLowerCase() === 'admin' &&
+        (u.managedBy || '').toLowerCase() === ownerEmail &&
+        (u.deactivated || '').toString().toLowerCase() !== 'true'
+      ).forEach(a => autoEntries.push({ name: a.name || a.email, role: 'Admin', level: 'edit' }));
+
+      // Aptel users
+      allUsers.filter(u =>
+        (u.role || '').toLowerCase() === 'aptel' &&
+        (u.deactivated || '').toString().toLowerCase() !== 'true'
+      ).forEach(a => autoEntries.push({ name: a.name || a.email, role: 'Aptel', level: 'view' }));
+
+      const totalRows = autoEntries.length + grants.length;
+
+      if (totalRows === 0) {
         html += `<tr>
           <td><span class="campaign-pill">${this._esc(campLabel)}</span></td>
           <td colspan="2" class="text-muted">No access shared</td>
           <td><button class="btn-sm btn-grant" onclick="OwnerDev.showGrantModal('${this._esc(campKey)}')">+ Share</button></td>
         </tr>`;
-      } else {
-        for (let i = 0; i < grants.length; i++) {
-          const g = grants[i];
-          html += `<tr>
-            ${i === 0 ? `<td rowspan="${grants.length}"><span class="campaign-pill">${this._esc(campLabel)}</span><br><button class="btn-sm btn-grant" style="margin-top:6px" onclick="OwnerDev.showGrantModal('${this._esc(campKey)}')">+ Share</button></td>` : ''}
-            <td>${this._esc(g.grantedToName || g.grantedToEmail)}</td>
-            <td><span class="access-badge access-${g.accessLevel}">${g.accessLevel}</span></td>
-            <td><button class="btn-sm btn-danger" onclick="OwnerDev.revokeGrant('${this._esc(campKey)}','${this._esc(g.grantedToEmail)}')">Revoke</button></td>
-          </tr>`;
-        }
+        continue;
+      }
+
+      let rowIdx = 0;
+      const campCell = `<td rowspan="${totalRows}"><span class="campaign-pill">${this._esc(campLabel)}</span><br><button class="btn-sm btn-grant" style="margin-top:6px" onclick="OwnerDev.showGrantModal('${this._esc(campKey)}')">+ Share</button></td>`;
+
+      // Auto-access rows (non-revocable)
+      for (const a of autoEntries) {
+        html += `<tr>
+          ${rowIdx === 0 ? campCell : ''}
+          <td>${this._esc(a.name)} <span class="text-muted" style="font-size:11px">(${a.role})</span></td>
+          <td><span class="access-badge access-auto">${a.level}</span></td>
+          <td><span class="text-muted" style="font-size:11px">Auto</span></td>
+        </tr>`;
+        rowIdx++;
+      }
+
+      // Explicit grant rows (revocable)
+      for (const g of grants) {
+        html += `<tr>
+          ${rowIdx === 0 ? campCell : ''}
+          <td>${this._esc(g.grantedToName || g.grantedToEmail)}</td>
+          <td><span class="access-badge access-${g.accessLevel}">${g.accessLevel}</span></td>
+          <td><button class="btn-sm btn-danger" onclick="OwnerDev.revokeGrant('${this._esc(campKey)}','${this._esc(g.grantedToEmail)}')">Revoke</button></td>
+        </tr>`;
+        rowIdx++;
       }
     }
 

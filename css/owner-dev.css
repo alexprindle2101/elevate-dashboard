@@ -615,6 +615,7 @@ input, select, textarea { font-family: inherit; }
 }
 .access-view { background: #e0f2fe; color: #0369a1; }
 .access-edit { background: #dcfce7; color: #15803d; }
+.access-auto { background: #f3e8ff; color: #7c3aed; }
 .btn-sm {
   padding: 4px 10px;
   font-size: 11px;

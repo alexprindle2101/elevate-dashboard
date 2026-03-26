@@ -2879,17 +2879,24 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
   var colOwner = colMap['Owner'];
   if (colOwner === undefined) return { error: 'Owner column not found' };
 
-  // Goals live on the most recent past week's row.
-  // e.g. 3/22 row holds the goal for the upcoming week (3/29).
-  // Find the owner's newest row where week date <= today.
+  // Goals go on the NEXT week's row. When looking at 3/22 data, the goal is for 3/29.
+  // Step 1: Find the most recent past Sunday (the displayed week).
+  // Step 2: Add 7 days to get the target week for goals.
+  // Step 3: Find or create that row.
   var now = new Date();
   now.setHours(23, 59, 59, 999);
-
-  var targetRow = -1;
-  var targetDateKey = '';
-  var bestDate = null;
   var ownerLc = ownerName.toLowerCase();
 
+  // Find the most recent Sunday <= today
+  var dayOfWeek = now.getDay(); // 0=Sun
+  var lastSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+  // The goal targets NEXT Sunday (one week after the displayed week)
+  var goalSunday = new Date(lastSunday.getFullYear(), lastSunday.getMonth(), lastSunday.getDate() + 7);
+  var goalKey = _normalizeDateKey_(goalSunday);
+
+  // Search for existing row matching owner + goal week
+  var targetRow = -1;
+  var targetDateKey = goalKey;
   for (var i = 1; i < data.length; i++) {
     var rowOwner = String(data[i][colOwner] || '').trim().toLowerCase();
     if (rowOwner !== ownerLc) continue;
@@ -2897,27 +2904,18 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
     var parsed = rowDate instanceof Date ? rowDate : _parseTabDate(String(rowDate));
     if (!parsed) continue;
     var rowKey = _normalizeDateKey_(parsed);
-    if (!rowKey) continue;
-    var parts = rowKey.split('/');
-    var rowDateObj = new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1]), 12, 0, 0);
-    if (rowDateObj <= now && (!bestDate || rowDateObj > bestDate)) {
+    if (rowKey === goalKey) {
       targetRow = i + 1; // 1-based
-      targetDateKey = rowKey;
-      bestDate = rowDateObj;
+      break;
     }
   }
 
-  // If no existing row, create one for the most recent Sunday (<= today)
+  // If no row exists for the goal week, create one
   if (targetRow === -1) {
-    var dayOfWeek = now.getDay(); // 0=Sun
-    var daysSinceSunday = dayOfWeek; // Sun=0, Mon=1, ..., Sat=6
-    var lastSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceSunday);
-    var targetKey = _normalizeDateKey_(lastSunday);
-
     var numCols = headers.length;
     var newRow = [];
     for (var h2 = 0; h2 < numCols; h2++) newRow.push('');
-    newRow[colWeek] = formatDate(lastSunday);
+    newRow[colWeek] = formatDate(goalSunday);
     newRow[colOwner] = ownerName;
 
     // Find insertion point: after the last row of the same week, or at top
@@ -2925,7 +2923,7 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
     for (var i2 = 1; i2 < data.length; i2++) {
       var rd = data[i2][colWeek];
       var rk = _normalizeDateKey_(rd instanceof Date ? rd : _parseTabDate(String(rd)));
-      if (rk === targetKey) insertAfter = i2 + 1;
+      if (rk === goalKey) insertAfter = i2 + 1;
     }
 
     if (insertAfter > 0) {
@@ -2933,11 +2931,15 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
       sheet.getRange(insertAfter + 1, 1, 1, newRow.length).setValues([newRow]);
       targetRow = insertAfter + 1;
     } else {
-      sheet.insertRowAfter(1);
-      sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
-      targetRow = 2;
+      // No rows for this week — insert after the most recent week's rows
+      var latestRowIdx = 1;
+      for (var i3 = 1; i3 < data.length; i3++) {
+        if (String(data[i3][colOwner] || '').trim()) latestRowIdx = i3 + 1;
+      }
+      sheet.insertRowAfter(latestRowIdx);
+      sheet.getRange(latestRowIdx + 1, 1, 1, newRow.length).setValues([newRow]);
+      targetRow = latestRowIdx + 1;
     }
-    targetDateKey = targetKey;
 
     data = sheet.getDataRange().getValues();
     headers = data[0].map(function(h) { return String(h).trim(); });

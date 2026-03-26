@@ -319,7 +319,7 @@ function doPost(e) {
         result = saveGoalsRow_(body.ownerName, body.campaignLabel, body.campaignKey, body.goals);
         break;
       case 'addOwnerNote':
-        result = addOwnerNote_(body.campaign, body.ownerName, body.coachName, body.text);
+        result = addOwnerNote_(body.campaign, body.ownerName, body.coachName, body.coachEmail, body.text);
         break;
       case 'deleteOwnerNote':
         result = deleteOwnerNote_(body.noteId);
@@ -7585,7 +7585,7 @@ function odUnflagRep(body) {
 // OWNER NOTES LOG
 // ══════════════════════════════════════════════════
 
-var OD_NOTES_HEADERS_ = ['noteId', 'campaign', 'ownerName', 'coachName', 'text', 'timestamp'];
+var OD_NOTES_HEADERS_ = ['noteId', 'campaign', 'ownerName', 'coachName', 'coachEmail', 'text', 'timestamp'];
 
 /** Read all notes from _OD_Notes tab */
 function odGetNotes_() {
@@ -7602,20 +7602,21 @@ function odGetNotes_() {
       campaign: String(data[i][1] || '').trim(),
       ownerName: String(data[i][2] || '').trim(),
       coachName: String(data[i][3] || '').trim(),
-      text: String(data[i][4] || '').trim(),
-      timestamp: String(data[i][5] || '').trim()
+      coachEmail: String(data[i][4] || '').trim(),
+      text: String(data[i][5] || '').trim(),
+      timestamp: String(data[i][6] || '').trim()
     });
   }
   return { success: true, notes: notes };
 }
 
 /** Add a note to _OD_Notes tab */
-function addOwnerNote_(campaign, ownerName, coachName, text) {
+function addOwnerNote_(campaign, ownerName, coachName, coachEmail, text) {
   if (!ownerName || !text) return { error: 'ownerName and text are required' };
   var sheet = odGetOrCreateTab('_OD_Notes', OD_NOTES_HEADERS_);
   var noteId = 'n_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
   var timestamp = new Date().toISOString();
-  sheet.appendRow([noteId, campaign || '', ownerName, coachName || '', text, timestamp]);
+  sheet.appendRow([noteId, campaign || '', ownerName, coachName || '', coachEmail || '', text, timestamp]);
   return { success: true, noteId: noteId, timestamp: timestamp };
 }
 

@@ -1903,10 +1903,14 @@ const NationalApp = {
         this._writeCoachCampaignCache(key);
         this._prefetchKey = null;
 
-        // ALWAYS restore — prefetch should never leave its data behind
+        // Restore state — but only restore campaign if user hasn't navigated away
         this.state.owners = savedOwners;
         this.state.campaignTotals = savedTotals;
-        this.state.campaign = savedCampaign;
+        if (this.state.campaign === key) {
+          // User didn't navigate — safe to restore
+          this.state.campaign = savedCampaign;
+        }
+        // If user navigated (this.state.campaign !== key), don't touch it
         this._latestWeekDate = savedLatestWeek;
         this._prefetchingActive = false;
 

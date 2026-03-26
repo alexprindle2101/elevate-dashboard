@@ -2056,10 +2056,34 @@ const OwnerDev = {
    */
   showGrantModal(campaignKey) {
     const campLabel = OD_CONFIG.campaignSources[campaignKey]?.label || campaignKey;
-    // Build a list of potential grantees (all users except self)
     const email = (this.state.session?.email || '').toLowerCase();
+
+    // Build set of emails that already have access (auto + explicit)
+    const alreadyHasAccess = new Set();
+    alreadyHasAccess.add(email); // self
+
+    // Explicit grants
+    (this.state.accessGrants || []).filter(g => g.campaign === campaignKey)
+      .forEach(g => alreadyHasAccess.add((g.grantedToEmail || '').toLowerCase()));
+
+    // Auto-access: find the OM for this campaign
+    const camp = (this.state.campaignOwnership || []).find(c => c.campaign === campaignKey);
+    const ownerEmail = (camp?.ownerEmail || '').toLowerCase();
+    alreadyHasAccess.add(ownerEmail);
+    const om = (this.state.users || []).find(u => u.email?.toLowerCase() === ownerEmail);
+    const omManagedBy = (om?.managedBy || '').toLowerCase();
+    if (omManagedBy) alreadyHasAccess.add(omManagedBy); // National
+    // Admins under the OM
+    (this.state.users || []).filter(u =>
+      (u.role || '').toLowerCase() === 'admin' && (u.managedBy || '').toLowerCase() === ownerEmail
+    ).forEach(u => alreadyHasAccess.add(u.email.toLowerCase()));
+    // Aptel users
+    (this.state.users || []).filter(u =>
+      (u.role || '').toLowerCase() === 'aptel'
+    ).forEach(u => alreadyHasAccess.add(u.email.toLowerCase()));
+
     const candidates = this.state.users.filter(u =>
-      u.email.toLowerCase() !== email &&
+      !alreadyHasAccess.has(u.email.toLowerCase()) &&
       (u.deactivated || '').toString().toLowerCase() !== 'true'
     );
 

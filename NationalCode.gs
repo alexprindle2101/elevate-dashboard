@@ -2879,17 +2879,17 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
   var colOwner = colMap['Owner'];
   if (colOwner === undefined) return { error: 'Owner column not found' };
 
-  // Find the most recent week row for this owner (the row the frontend is displaying).
-  // Goals are set FOR the displayed week, not a future one.
-  // The frontend shows pastWeeks[0] which is the newest week <= today.
+  // Goals live on the most recent past week's row.
+  // e.g. 3/22 row holds the goal for the upcoming week (3/29).
+  // Find the owner's newest row where week date <= today.
   var now = new Date();
-  now.setHours(12, 0, 0, 0);
+  now.setHours(23, 59, 59, 999);
 
   var targetRow = -1;
   var targetDateKey = '';
+  var bestDate = null;
   var ownerLc = ownerName.toLowerCase();
 
-  // Scan all rows for this owner, find the newest date <= today
   for (var i = 1; i < data.length; i++) {
     var rowOwner = String(data[i][colOwner] || '').trim().toLowerCase();
     if (rowOwner !== ownerLc) continue;
@@ -2898,62 +2898,38 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
     if (!parsed) continue;
     var rowKey = _normalizeDateKey_(parsed);
     if (!rowKey) continue;
-    // Check if this week is <= today
     var parts = rowKey.split('/');
     var rowDateObj = new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1]), 12, 0, 0);
-    if (rowDateObj <= now && (!targetDateKey || rowDateObj > new Date(Number(targetDateKey.split('/')[2]), Number(targetDateKey.split('/')[0]) - 1, Number(targetDateKey.split('/')[1]), 12, 0, 0))) {
+    if (rowDateObj <= now && (!bestDate || rowDateObj > bestDate)) {
       targetRow = i + 1; // 1-based
       targetDateKey = rowKey;
+      bestDate = rowDateObj;
     }
   }
 
-  // If no existing row found, fall back to next Sunday (create a new row)
   if (targetRow === -1) {
-    var daysUntilSunday = (7 - now.getDay()) || 7;
-    var targetSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSunday);
-    var targetKey = _normalizeDateKey_(targetSunday);
-
-    var numCols = headers.length;
-    var newRow = [];
-    for (var h2 = 0; h2 < numCols; h2++) newRow.push('');
-    newRow[colWeek] = formatDate(targetSunday);
-    newRow[colOwner] = ownerName;
-
-    var insertAfter = -1;
-    for (var i2 = 1; i2 < data.length; i2++) {
-      var rd = data[i2][colWeek];
-      var rk = _normalizeDateKey_(rd instanceof Date ? rd : _parseTabDate(String(rd)));
-      if (rk === targetKey) insertAfter = i2 + 1;
-    }
-
-    if (insertAfter > 0) {
-      sheet.insertRowAfter(insertAfter);
-      sheet.getRange(insertAfter + 1, 1, 1, newRow.length).setValues([newRow]);
-      targetRow = insertAfter + 1;
-    } else {
-      sheet.insertRowAfter(1);
-      sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
-      targetRow = 2;
-    }
-    targetDateKey = targetKey;
-
-    data = sheet.getDataRange().getValues();
-    headers = data[0].map(function(h) { return String(h).trim(); });
-    colMap = {};
-    for (var c2 = 0; c2 < headers.length; c2++) colMap[headers[c2]] = c2;
+    return { error: 'No existing week row found for ' + ownerName + '. Data must exist before goals can be set.' };
   }
 
-  // Write goals into Goal: <product> columns
+  // Write goals into Goal: <product> columns — ONLY if the cell is currently blank or 0.
+  // Never overwrite existing non-zero data.
   var written = [];
+  var skipped = [];
   for (var product in goals) {
     var goalCol = colMap['Goal: ' + product];
-    if (goalCol !== undefined) {
-      sheet.getRange(targetRow, goalCol + 1).setValue(parseInt(goals[product]) || 0);
-      written.push(product);
+    if (goalCol === undefined) continue;
+    var existing = sheet.getRange(targetRow, goalCol + 1).getValue();
+    var existingStr = String(existing || '').trim();
+    var existingNum = parseFloat(existingStr);
+    if (existingStr !== '' && !isNaN(existingNum) && existingNum !== 0) {
+      skipped.push(product + ' (existing: ' + existingStr + ')');
+      continue;
     }
+    sheet.getRange(targetRow, goalCol + 1).setValue(parseInt(goals[product]) || 0);
+    written.push(product);
   }
 
-  return { ok: true, row: targetRow, owner: ownerName, date: targetDateKey, written: written };
+  return { ok: true, row: targetRow, owner: ownerName, date: targetDateKey, written: written, skipped: skipped };
 }
 
 function updateProductionRow(ownerName, date, campaignLabel, products, internet, wireless, dtv, goals) {

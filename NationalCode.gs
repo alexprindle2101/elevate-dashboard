@@ -2907,8 +2907,42 @@ function saveGoalsRow_(ownerName, campaignLabel, campaignKey, goals) {
     }
   }
 
+  // If no existing row, create one for the most recent Sunday (<= today)
   if (targetRow === -1) {
-    return { error: 'No existing week row found for ' + ownerName + '. Data must exist before goals can be set.' };
+    var dayOfWeek = now.getDay(); // 0=Sun
+    var daysSinceSunday = dayOfWeek; // Sun=0, Mon=1, ..., Sat=6
+    var lastSunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceSunday);
+    var targetKey = _normalizeDateKey_(lastSunday);
+
+    var numCols = headers.length;
+    var newRow = [];
+    for (var h2 = 0; h2 < numCols; h2++) newRow.push('');
+    newRow[colWeek] = formatDate(lastSunday);
+    newRow[colOwner] = ownerName;
+
+    // Find insertion point: after the last row of the same week, or at top
+    var insertAfter = -1;
+    for (var i2 = 1; i2 < data.length; i2++) {
+      var rd = data[i2][colWeek];
+      var rk = _normalizeDateKey_(rd instanceof Date ? rd : _parseTabDate(String(rd)));
+      if (rk === targetKey) insertAfter = i2 + 1;
+    }
+
+    if (insertAfter > 0) {
+      sheet.insertRowAfter(insertAfter);
+      sheet.getRange(insertAfter + 1, 1, 1, newRow.length).setValues([newRow]);
+      targetRow = insertAfter + 1;
+    } else {
+      sheet.insertRowAfter(1);
+      sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
+      targetRow = 2;
+    }
+    targetDateKey = targetKey;
+
+    data = sheet.getDataRange().getValues();
+    headers = data[0].map(function(h) { return String(h).trim(); });
+    colMap = {};
+    for (var c2 = 0; c2 < headers.length; c2++) colMap[headers[c2]] = c2;
   }
 
   // Write goals into Goal: <product> columns — ONLY if the cell is currently blank or 0.

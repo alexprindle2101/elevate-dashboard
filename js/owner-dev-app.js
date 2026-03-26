@@ -2605,6 +2605,22 @@ const OwnerDev = {
   viewAsTeam(teamKey) {
     this.state.viewAsTeam = teamKey;
 
+    // When View-As is active, apply the viewed team's leader role for column edit permissions.
+    // This prevents superadmin from seeing NLR/BIS edit controls when viewing a National's team.
+    if (teamKey) {
+      // Find the highest-ranked user on that team to determine the role
+      const teamUsers = (this.state.users || []).filter(u => u.team === teamKey);
+      const teamLeader = teamUsers.reduce((best, u) => {
+        const rank = OD_CONFIG.roles[u.role]?.rank || 0;
+        return rank > (OD_CONFIG.roles[best?.role]?.rank || 0) ? u : best;
+      }, teamUsers[0]);
+      const viewedRole = teamLeader?.role || 'national';
+      this.state.columnEdit = OD_CONFIG.columnEdit[viewedRole] || {};
+    } else {
+      // Back to own view — restore superadmin permissions
+      this.state.columnEdit = OD_CONFIG.columnEdit[this.state.effectiveRole] || {};
+    }
+
     // Update badge in top bar
     this._renderUserInfo();
 

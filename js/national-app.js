@@ -5201,6 +5201,9 @@ const NationalApp = {
             </div>
           </div>`;
 
+        // Store MF data for tooltip access
+        this._mfData = s.marketFulfillment || [];
+
         // Market Fulfillment + Average Paychecks cards (side by side)
         const mf = s.marketFulfillment;
         const ap = s.avgPaychecks;
@@ -5211,6 +5214,8 @@ const NationalApp = {
             mfHtml = `
               <div class="coaching-section" style="flex:1;min-width:0;">
                 <div class="coaching-label" style="font-size:13px;">Market Fulfillment</div>
+                <div style="position:relative;">
+                <div id="mf-tooltip" style="display:none;position:absolute;z-index:30;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:10px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.15);pointer-events:none;min-width:260px;"></div>
                 <table style="width:100%;font-size:11px;border-collapse:collapse;">
                   <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
                     <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--silver);">DMA</th>
@@ -5219,27 +5224,17 @@ const NationalApp = {
                     <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Pen %</th>
                   </tr></thead>
                   <tbody>
-                    ${mf.map((m, mi) => {
-                      const popupId = 'mf-detail-' + mi;
-                      const detailHtml = `<tr id="${popupId}" style="display:none;"><td colspan="4" style="padding:8px;background:rgba(0,200,255,0.04);border-bottom:1px solid rgba(0,0,0,0.06);">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 16px;font-size:11px;margin-bottom:6px;">
-                          <span style="color:var(--silver);">Weekly Total</span><span style="font-weight:600;">${m.weeklyTotal}</span>
-                          <span style="color:var(--silver);">Weekly CRU</span><span style="font-weight:600;">${m.weeklyCRU}</span>
-                        </div>
-                        ${m.weeks.length ? `<table style="width:100%;font-size:10px;border-collapse:collapse;">
-                          <tr>${m.weeks.map(w => `<th style="text-align:center;padding:2px 4px;color:var(--silver);font-weight:500;">${this._esc(w.label)}</th>`).join('')}</tr>
-                          <tr>${m.weeks.map(w => `<td style="text-align:center;padding:2px 4px;font-weight:600;">${w.value}</td>`).join('')}</tr>
-                        </table>` : ''}
-                      </td></tr>`;
-                      return `<tr style="cursor:pointer;" onmouseenter="document.getElementById('${popupId}').style.display=''" onmouseleave="document.getElementById('${popupId}').style.display='none'">
-                        <td style="padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;" title="${this._esc(m.dma)}">${this._esc(m.dma.length > 30 ? m.dma.substring(0, 28) + '…' : m.dma)} <span style="font-size:9px;color:var(--silver);">▸</span></td>
+                    ${mf.map((m, mi) => `<tr style="cursor:pointer;" data-mf-idx="${mi}"
+                        onmouseenter="NationalApp._showMfTooltip(event,${mi})"
+                        onmouseleave="NationalApp._hideMfTooltip()">
+                        <td style="padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;" title="${this._esc(m.dma)}">${this._esc(m.dma.length > 30 ? m.dma.substring(0, 28) + '…' : m.dma)}</td>
                         <td style="text-align:center;padding:3px 8px;">${m.totalWorkable}</td>
                         <td style="text-align:center;padding:3px 8px;">${m.total}</td>
                         <td style="text-align:center;padding:3px 8px;">${m.penRate}</td>
-                      </tr>${detailHtml}`;
-                    }).join('')}
+                      </tr>`).join('')}
                   </tbody>
                 </table>
+                </div>
               </div>`;
           }
 
@@ -5463,6 +5458,40 @@ const NationalApp = {
   // ── Sort sales reps table by column ──
   _salesSortCol: null,
   _salesSortAsc: true,
+
+  _showMfTooltip(event, idx) {
+    const m = this._mfData && this._mfData[idx];
+    if (!m) return;
+    const tip = document.getElementById('mf-tooltip');
+    if (!tip) return;
+
+    let html = `<div style="font-weight:600;margin-bottom:6px;font-size:12px;">${m.dma}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 16px;font-size:11px;">
+        <span style="color:var(--silver);">Weekly Total</span><span style="font-weight:600;">${m.weeklyTotal}</span>
+        <span style="color:var(--silver);">Weekly CRU</span><span style="font-weight:600;">${m.weeklyCRU}</span>
+      </div>`;
+    if (m.weeks && m.weeks.length) {
+      html += `<div style="margin-top:8px;border-top:1px solid rgba(0,0,0,0.06);padding-top:6px;">
+        <table style="width:100%;font-size:10px;border-collapse:collapse;">
+          <tr>${m.weeks.map(w => `<th style="text-align:center;padding:2px 4px;color:var(--silver);font-weight:500;">${w.label}</th>`).join('')}</tr>
+          <tr>${m.weeks.map(w => `<td style="text-align:center;padding:2px 4px;font-weight:600;">${w.value}</td>`).join('')}</tr>
+        </table></div>`;
+    }
+    tip.innerHTML = html;
+
+    // Position relative to hovered row
+    const row = event.currentTarget;
+    const rect = row.getBoundingClientRect();
+    const parent = tip.parentElement.getBoundingClientRect();
+    tip.style.left = '0px';
+    tip.style.top = (rect.bottom - parent.top + 4) + 'px';
+    tip.style.display = 'block';
+  },
+
+  _hideMfTooltip() {
+    const tip = document.getElementById('mf-tooltip');
+    if (tip) tip.style.display = 'none';
+  },
 
   _sortSalesReps(col) {
     const owner = this.state.selectedOwner;

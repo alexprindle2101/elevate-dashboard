@@ -3823,13 +3823,14 @@ const NationalApp = {
   _flipProdCard() {
     this._prodFlipped = !this._prodFlipped;
 
-    // If flipping back to chart and table data was edited, re-render everything
+    // If flipping back to chart and table data was edited, re-render chart + update cards
     if (!this._prodFlipped && this._prodDirty) {
       this._prodDirty = false;
       const ownerIdx = this._prodData?.ownerIdx;
       if (ownerIdx !== undefined) {
         const owner = this.state.owners[ownerIdx];
         if (owner) {
+          this._updateProdCardValues(owner);
           this._renderProductionTrend(owner, ownerIdx);
           return;
         }
@@ -3870,13 +3871,14 @@ const NationalApp = {
       }
     }
 
-    // Debounced save to spreadsheet + re-render
+    // Debounced save to spreadsheet + live-update production card
     const saveKey = `prod_${ownerIdx}_${histIdx}`;
     if (this._hcSaveTimers?.[saveKey]) clearTimeout(this._hcSaveTimers[saveKey]);
     if (!this._hcSaveTimers) this._hcSaveTimers = {};
     this._hcSaveTimers[saveKey] = setTimeout(() => {
       this._rankOwnersByProduction();
       this.renderOwnersList();
+      this._updateProdCardValues(owner);
       this._saveProdRow(owner, entry);
       delete this._hcSaveTimers[saveKey];
     }, 1200);
@@ -3923,16 +3925,50 @@ const NationalApp = {
       }
     }
 
-    // Debounced save to spreadsheet + re-render
+    // Debounced save to spreadsheet + live-update production card
     const saveKey = `prod_${ownerIdx}_${histIdx}`;
     if (this._hcSaveTimers?.[saveKey]) clearTimeout(this._hcSaveTimers[saveKey]);
     if (!this._hcSaveTimers) this._hcSaveTimers = {};
     this._hcSaveTimers[saveKey] = setTimeout(() => {
       this._rankOwnersByProduction();
       this.renderOwnersList();
+      this._updateProdCardValues(owner);
       this._saveProdRow(owner, entry);
       delete this._hcSaveTimers[saveKey];
     }, 1200);
+  },
+
+  // ── Live-update Production Review card values without full re-render ──
+  _updateProdCardValues(owner) {
+    const prod = owner.production || {};
+    // Update total production value
+    const totalEl = document.querySelector('.prod-card-actual');
+    if (totalEl) totalEl.textContent = (prod.totalActual || 0).toLocaleString();
+    // Update goal
+    const goalEl = document.querySelector('.prod-card-goal');
+    if (goalEl && prod.totalGoal) goalEl.textContent = 'goal: ' + (prod.totalGoal || 0).toLocaleString();
+    // Update per-product breakdown if present
+    if (prod.products) {
+      for (const [pName, pData] of Object.entries(prod.products)) {
+        const cards = document.querySelectorAll('.prod-card');
+        for (const card of cards) {
+          const label = card.querySelector('.prod-card-label');
+          if (label && label.textContent.trim() === pName) {
+            const actual = card.querySelector('.prod-card-actual');
+            if (actual) actual.textContent = (pData.actual || 0).toLocaleString();
+            const goal = card.querySelector('.prod-card-goal');
+            if (goal && pData.goal) goal.textContent = 'goal: ' + (pData.goal || 0).toLocaleString();
+            // Update % badge
+            const pct = pData.goal > 0 ? Math.round((pData.actual / pData.goal) * 100) : 0;
+            const badge = card.querySelector('.prod-pct-badge, .pct-badge');
+            if (badge) {
+              badge.textContent = pct + '%';
+              badge.className = (pct >= 100 ? 'pct-green' : pct >= 80 ? 'pct-yellow' : pct >= 60 ? 'pct-orange' : 'pct-red');
+            }
+          }
+        }
+      }
+    }
   },
 
   _saveProdRow(owner, entry) {

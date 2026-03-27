@@ -1890,7 +1890,7 @@ const NationalApp = {
         products.forEach(p => { prodTotals[p] = 0; });
         const latestWeek = cd.weeks[0]; // weeks are sorted newest first
         if (latestWeek && latestWeek.data) {
-          for (const ownerData of latestWeek.data) {
+          for (const ownerData of Object.values(latestWeek.data)) {
             for (const p of products) {
               const prodKey = 'Prod: ' + p;
               prodTotals[p] += parseInt(ownerData[prodKey]) || 0;

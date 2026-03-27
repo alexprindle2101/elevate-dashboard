@@ -5214,23 +5214,23 @@ const NationalApp = {
                 <div style="overflow-x:auto;">
                 <table style="width:100%;font-size:11px;border-collapse:collapse;white-space:nowrap;">
                   <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
-                    <th style="text-align:left;padding:3px 4px;font-size:10px;color:var(--silver);">DMA</th>
-                    <th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">Workable</th>
-                    <th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">Total</th>
-                    <th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">Pen %</th>
-                    <th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">Wkly</th>
-                    <th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">CRU</th>
-                    ${weekLabels.map(w => `<th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">${this._esc(w.label)}</th>`).join('')}
+                    <th style="text-align:left;padding:4px 10px 4px 4px;font-size:10px;color:var(--silver);">DMA</th>
+                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">Workable</th>
+                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">Total</th>
+                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">Pen %</th>
+                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">Wkly</th>
+                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">CRU</th>
+                    ${weekLabels.map(w => `<th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">${this._esc(w.label)}</th>`).join('')}
                   </tr></thead>
                   <tbody>
                     ${mf.map(m => `<tr>
-                      <td style="padding:2px 4px;max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="${this._esc(m.dma)}">${this._esc(m.dma.length > 25 ? m.dma.substring(0, 23) + '…' : m.dma)}</td>
-                      <td class="num" style="padding:2px 4px;">${m.totalWorkable}</td>
-                      <td class="num" style="padding:2px 4px;">${m.total}</td>
-                      <td class="num" style="padding:2px 4px;">${m.penRate}</td>
-                      <td class="num" style="padding:2px 4px;">${m.weeklyTotal}</td>
-                      <td class="num" style="padding:2px 4px;">${m.weeklyCRU}</td>
-                      ${m.weeks.map(w => `<td class="num" style="padding:2px 4px;">${w.value}</td>`).join('')}
+                      <td style="padding:3px 10px 3px 4px;max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${this._esc(m.dma)}">${this._esc(m.dma.length > 30 ? m.dma.substring(0, 28) + '…' : m.dma)}</td>
+                      <td class="num" style="padding:3px 10px;">${m.totalWorkable}</td>
+                      <td class="num" style="padding:3px 10px;">${m.total}</td>
+                      <td class="num" style="padding:3px 10px;">${m.penRate}</td>
+                      <td class="num" style="padding:3px 10px;">${m.weeklyTotal}</td>
+                      <td class="num" style="padding:3px 10px;">${m.weeklyCRU}</td>
+                      ${m.weeks.map(w => `<td class="num" style="padding:3px 10px;">${w.value}</td>`).join('')}
                     </tr>`).join('')}
                   </tbody>
                 </table>
@@ -5245,30 +5245,30 @@ const NationalApp = {
             apHtml = `
               <div class="coaching-section" style="flex:1;min-width:0;">
                 <div class="coaching-label" style="font-size:13px;">Average Paychecks</div>
-                <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;flex-direction:column;gap:12px;">
                   <div>
                     <div style="font-size:10px;text-transform:uppercase;color:var(--silver);margin-bottom:4px;">Comm per Rep</div>
-                    <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                    <table style="width:100%;font-size:11px;border-collapse:collapse;text-align:center;">
                       <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
-                        ${commWeeks.map(w => `<th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">${this._esc(w.label)}</th>`).join('')}
-                        <th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">4 Wk Avg</th>
+                        ${commWeeks.map(w => `<th style="padding:4px 8px;font-size:10px;color:var(--silver);text-align:center;">${this._esc(w.label)}</th>`).join('')}
+                        <th style="padding:4px 8px;font-size:10px;color:var(--silver);text-align:center;">4 Wk Avg</th>
                       </tr></thead>
                       <tbody><tr>
-                        ${commWeeks.map(w => `<td class="num" style="padding:2px 4px;">${w.value}</td>`).join('')}
-                        <td class="num" style="padding:2px 4px;font-weight:600;">${ap.commPerRep?.avg || '—'}</td>
+                        ${commWeeks.map(w => `<td style="padding:4px 8px;text-align:center;">${w.value}</td>`).join('')}
+                        <td style="padding:4px 8px;text-align:center;font-weight:600;">${ap.commPerRep?.avg || '—'}</td>
                       </tr></tbody>
                     </table>
                   </div>
                   <div>
                     <div style="font-size:10px;text-transform:uppercase;color:var(--silver);margin-bottom:4px;">Total DD</div>
-                    <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                    <table style="width:100%;font-size:11px;border-collapse:collapse;text-align:center;">
                       <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
-                        ${ddWeeks.map(w => `<th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">${this._esc(w.label)}</th>`).join('')}
-                        <th class="num" style="padding:3px 4px;font-size:10px;color:var(--silver);">4 Wk Avg</th>
+                        ${ddWeeks.map(w => `<th style="padding:4px 8px;font-size:10px;color:var(--silver);text-align:center;">${this._esc(w.label)}</th>`).join('')}
+                        <th style="padding:4px 8px;font-size:10px;color:var(--silver);text-align:center;">4 Wk Avg</th>
                       </tr></thead>
                       <tbody><tr>
-                        ${ddWeeks.map(w => `<td class="num" style="padding:2px 4px;">${w.value}</td>`).join('')}
-                        <td class="num" style="padding:2px 4px;font-weight:600;">${ap.totalDD?.avg || '—'}</td>
+                        ${ddWeeks.map(w => `<td style="padding:4px 8px;text-align:center;">${w.value}</td>`).join('')}
+                        <td style="padding:4px 8px;text-align:center;font-weight:600;">${ap.totalDD?.avg || '—'}</td>
                       </tr></tbody>
                     </table>
                   </div>

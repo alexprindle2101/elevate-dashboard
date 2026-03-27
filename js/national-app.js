@@ -5254,8 +5254,8 @@ const NationalApp = {
                         <th style="padding:4px 8px;font-size:10px;color:var(--silver);text-align:center;">4 Wk Avg</th>
                       </tr></thead>
                       <tbody><tr>
-                        ${commWeeks.map(w => `<td style="padding:4px 8px;text-align:center;">${w.value}</td>`).join('')}
-                        <td style="padding:4px 8px;text-align:center;font-weight:600;">${ap.commPerRep?.avg || '—'}</td>
+                        ${commWeeks.map(w => { const v = w.value; return `<td style="padding:4px 8px;text-align:center;">${v && !v.startsWith('$') ? '$' + v : v}</td>`; }).join('')}
+                        <td style="padding:4px 8px;text-align:center;font-weight:600;">${(() => { const v = ap.commPerRep?.avg || '—'; return v !== '—' && !v.startsWith('$') ? '$' + v : v; })()}</td>
                       </tr></tbody>
                     </table>
                   </div>

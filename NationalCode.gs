@@ -4578,9 +4578,11 @@ function readB2BOwnerSales(ownerName) {
     var srcSS = SpreadsheetApp.openById(OD_CAMPAIGNS['att-b2b'].sheetId);
     var ownerTab = _findOwnerTab_(srcSS, ownerName);
     if (ownerTab) {
-      var srcData = ownerTab.getDataRange().getValues();
-      marketFulfillment = _extractMarketFulfillment_(srcData, ownerName);
-      avgPaychecks = _extractAvgPaychecks_(srcData);
+      var range = ownerTab.getDataRange();
+      var srcData = range.getValues();
+      var srcDisplay = range.getDisplayValues();
+      marketFulfillment = _extractMarketFulfillment_(srcData, ownerName, srcDisplay);
+      avgPaychecks = _extractAvgPaychecks_(srcData, srcDisplay);
     }
   } catch (e) {
     Logger.log('readB2BOwnerSales: source data read failed: ' + e.message);
@@ -4636,8 +4638,8 @@ function _findOwnerTab_(ss, ownerName) {
   return null;
 }
 
-/** Extract Market Fulfillment section from owner tab data */
-function _extractMarketFulfillment_(data, ownerName) {
+/** Extract Market Fulfillment section from owner tab data + display data */
+function _extractMarketFulfillment_(data, ownerName, displayData) {
   // Find header row: "Owner (Owner>Rep>Zip)" in column A
   var headerRow = -1;
   for (var i = 0; i < data.length; i++) {
@@ -4649,7 +4651,9 @@ function _extractMarketFulfillment_(data, ownerName) {
   }
   if (headerRow < 0) return null;
 
-  var headers = data[headerRow].map(function(h) { return String(h || '').trim(); });
+  // Use display values for headers (dates show as "3/22/26" not serial numbers)
+  var headers = (displayData && displayData[headerRow] ? displayData[headerRow] : data[headerRow])
+    .map(function(h) { return String(h || '').trim(); });
 
   // Find column indices
   var colDMA = -1, colWorkable = -1, colTotal = -1, colPen = -1;
@@ -4669,22 +4673,23 @@ function _extractMarketFulfillment_(data, ownerName) {
     else if (h.indexOf('last wk') >= 0 || h.indexOf('last week') >= 0) dateCols.push({ idx: c, label: 'Last Wk' });
   }
 
-  // Read data rows until blank
+  // Read data rows until blank — use display values for pre-formatted output
   var markets = [];
   for (var i = headerRow + 1; i < data.length; i++) {
     var name = String(data[i][0] || '').trim();
     if (!name) break;
+    var dRow = displayData && displayData[i] ? displayData[i] : data[i];
     var market = {
-      dma: colDMA >= 0 ? String(data[i][colDMA] || '').trim() : '',
-      totalWorkable: colWorkable >= 0 ? _fmtNum_(data[i][colWorkable]) : '',
-      total: colTotal >= 0 ? _fmtNum_(data[i][colTotal]) : '',
-      penRate: colPen >= 0 ? _fmtPct_(data[i][colPen]) : '',
-      weeklyTotal: colWeeklyTotal >= 0 ? _fmtNum_(data[i][colWeeklyTotal]) : '',
-      weeklyCRU: colWeeklyCRU >= 0 ? _fmtNum_(data[i][colWeeklyCRU]) : '',
+      dma: colDMA >= 0 ? String(dRow[colDMA] || '').trim() : '',
+      totalWorkable: colWorkable >= 0 ? String(dRow[colWorkable] || '').trim() : '',
+      total: colTotal >= 0 ? String(dRow[colTotal] || '').trim() : '',
+      penRate: colPen >= 0 ? String(dRow[colPen] || '').trim() : '',
+      weeklyTotal: colWeeklyTotal >= 0 ? String(dRow[colWeeklyTotal] || '').trim() : '',
+      weeklyCRU: colWeeklyCRU >= 0 ? String(dRow[colWeeklyCRU] || '').trim() : '',
       weeks: []
     };
     for (var d = 0; d < dateCols.length; d++) {
-      market.weeks.push({ label: dateCols[d].label, value: _fmtNum_(data[i][dateCols[d].idx]) });
+      market.weeks.push({ label: dateCols[d].label, value: String(dRow[dateCols[d].idx] || '').trim() });
     }
     markets.push(market);
   }
@@ -4692,8 +4697,8 @@ function _extractMarketFulfillment_(data, ownerName) {
   return markets.length > 0 ? markets : null;
 }
 
-/** Extract Average Paychecks section from owner tab data */
-function _extractAvgPaychecks_(data) {
+/** Extract Average Paychecks section from owner tab data + display data */
+function _extractAvgPaychecks_(data, displayData) {
   // Find "Comm per Rep" row
   var commRow = -1;
   for (var i = 0; i < data.length; i++) {
@@ -4705,12 +4710,14 @@ function _extractAvgPaychecks_(data) {
   // Header row is next row (has cl.ICD_Owner_Name + dates)
   var headerRow = commRow + 1;
   if (headerRow >= data.length) return null;
-  var headers = data[headerRow].map(function(h) { return String(h || '').trim(); });
+  // Use display values for headers (dates as formatted strings)
+  var headers = (displayData && displayData[headerRow] ? displayData[headerRow] : data[headerRow])
+    .map(function(h) { return String(h || '').trim(); });
 
-  // Data row is next
+  // Data row is next — use display values for pre-formatted numbers
   var dataRow = headerRow + 1;
   if (dataRow >= data.length) return null;
-  var row = data[dataRow];
+  var row = displayData && displayData[dataRow] ? displayData[dataRow] : data[dataRow];
 
   // Parse Comm per Rep columns (columns 1 until empty gap or "Last 4 Wk Avg")
   var commDates = [];
@@ -4719,12 +4726,11 @@ function _extractAvgPaychecks_(data) {
     var h = headers[c].toLowerCase().trim();
     if (!h) break; // gap = end of Comm section
     if (h.indexOf('last') >= 0 && h.indexOf('avg') >= 0) {
-      commAvg = _fmtDollar_(row[c]);
+      commAvg = String(row[c] || '').trim();
       break;
     }
-    // Only include date-like headers (M/D/YYYY or similar)
-    if (headers[c].match(/\d{1,2}\/\d{1,2}\/\d{2,4}/) || new Date(headers[c]).getFullYear() > 2000) {
-      commDates.push({ label: _fmtShortDate_(headers[c]), value: _fmtDollar_(row[c]) });
+    if (headers[c]) {
+      commDates.push({ label: headers[c], value: String(row[c] || '').trim() });
     }
   }
 
@@ -4739,19 +4745,16 @@ function _extractAvgPaychecks_(data) {
     }
   }
   if (ddStartCol >= 0) {
-    // DD date headers are in headerRow starting after ddStartCol
     for (var c = ddStartCol; c < headers.length; c++) {
       var h = headers[c].toLowerCase().trim();
       if (!h || h === 'total dd' || h === 'cl.icd_owner_name') continue;
-      var val = row[c];
+      var val = String(row[c] || '').trim();
       if (h.indexOf('last') >= 0 && h.indexOf('avg') >= 0) {
-        totalDDAvg = _fmtDollar_(val);
+        totalDDAvg = val;
         break;
       }
-      // Only include date-like headers
-      var testDate = new Date(headers[c]);
-      if (headers[c].match(/\d{1,2}\/\d{1,2}\/\d{2,4}/) || (testDate.getFullYear() > 2000 && testDate.getFullYear() < 2030)) {
-        totalDDDates.push({ label: _fmtShortDate_(headers[c]), value: _fmtDollar_(val) });
+      if (headers[c]) {
+        totalDDDates.push({ label: headers[c], value: val });
       }
     }
   }

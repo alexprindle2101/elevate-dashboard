@@ -4656,10 +4656,31 @@ function readB2BOwnerSales(ownerName) {
 
   // The tab format: owner rows (not indented) followed by indented rep rows ("  RepName")
   // Find the owner section by matching Name column
+  // Supports fuzzy matching: exact → starts-with → contains (handles "Alex Badawi" ↔ "Alexander Badawi")
   var ownerLower = ownerName.toLowerCase().trim();
   var summary = null;
   var reps = [];
   var inOwnerSection = false;
+
+  // First pass: collect all owner names for fuzzy matching
+  var ownerRows = [];
+  for (var i = 1; i < data.length; i++) {
+    var rawName = String(data[i][colMap['Name'] || 0] || '');
+    if (rawName.charAt(0) !== ' ' && rawName.trim()) {
+      ownerRows.push({ idx: i, name: rawName.trim(), nameLc: rawName.trim().toLowerCase() });
+    }
+  }
+
+  // Find best match: exact → starts-with → contains
+  var matchIdx = -1;
+  for (var m = 0; m < ownerRows.length; m++) {
+    if (ownerRows[m].nameLc === ownerLower) { matchIdx = ownerRows[m].idx; break; }
+  }
+  if (matchIdx < 0) {
+    for (var m = 0; m < ownerRows.length; m++) {
+      if (ownerRows[m].nameLc.indexOf(ownerLower) >= 0 || ownerLower.indexOf(ownerRows[m].nameLc) >= 0) { matchIdx = ownerRows[m].idx; break; }
+    }
+  }
 
   for (var i = 1; i < data.length; i++) {
     var rawName = String(data[i][colMap['Name'] || 0] || '');
@@ -4671,7 +4692,7 @@ function readB2BOwnerSales(ownerName) {
     if (!isIndented) {
       // Owner row — check if this is our target
       if (inOwnerSection) break; // We were in our section, now hit next owner — done
-      if (cleanName.toLowerCase() === ownerLower) {
+      if (i === matchIdx) {
         inOwnerSection = true;
         summary = _parseB2BRow_(data[i], colMap, cleanName);
       }

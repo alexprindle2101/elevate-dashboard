@@ -75,31 +75,7 @@ const OwnerDev = {
     this.state.tabAccess = access;
     this.state.columnEdit = OD_CONFIG.columnEdit[role] || {};
 
-    // National Consultant: coach-only entry (no mapping default)
-    if (role === 'national') {
-      document.querySelectorAll('.nav-tab').forEach(t => t.style.display = 'none');
-      const coachTab = document.getElementById('nav-coach-tab');
-      if (coachTab) { coachTab.style.display = ''; coachTab.classList.add('active'); }
-      // Also show mapping tab (view-only)
-      const mappingTab = document.querySelector('.nav-tab[data-tab="mapping"]');
-      if (mappingTab) mappingTab.style.display = '';
-      document.getElementById('view-mapping').style.display = 'none';
-      const coachView = document.getElementById('view-coach');
-      if (coachView) coachView.style.display = '';
-      document.getElementById('dashboard').style.display = 'block';
-      this.state.activeTab = 'coach';
-      if (typeof NationalApp !== 'undefined') {
-        NationalApp.initCoachView({ email: this.state.session.email, name: this.state.session.name });
-      }
-      return;
-    }
-
-    // Build View-As bar for superadmins
-    if (this.state.isSuperadmin) {
-      this._buildViewAsBar();
-    }
-
-    // Fetch campaign visibility for the current user
+    // Fetch campaign visibility for the current user (needed before any tab render)
     try {
       const vizResp = await this._api('odGetVisibleCampaigns', { email, role });
       if (vizResp && vizResp.visible) {
@@ -111,11 +87,41 @@ const OwnerDev = {
       console.warn('[OwnerDev] Could not resolve campaign visibility:', err);
     }
 
-    // For global-view roles, all campaigns are visible
+    // Fallback for global-view roles or if API failed
     if (!this.state.visibleCampaigns) {
-      this.state.visibleCampaigns = new Set(Object.keys(OD_CONFIG.campaignSources));
+      const globalRoles = ['superadmin', 'aptel', 'nlr_manager', 'nlr', 'bis_manager', 'bis'];
+      if (globalRoles.includes(role)) {
+        this.state.visibleCampaigns = new Set(Object.keys(OD_CONFIG.campaignSources));
+      } else {
+        this.state.visibleCampaigns = new Set(); // empty — no access
+      }
       this.state.editableCampaigns = new Set(role === 'superadmin' ? Object.keys(OD_CONFIG.campaignSources) : []);
       this.state.campaignAccessMap = {};
+    }
+
+    // National Consultant: coach-only entry (no mapping default)
+    if (role === 'national') {
+      document.querySelectorAll('.nav-tab').forEach(t => t.style.display = 'none');
+      const coachTab = document.getElementById('nav-coach-tab');
+      if (coachTab) { coachTab.style.display = ''; coachTab.classList.add('active'); }
+      document.getElementById('view-mapping').style.display = 'none';
+      const coachView = document.getElementById('view-coach');
+      if (coachView) coachView.style.display = '';
+      document.getElementById('dashboard').style.display = 'block';
+      this.state.activeTab = 'coach';
+      if (typeof NationalApp !== 'undefined') {
+        NationalApp.initCoachView({
+          email: this.state.session.email,
+          name: this.state.session.name,
+          visibleCampaigns: [...this.state.visibleCampaigns]
+        });
+      }
+      return;
+    }
+
+    // Build View-As bar for superadmins
+    if (this.state.isSuperadmin) {
+      this._buildViewAsBar();
     }
 
     // Load data (cache-first: shows cached data instantly, refreshes in background)

@@ -4073,7 +4073,7 @@ const NationalApp = {
   },
 
   // ── Notes log: add / delete ──
-  async _addNote(ownerIdx) {
+  _addNote(ownerIdx) {
     const owner = this.state.owners[ownerIdx];
     if (!owner) return;
     const ta = document.getElementById('note-input-' + ownerIdx);
@@ -4081,43 +4081,43 @@ const NationalApp = {
     if (!text) return;
 
     const coachName = this.state.session?.name || 'Unknown';
-    const btn = ta.nextElementSibling;
-    if (btn) { btn.disabled = true; btn.textContent = '...'; }
+    const coachEmail = this.state.session?.email || '';
+    const tempId = 'temp_' + Date.now();
 
-    try {
-      const resp = await fetch(NATIONAL_CONFIG.appsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          key: NATIONAL_CONFIG.apiKey,
-          action: 'addOwnerNote',
-          campaign: this.state.campaign,
-          ownerName: owner.name,
-          coachName: coachName,
-          coachEmail: this.state.session?.email || '',
-          text: text
-        })
-      });
-      const result = await resp.json();
-      if (result.error) throw new Error(result.error);
+    // Optimistic update — add to local state and re-render immediately
+    if (!this.state.campaignNotes) this.state.campaignNotes = [];
+    this.state.campaignNotes.push({
+      noteId: tempId,
+      campaign: this.state.campaign,
+      ownerName: owner.name,
+      coachName: coachName,
+      coachEmail: coachEmail,
+      text: text,
+      timestamp: new Date().toISOString()
+    });
+    ta.value = '';
+    this.renderHealthTab(owner);
 
-      // Add to local cache and re-render
-      if (!this.state.campaignNotes) this.state.campaignNotes = [];
-      this.state.campaignNotes.push({
-        noteId: result.noteId,
+    // Save in background
+    fetch(NATIONAL_CONFIG.appsScriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        key: NATIONAL_CONFIG.apiKey,
+        action: 'addOwnerNote',
         campaign: this.state.campaign,
         ownerName: owner.name,
         coachName: coachName,
-        coachEmail: this.state.session?.email || '',
-        text: text,
-        timestamp: result.timestamp || new Date().toISOString()
-      });
-      ta.value = '';
-      this.renderHealthTab(owner);
-    } catch (err) {
-      console.warn('[Notes] Add failed:', err);
-    }
-    if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
+        coachEmail: coachEmail,
+        text: text
+      })
+    }).then(r => r.json()).then(result => {
+      if (result.error) { console.warn('[Notes] Save error:', result.error); return; }
+      // Replace temp ID with real ID from backend
+      const note = this.state.campaignNotes.find(n => n.noteId === tempId);
+      if (note) note.noteId = result.noteId;
+      console.log('[Notes] Saved:', result.noteId);
+    }).catch(err => console.warn('[Notes] Save failed:', err.message));
   },
 
   async _deleteNote(noteId, ownerIdx) {

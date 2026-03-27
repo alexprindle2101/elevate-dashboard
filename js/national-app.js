@@ -5178,22 +5178,22 @@ const NationalApp = {
                 <table style="width:100%;font-size:12px;border-collapse:collapse;">
                   <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
                     <th style="text-align:left;padding:3px 6px;font-size:10px;text-transform:uppercase;color:var(--silver);">Day</th>
-                    <th class="num" style="padding:3px 6px;font-size:10px;text-transform:uppercase;color:var(--silver);">First</th>
-                    <th class="num" style="padding:3px 6px;font-size:10px;text-transform:uppercase;color:var(--silver);">Last</th>
-                    <th class="num" style="padding:3px 6px;font-size:10px;text-transform:uppercase;color:var(--silver);">Orders</th>
+                    <th style="text-align:center;padding:3px 6px;font-size:10px;text-transform:uppercase;color:var(--silver);">First</th>
+                    <th style="text-align:center;padding:3px 6px;font-size:10px;text-transform:uppercase;color:var(--silver);">Last</th>
+                    <th style="text-align:center;padding:3px 6px;font-size:10px;text-transform:uppercase;color:var(--silver);">Orders</th>
                   </tr></thead>
                   <tbody>
                     ${weekAvg ? `<tr style="font-weight:600;background:rgba(0,200,255,0.06);">
                       <td style="padding:2px 6px;">Week Avg</td>
-                      <td class="num" style="padding:2px 6px;">${weekAvg.firstOrder}</td>
-                      <td class="num" style="padding:2px 6px;">${weekAvg.lastOrder}</td>
-                      <td class="num" style="padding:2px 6px;">${weekAvg.orders}</td>
+                      <td style="text-align:center;padding:2px 6px;">${weekAvg.firstOrder}</td>
+                      <td style="text-align:center;padding:2px 6px;">${weekAvg.lastOrder}</td>
+                      <td style="text-align:center;padding:2px 6px;">${weekAvg.orders}</td>
                     </tr>` : ''}
                     ${dailyDays.map(d => `<tr>
                       <td style="padding:2px 6px;">${d.day}</td>
-                      <td class="num" style="padding:2px 6px;">${d.firstOrder}</td>
-                      <td class="num" style="padding:2px 6px;">${d.lastOrder}</td>
-                      <td class="num" style="padding:2px 6px;">${d.orders}</td>
+                      <td style="text-align:center;padding:2px 6px;">${d.firstOrder}</td>
+                      <td style="text-align:center;padding:2px 6px;">${d.lastOrder}</td>
+                      <td style="text-align:center;padding:2px 6px;">${d.orders}</td>
                     </tr>`).join('')}
                   </tbody>
                 </table>

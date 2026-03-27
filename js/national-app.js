@@ -3870,11 +3870,13 @@ const NationalApp = {
       }
     }
 
-    // Debounced save to spreadsheet
+    // Debounced save to spreadsheet + re-render
     const saveKey = `prod_${ownerIdx}_${histIdx}`;
     if (this._hcSaveTimers?.[saveKey]) clearTimeout(this._hcSaveTimers[saveKey]);
     if (!this._hcSaveTimers) this._hcSaveTimers = {};
     this._hcSaveTimers[saveKey] = setTimeout(() => {
+      this._rankOwnersByProduction();
+      this.renderOwnersList();
       this._saveProdRow(owner, entry);
       delete this._hcSaveTimers[saveKey];
     }, 1200);
@@ -3921,11 +3923,13 @@ const NationalApp = {
       }
     }
 
-    // Debounced save to spreadsheet
+    // Debounced save to spreadsheet + re-render
     const saveKey = `prod_${ownerIdx}_${histIdx}`;
     if (this._hcSaveTimers?.[saveKey]) clearTimeout(this._hcSaveTimers[saveKey]);
     if (!this._hcSaveTimers) this._hcSaveTimers = {};
     this._hcSaveTimers[saveKey] = setTimeout(() => {
+      this._rankOwnersByProduction();
+      this.renderOwnersList();
       this._saveProdRow(owner, entry);
       delete this._hcSaveTimers[saveKey];
     }, 1200);

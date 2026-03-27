@@ -175,7 +175,7 @@ function doGet(e) {
     // ── Consolidated recruiting data (per-campaign tabs, cached per-campaign) ──
     if (action === 'recruiting') {
       var weeks = parseInt(e.parameter.weeks) || 6;
-      var campaignFilter = (e.parameter.campaign !== 'att-b2b') ? e.parameter.campaign : '';
+      var campaignFilter = e.parameter.campaign || '';
       return jsonResp(readConsolidatedRecruiting(weeks, campaignFilter, bustCache));
     }
 

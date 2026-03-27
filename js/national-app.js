@@ -522,20 +522,22 @@ const NationalApp = {
       return { owners: cd.owners || [], weeks: cd.weeks || [], label: cd.label || '', products: cd.products || ['Total'] };
     }
 
+    // Fetch only the selected campaign (not all 8) for fast initial load
     const url = NATIONAL_CONFIG.appsScriptUrl +
       '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
       '&action=recruiting&weeks=0' +
+      '&campaign=' + encodeURIComponent(campaignKey) +
       '&_t=' + Date.now();
     const resp = await fetch(url);
     const result = await resp.json();
     if (result.error) throw new Error(result.error);
 
-    // Cache ALL campaigns data
+    // Cache this campaign's data
     if (result.campaigns) {
-      this._allCampaignsData = result.campaigns;
-      console.log('[NationalApp] Cached campaigns:', Object.keys(result.campaigns), 'looking for:', campaignKey);
-      // Dynamically populate campaign selector and config
-      this._populateCampaignSelector(result.campaigns);
+      if (!this._allCampaignsData) this._allCampaignsData = {};
+      Object.assign(this._allCampaignsData, result.campaigns);
+      console.log('[NationalApp] Fetched campaign:', campaignKey, 'total cached:', Object.keys(this._allCampaignsData).length);
+      this._populateCampaignSelector(this._allCampaignsData);
     }
     // Cache B2B product totals from Tableau
     if (result.b2bProductTotals) {
@@ -549,12 +551,40 @@ const NationalApp = {
       return null;
     }
 
+    // Background prefetch remaining campaigns for landing page (fire-and-forget)
+    this._prefetchRemainingCampaigns(campaignKey);
+
     return {
       owners: campaignData.owners || [],
       weeks: campaignData.weeks || [],
       label: campaignData.label || '',
       products: campaignData.products || ['Total']
     };
+  },
+
+  // ── Background prefetch remaining campaigns for landing page / switching ──
+  _prefetchRemainingCampaigns(loadedKey) {
+    if (this._prefetchingRemaining) return;
+    this._prefetchingRemaining = true;
+    const url = NATIONAL_CONFIG.appsScriptUrl +
+      '?key=' + encodeURIComponent(NATIONAL_CONFIG.apiKey) +
+      '&action=recruiting&weeks=0&_t=' + Date.now();
+    fetch(url).then(r => r.json()).then(result => {
+      if (result.campaigns) {
+        if (!this._allCampaignsData) this._allCampaignsData = {};
+        for (const [key, data] of Object.entries(result.campaigns)) {
+          if (key !== loadedKey) this._allCampaignsData[key] = data;
+        }
+        this._populateCampaignSelector(this._allCampaignsData);
+        console.log('[NationalApp] Background prefetch complete:', Object.keys(result.campaigns).length, 'campaigns');
+        // Update localStorage cache for instant landing page on next visit
+        try { localStorage.setItem('od_data_cache', JSON.stringify({ campaigns: this._allCampaignsData })); } catch (e) {}
+      }
+      this._prefetchingRemaining = false;
+    }).catch(err => {
+      console.warn('[NationalApp] Background prefetch failed:', err.message);
+      this._prefetchingRemaining = false;
+    });
   },
 
   // ── Dynamically populate campaign selector dropdown from backend data ──

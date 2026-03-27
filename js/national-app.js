@@ -5211,30 +5211,35 @@ const NationalApp = {
             mfHtml = `
               <div class="coaching-section" style="flex:1;min-width:0;">
                 <div class="coaching-label" style="font-size:13px;">Market Fulfillment</div>
-                <div style="overflow-x:auto;">
-                <table style="width:100%;font-size:11px;border-collapse:collapse;white-space:nowrap;">
+                <table style="width:100%;font-size:11px;border-collapse:collapse;">
                   <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
-                    <th style="text-align:left;padding:4px 10px 4px 4px;font-size:10px;color:var(--silver);">DMA</th>
-                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">Workable</th>
-                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">Total</th>
-                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">Pen %</th>
-                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">Wkly</th>
-                    <th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">CRU</th>
-                    ${weekLabels.map(w => `<th class="num" style="padding:4px 10px;font-size:10px;color:var(--silver);">${this._esc(w.label)}</th>`).join('')}
+                    <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--silver);">DMA</th>
+                    <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Workable</th>
+                    <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Total</th>
+                    <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Pen %</th>
                   </tr></thead>
                   <tbody>
-                    ${mf.map(m => `<tr>
-                      <td style="padding:3px 10px 3px 4px;max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${this._esc(m.dma)}">${this._esc(m.dma.length > 30 ? m.dma.substring(0, 28) + '…' : m.dma)}</td>
-                      <td class="num" style="padding:3px 10px;">${m.totalWorkable}</td>
-                      <td class="num" style="padding:3px 10px;">${m.total}</td>
-                      <td class="num" style="padding:3px 10px;">${m.penRate}</td>
-                      <td class="num" style="padding:3px 10px;">${m.weeklyTotal}</td>
-                      <td class="num" style="padding:3px 10px;">${m.weeklyCRU}</td>
-                      ${m.weeks.map(w => `<td class="num" style="padding:3px 10px;">${w.value}</td>`).join('')}
+                    ${mf.map((m, mi) => `<tr style="cursor:pointer;position:relative;" onmouseenter="this.querySelector('.mf-popup').style.display='block'" onmouseleave="this.querySelector('.mf-popup').style.display='none'">
+                      <td style="padding:3px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${this._esc(m.dma)}">${this._esc(m.dma.length > 30 ? m.dma.substring(0, 28) + '…' : m.dma)}</td>
+                      <td style="text-align:center;padding:3px 8px;">${m.totalWorkable}</td>
+                      <td style="text-align:center;padding:3px 8px;">${m.total}</td>
+                      <td style="text-align:center;padding:3px 8px;">${m.penRate}</td>
+                      <div class="mf-popup" style="display:none;position:absolute;${mi >= mf.length - 1 ? 'bottom:100%' : 'top:100%'};left:0;z-index:20;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:10px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.15);min-width:280px;white-space:nowrap;">
+                        <div style="font-weight:600;margin-bottom:6px;font-size:12px;">${this._esc(m.dma)}</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:11px;">
+                          <span style="color:var(--silver);">Weekly Total</span><span style="text-align:right;font-weight:600;">${m.weeklyTotal}</span>
+                          <span style="color:var(--silver);">Weekly CRU</span><span style="text-align:right;font-weight:600;">${m.weeklyCRU}</span>
+                        </div>
+                        ${m.weeks.length ? `<div style="margin-top:8px;border-top:1px solid rgba(0,0,0,0.06);padding-top:6px;">
+                          <table style="width:100%;font-size:10px;border-collapse:collapse;">
+                            <tr>${m.weeks.map(w => `<th style="text-align:center;padding:2px 6px;color:var(--silver);font-weight:500;">${this._esc(w.label)}</th>`).join('')}</tr>
+                            <tr>${m.weeks.map(w => `<td style="text-align:center;padding:2px 6px;font-weight:600;">${w.value}</td>`).join('')}</tr>
+                          </table>
+                        </div>` : ''}
+                      </div>
                     </tr>`).join('')}
                   </tbody>
                 </table>
-                </div>
               </div>`;
           }
 

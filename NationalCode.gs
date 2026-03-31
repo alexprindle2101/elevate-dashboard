@@ -10,14 +10,15 @@ var NC_API_KEY = 'national-dash-2026-secret'; // Must match Script Properties > 
 // External sheet IDs
 // ── Owner Development (OD) Config ──
 var OD_CAMPAIGNS = {
-  'frontier':        { label: 'Frontier',           sheetId: '1WWpLQTCyvPmJbx3jjowFszwOF_JUnjS6tzu-eAASwk0' },
+  'frontier':        { label: 'Frontier',           sheetId: '1WWpLQTCyvPmJbx3jjowFszwOF_JUnjS6tzu-eAASwk0', excludeOwners: ['Collier Ricks', 'Stephen Cancino'] },
   'verizon-fios':    { label: 'Verizon Fios',       sheetId: '12J3HBdFQrqq5D7YwWEp93US40vmZz5n9mS-KMKXaXxA' },
   'att-nds':         { label: 'AT&T NDS/Verizon',   sheetId: '1kcUWR3EKgP-9wDct4vDyuQJ7IuS0cbcetY97dmVTY64' },
   'att-res':         { label: 'AT&T Residential',   sheetId: '1HvWJYox3JXvxmza63YBWAqKPtUGPFuaV-s-BOfbWGKM' },
   'rogers':          { label: 'Rogers',             sheetId: '1o1MPKrAzzeaU2JWMODkR9M3uY5rOhIKo-Q64armeTvE' },
   'leafguard':       { label: 'LeafGuard',          sheetId: '10Fy5XFWCuBmDwvpl4PG4FJT4krwX2ZqN12ARvQLpSuM', ownerSource: 'tabs', excludeTabs: ['Blank Copy'] },
   'lumen':           { label: 'Lumen',              sheetId: '1P4DYlcV1hgNkaAapk3tWD7ytcRXw4K1n7R6EMKPCoSA', sourceTab: 'Campaign', sectionHeader: 'LUMEN' },
-  'att-b2b':         { label: 'AT&T B2B',           sheetId: '1sxauFjNjq4_rRYM2PAl5cyOyHF3Hg4OkO-t_hLKDJB8', ownerSource: 'visible-tabs', excludeTabs: ["B2B Enery 1:1's", "B2B Energy 1:1's"] }
+  'att-b2b':         { label: 'AT&T B2B',           sheetId: '1sxauFjNjq4_rRYM2PAl5cyOyHF3Hg4OkO-t_hLKDJB8', ownerSource: 'visible-tabs', excludeTabs: ["B2B Enery 1:1's", "B2B Energy 1:1's"] },
+  'box-energy':      { label: 'Box Energy',          sheetId: '1_PVzLcmlo6EzySNRfah-r-NLka3IthxzLZb4TjrDgtE', ownerSource: 'visible-tabs' }
 };
 var OD_NLR_FOLDER = '1hARjh3UH48CWhbYrYBJxFVwgynxapCjG';
 
@@ -203,21 +204,6 @@ function doGet(e) {
       var ownerParam = (e.parameter.owner) || '';
       var campaignParam = (e.parameter.campaign) || '';
       return jsonResp(readOwnerNlrData(ownerParam, campaignParam));
-    }
-
-    // ── B2B headcount/production data (local copy in _B2B_Headcount tab) ──
-    if (action === 'b2bHeadcount') {
-      return jsonResp(readLocalHeadcount());
-    }
-
-    // ── B2B production/sales data (local copy in _B2B_Production tab) ──
-    if (action === 'b2bProduction') {
-      return jsonResp(readLocalProduction());
-    }
-
-    // ── NDS headcount data (local copy in _NDS_Headcount tab) ──
-    if (action === 'ndsHeadcount') {
-      return jsonResp(readLocalNDSHeadcount());
     }
 
     // ── NDS production/sales data (read directly from NDS One-on-Ones sheet) ──
@@ -415,12 +401,6 @@ function doPost(e) {
         break;
       case 'unclaimCostSheet':
         result = unclaimCostSheet(body.ownerName);
-        break;
-      case 'importNLRHeadcount':
-        result = importNLRHeadcount();
-        break;
-      case 'importNDSHeadcount':
-        result = importNDSHeadcount();
         break;
       case 'updateHeadcount':
         result = updateHeadcountRow(body.ownerName, body.date,
@@ -1943,331 +1923,9 @@ function readOnlinePresence() {
   return { businesses: uniqueBiz, allCompanyNames: allCompanyNames, tabName: sheet.getName(), _debug: _debug };
 }
 
-// ══════════════════════════════════════════════════
-// READ NLR B2B HEADCOUNT / PRODUCTION
-// Each owner has a tab in NLR's spreadsheet.
-// Row 1 = headers: Dates | Active | Leaders | Dist | Training |
-//                  Personal Production | Production LW | Production Goals
-// Returns { owners: { "TabName": { current: {...}, trend: [{...}, ...] } } }
-// ══════════════════════════════════════════════════
 
-function readNLRHeadcount() {
-  if (!SHEETS.NLR_B2B) return { owners: {} };
 
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NLR_B2B);
-  } catch (err) {
-    return { error: 'Cannot open NLR B2B sheet: ' + err.message, owners: {} };
-  }
 
-  // Tabs to skip (non-owner tabs)
-  var SKIP_TABS = {
-    'input - sales qual metrics': true,
-    'input - comm per rep and total dd': true,
-    'input - market metrics': true,
-    'sheet2': true
-  };
-
-  var allSheets = ss.getSheets();
-  var owners = {};
-
-  for (var t = 0; t < allSheets.length; t++) {
-    var sheet = allSheets[t];
-    var tabName = sheet.getName().trim();
-
-    // Skip non-owner tabs
-    if (SKIP_TABS[tabName.toLowerCase()]) continue;
-
-    // Read data — only need first ~30 rows (headcount section is at top)
-    var lastRow = Math.min(sheet.getLastRow(), 30);
-    if (lastRow < 2) continue;
-    var data = sheet.getRange(1, 1, lastRow, 10).getValues();
-
-    // Row 0 = headers
-    var headers = data[0].map(function(h) { return String(h).toLowerCase().trim(); });
-
-    var colMap = {
-      dates:    findCol(headers, ['dates', 'date']),
-      active:   findCol(headers, ['active']),
-      leaders:  findCol(headers, ['leaders']),
-      dist:     findCol(headers, ['dist']),
-      training: findCol(headers, ['training']),
-      internet: findCol(headers, ['internet']),
-      wireless: findCol(headers, ['wireless']),
-      dtv:      findCol(headers, ['dtv']),
-      goals:    findCol(headers, ['goals', 'production goals'])
-    };
-
-    // Must have at least dates + active columns to be a valid owner tab
-    if (colMap.dates < 0 && colMap.active < 0) continue;
-
-    // Determine which production categories exist for this owner
-    var activeCategories = _getActiveCategories(colMap);
-
-    // Walk ALL rows, collecting trend history + tracking last good row
-    // ONLY include rows where column A is a real date (skip text like "Owner (Owner>Rep>Zip)")
-    var trend = [];
-    var lastGood = null;
-    for (var i = 1; i < data.length; i++) {
-      var row = data[i];
-
-      // Date gate: column A must be a Date object or a parseable date string
-      var dateCell = colMap.dates >= 0 ? row[colMap.dates] : null;
-      if (!dateCell) continue;
-      if (!(dateCell instanceof Date)) {
-        var parsed = new Date(dateCell);
-        if (isNaN(parsed.getTime())) continue;  // Not a date — skip row
-      }
-
-      // Check if row has any numeric data
-      var hasActive = colMap.active >= 0 && row[colMap.active] !== '' && row[colMap.active] !== null;
-      var hasInet   = colMap.internet >= 0 && row[colMap.internet] !== '' && row[colMap.internet] !== null;
-      var hasDtv    = colMap.dtv >= 0 && row[colMap.dtv] !== '' && row[colMap.dtv] !== null;
-      if (!hasActive && !hasInet && !hasDtv) continue;
-
-      var inet = colMap.internet >= 0 ? num(row[colMap.internet]) : 0;
-      var wrls = colMap.wireless >= 0 ? num(row[colMap.wireless]) : 0;
-      var dtvVal = colMap.dtv >= 0 ? num(row[colMap.dtv]) : 0;
-      var goalsRaw = colMap.goals >= 0 ? String(row[colMap.goals] || '') : '';
-
-      var entry = {
-        date:     colMap.dates >= 0 ? formatDate(row[colMap.dates]) : '',
-        active:   colMap.active >= 0 ? num(row[colMap.active]) : 0,
-        leaders:  colMap.leaders >= 0 ? num(row[colMap.leaders]) : 0,
-        dist:     colMap.dist >= 0 ? num(row[colMap.dist]) : 0,
-        training: colMap.training >= 0 ? num(row[colMap.training]) : 0,
-        internet: inet,
-        wireless: wrls,
-        dtv:      dtvVal,
-        goalsRaw: goalsRaw,
-        production: _parseProductionGoals(activeCategories, inet, wrls, dtvVal, goalsRaw),
-        productionLW: (inet || 0) + (wrls || 0) + (dtvVal || 0),
-        productionGoals: _sumGoals(goalsRaw)
-      };
-      trend.push(entry);
-      lastGood = entry;
-    }
-
-    if (lastGood) {
-      owners[tabName] = {
-        current: lastGood,
-        trend: trend
-      };
-    }
-  }
-
-  return { owners: owners };
-}
-
-// ══════════════════════════════════════════════════
-// IMPORT NLR HEADCOUNT → LOCAL _B2B_Headcount TAB
-// Reads NLR data once, writes it into Ken's national sheet
-// so we're no longer dependent on the NLR spreadsheet.
-// Tab format: Owner | Date | Active | Leaders | Dist | Training | ProductionLW | ProductionGoals
-// ══════════════════════════════════════════════════
-
-function importNLRHeadcount() {
-  // 1. Read from NLR
-  var nlrResult = readNLRHeadcount();
-  if (nlrResult.error) return nlrResult;
-  var nlrOwners = nlrResult.owners || {};
-  if (!Object.keys(nlrOwners).length) return { error: 'No owner data found in NLR sheet' };
-
-  // 2. Open Ken's national sheet
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
-  } catch (err) {
-    return { error: 'Cannot open national sheet: ' + err.message };
-  }
-
-  // 3. Get or create _B2B_Headcount tab
-  var TAB_NAME = '_B2B_Headcount';
-  var sheet = ss.getSheetByName(TAB_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(TAB_NAME);
-    sheet.appendRow(['Owner', 'Date', 'Active', 'Leaders', 'Dist', 'Training', 'Internet', 'Wireless', 'DTV', 'Goals']);
-  } else {
-    // Clear existing data (keep header) and update headers to new schema
-    var lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 10).clearContent();
-    }
-    // Ensure headers match new schema
-    sheet.getRange(1, 1, 1, 10).setValues([['Owner', 'Date', 'Active', 'Leaders', 'Dist', 'Training', 'Internet', 'Wireless', 'DTV', 'Goals']]);
-  }
-
-  // 4. Build rows: one row per owner per date
-  var rows = [];
-  var ownerNames = Object.keys(nlrOwners).sort();
-  for (var o = 0; o < ownerNames.length; o++) {
-    var name = ownerNames[o];
-    var ownerData = nlrOwners[name];
-    var trend = ownerData.trend || [];
-    for (var t = 0; t < trend.length; t++) {
-      var entry = trend[t];
-      rows.push([
-        name,
-        entry.date,
-        entry.active,
-        entry.leaders,
-        entry.dist,
-        entry.training,
-        entry.internet || 0,
-        entry.wireless || 0,
-        entry.dtv || 0,
-        entry.goalsRaw || ''
-      ]);
-    }
-  }
-
-  // 5. Write all rows at once
-  if (rows.length) {
-    sheet.getRange(2, 1, rows.length, 10).setValues(rows);
-  }
-
-  return { success: true, ownersImported: ownerNames.length, rowsWritten: rows.length };
-}
-
-// ══════════════════════════════════════════════════
-// READ NLR B2B APPLIES RECEIVED / SENT TO LIST
-// Each owner tab has a section further down:
-//   Row N-2: date headers (col C onward)
-//   Row N:   "Applies Received" in col A, values in col C+
-//   Row N+1: "Sent to List" in col A, values in col C+
-// Returns { owners: { "TabName": { dates: [...], appliesReceived: [...], sentToList: [...] } } }
-// ══════════════════════════════════════════════════
-
-function readNLRApplies() {
-  if (!SHEETS.NLR_B2B) return { owners: {} };
-
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NLR_B2B);
-  } catch (err) {
-    return { error: 'Cannot open NLR B2B sheet: ' + err.message, owners: {} };
-  }
-
-  var SKIP_TABS = {
-    'input - sales qual metrics': true,
-    'input - comm per rep and total dd': true,
-    'input - market metrics': true,
-    'sheet2': true
-  };
-
-  var allSheets = ss.getSheets();
-  var owners = {};
-
-  for (var t = 0; t < allSheets.length; t++) {
-    var sheet = allSheets[t];
-    var tabName = sheet.getName().trim();
-    if (SKIP_TABS[tabName.toLowerCase()]) continue;
-
-    var lastRow = sheet.getLastRow();
-    var lastCol = sheet.getLastColumn();
-    if (lastRow < 4 || lastCol < 3) continue;
-
-    var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-
-    // Find "Applies Received" row in column A
-    var appliesRow = -1;
-    for (var i = 0; i < data.length; i++) {
-      var cellA = String(data[i][0] || '').trim().toLowerCase();
-      if (cellA === 'applies received') { appliesRow = i; break; }
-    }
-    if (appliesRow < 2) continue; // Need at least 2 rows above for headers
-
-    // Headers are 2 rows above, starting from column C (index 2)
-    var headerRow = appliesRow - 2;
-    var dates = [];
-    for (var c = 2; c < data[headerRow].length; c++) {
-      var h = data[headerRow][c];
-      if (!h && h !== 0) break;
-      dates.push(_normalizeDate(h));
-    }
-    if (!dates.length) continue;
-
-    // Read Applies Received values
-    var appliesValues = [];
-    for (var c = 2; c < 2 + dates.length; c++) {
-      appliesValues.push(num(data[appliesRow][c]));
-    }
-
-    // Read Sent to List values (next row)
-    var stlValues = [];
-    var stlRow = appliesRow + 1;
-    if (stlRow < data.length) {
-      var stlLabel = String(data[stlRow][0] || '').trim().toLowerCase();
-      if (stlLabel === 'sent to list') {
-        for (var c = 2; c < 2 + dates.length; c++) {
-          stlValues.push(num(data[stlRow][c]));
-        }
-      }
-    }
-
-    owners[tabName] = {
-      dates: dates,
-      appliesReceived: appliesValues,
-      sentToList: stlValues
-    };
-  }
-
-  return { owners: owners };
-}
-
-// ══════════════════════════════════════════════════
-// IMPORT NLR APPLIES → LOCAL _B2B_Applies TAB
-// Reads applies/STL from NLR B2B, writes to Ken's sheet.
-// Tab format: Owner | Date | AppliesReceived | SentToList
-// ══════════════════════════════════════════════════
-
-function importNLRApplies() {
-  var nlrResult = readNLRApplies();
-  if (nlrResult.error) return nlrResult;
-  var nlrOwners = nlrResult.owners || {};
-  if (!Object.keys(nlrOwners).length) return { error: 'No applies data found in NLR sheet' };
-
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
-  } catch (err) {
-    return { error: 'Cannot open national sheet: ' + err.message };
-  }
-
-  var TAB_NAME = '_B2B_Applies';
-  var sheet = ss.getSheetByName(TAB_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(TAB_NAME);
-    sheet.appendRow(['Owner', 'Date', 'AppliesReceived', 'SentToList']);
-  } else {
-    var lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 4).clearContent();
-    }
-  }
-
-  var rows = [];
-  var ownerNames = Object.keys(nlrOwners).sort();
-  for (var o = 0; o < ownerNames.length; o++) {
-    var name = ownerNames[o];
-    var d = nlrOwners[name];
-    for (var i = 0; i < d.dates.length; i++) {
-      rows.push([
-        name,
-        d.dates[i],
-        d.appliesReceived[i] || 0,
-        d.sentToList.length > i ? d.sentToList[i] : 0
-      ]);
-    }
-  }
-
-  if (rows.length) {
-    sheet.getRange(2, 1, rows.length, 4).setValues(rows);
-  }
-
-  return { success: true, ownersImported: ownerNames.length, rowsWritten: rows.length };
-}
 
 // ══════════════════════════════════════════════════
 // READ LOCAL APPLIES from _B2B_Applies tab
@@ -2305,159 +1963,6 @@ function readLocalApplies() {
   return { owners: owners };
 }
 
-// ══════════════════════════════════════════════════
-// READ NLR PRODUCTION from NLR B2B owner tabs
-// Each tab has a "Production" merged cell in column J (index 9).
-// Below that: headers row with "Owner Name","Rep","Total Volume", etc.
-// Then owner total row + per-rep rows.
-// ══════════════════════════════════════════════════
-
-function readNLRProduction() {
-  if (!SHEETS.NLR_B2B) return { owners: {} };
-
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NLR_B2B);
-  } catch (err) {
-    return { error: 'Cannot open NLR B2B sheet: ' + err.message, owners: {} };
-  }
-
-  var SKIP_TABS = {
-    'input - sales qual metrics': true,
-    'input - comm per rep and total dd': true,
-    'input - market metrics': true,
-    'sheet2': true
-  };
-
-  var allSheets = ss.getSheets();
-  var owners = {};
-
-  for (var t = 0; t < allSheets.length; t++) {
-    var sheet = allSheets[t];
-    var tabName = sheet.getName().trim();
-    if (SKIP_TABS[tabName.toLowerCase()]) continue;
-
-    var lastRow = sheet.getLastRow();
-    var lastCol = Math.min(sheet.getLastColumn(), 29); // Cap at AC
-    if (lastRow < 10 || lastCol < 15) continue;
-
-    var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-
-    // Find "Production" in column J (index 9)
-    var productionRow = -1;
-    for (var i = 0; i < data.length; i++) {
-      var cellJ = String(data[i][9] || '').trim().toLowerCase();
-      if (cellJ === 'production') {
-        productionRow = i;
-        break;
-      }
-    }
-    if (productionRow < 0) continue;
-
-    // Find the main headers row: look for "Owner Name" in col J below the Production marker
-    var headersRow = -1;
-    for (var i = productionRow + 1; i < Math.min(data.length, productionRow + 15); i++) {
-      var cellJ = String(data[i][9] || '').trim().toLowerCase();
-      if (cellJ === 'owner name') {
-        headersRow = i;
-        break;
-      }
-    }
-    if (headersRow < 0) continue;
-
-    // Build column map from headers (col J onward = index 9+)
-    var headers = [];
-    for (var c = 9; c < data[headersRow].length; c++) {
-      headers.push(String(data[headersRow][c] || '').trim().toLowerCase());
-    }
-
-    var colIdx = function(patterns) {
-      for (var p = 0; p < patterns.length; p++) {
-        for (var i = 0; i < headers.length; i++) {
-          if (headers[i].indexOf(patterns[p]) >= 0) return i;
-        }
-      }
-      return -1;
-    };
-
-    var cols = {
-      ownerName:    colIdx(['owner name']),
-      rep:          colIdx(['rep']),
-      totalVolume:  colIdx(['total volume']),
-      repCount:     colIdx(['rep count']),
-      salesPerRep:  colIdx(['sales per rep']),
-      orderCount:   colIdx(['order count']),
-      ordersBefore: colIdx(['orders before']),
-      earlyPct:     colIdx(['early order']),
-      ordersAfter:  colIdx(['orders after']),
-      latePct:      colIdx(['late order']),
-      internet:     colIdx(['internet']),
-      voip:         colIdx(['voip']),
-      wireless:     colIdx(['wrls']),
-      airAwb:       colIdx(['air/awb', 'air']),
-      weekendPct:   colIdx(['weekend']),
-      tierPct:      colIdx(['tier']),
-      abpPct:       colIdx(['abp']),
-      cruPct:       colIdx(['cru']),
-      newWrlsPct:   colIdx(['new wireless']),
-      byodPct:      colIdx(['byod'])
-    };
-
-    // Read data rows below headers (owner total + reps)
-    var ownerTotal = null;
-    var reps = [];
-
-    for (var i = headersRow + 1; i < data.length; i++) {
-      var row = data[i];
-      var nameVal = cols.ownerName >= 0 ? String(row[9 + cols.ownerName] || '').trim() : '';
-      var repVal = cols.rep >= 0 ? String(row[9 + cols.rep] || '').trim() : '';
-
-      // Owner total row has owner name in col J + "Total" in col K
-      // Rep rows have empty col J and rep name in col K
-      if (!nameVal && !repVal) break; // Both empty = end of section
-
-      var entry = {
-        name: nameVal || repVal,
-        rep: repVal,
-        totalVolume:  cols.totalVolume >= 0 ? num(row[9 + cols.totalVolume]) : 0,
-        repCount:     cols.repCount >= 0 ? num(row[9 + cols.repCount]) : 0,
-        salesPerRep:  cols.salesPerRep >= 0 ? numDec(row[9 + cols.salesPerRep]) : 0,
-        orderCount:   cols.orderCount >= 0 ? num(row[9 + cols.orderCount]) : 0,
-        ordersBefore: cols.ordersBefore >= 0 ? num(row[9 + cols.ordersBefore]) : 0,
-        earlyPct:     cols.earlyPct >= 0 ? numDec(row[9 + cols.earlyPct]) : 0,
-        ordersAfter:  cols.ordersAfter >= 0 ? num(row[9 + cols.ordersAfter]) : 0,
-        latePct:      cols.latePct >= 0 ? numDec(row[9 + cols.latePct]) : 0,
-        internet:     cols.internet >= 0 ? num(row[9 + cols.internet]) : 0,
-        voip:         cols.voip >= 0 ? num(row[9 + cols.voip]) : 0,
-        wireless:     cols.wireless >= 0 ? num(row[9 + cols.wireless]) : 0,
-        airAwb:       cols.airAwb >= 0 ? num(row[9 + cols.airAwb]) : 0,
-        weekendPct:   cols.weekendPct >= 0 ? numDec(row[9 + cols.weekendPct]) : 0,
-        tierPct:      cols.tierPct >= 0 ? numDec(row[9 + cols.tierPct]) : 0,
-        abpPct:       cols.abpPct >= 0 ? numDec(row[9 + cols.abpPct]) : 0,
-        cruPct:       cols.cruPct >= 0 ? numDec(row[9 + cols.cruPct]) : 0,
-        newWrlsPct:   cols.newWrlsPct >= 0 ? numDec(row[9 + cols.newWrlsPct]) : 0,
-        byodPct:      cols.byodPct >= 0 ? numDec(row[9 + cols.byodPct]) : 0
-      };
-
-      // First row is the owner total (rep column = "Total")
-      if (repVal.toLowerCase() === 'total' || !ownerTotal) {
-        ownerTotal = entry;
-      } else {
-        reps.push(entry);
-      }
-    }
-
-    if (ownerTotal) {
-      owners[tabName] = {
-        summary: ownerTotal,
-        reps: reps
-      };
-    }
-  }
-
-  return { owners: owners };
-}
-
 // ── Helper: num with decimal preservation ──
 function numDec(v) {
   if (v === null || v === undefined || v === '') return 0;
@@ -2465,197 +1970,8 @@ function numDec(v) {
   return isNaN(n) ? 0 : Math.round(n * 100) / 100;
 }
 
-// ══════════════════════════════════════════════════
-// IMPORT NLR PRODUCTION → LOCAL _B2B_Production TAB
-// ══════════════════════════════════════════════════
 
-function importNLRProduction() {
-  var nlrResult = readNLRProduction();
-  if (nlrResult.error) return nlrResult;
-  var nlrOwners = nlrResult.owners || {};
-  if (!Object.keys(nlrOwners).length) return { error: 'No production data found in NLR sheet' };
 
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
-  } catch (err) {
-    return { error: 'Cannot open national sheet: ' + err.message };
-  }
-
-  var TAB_NAME = '_B2B_Production';
-  var HEADERS = ['Owner', 'Type', 'Name', 'Rep', 'TotalVolume', 'RepCount', 'SalesPerRep',
-    'OrderCount', 'OrdersBefore', 'EarlyPct', 'OrdersAfter', 'LatePct',
-    'Internet', 'VOIP', 'Wireless', 'AirAwb', 'WeekendPct', 'TierPct',
-    'AbpPct', 'CruPct', 'NewWrlsPct', 'ByodPct'];
-
-  var sheet = ss.getSheetByName(TAB_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(TAB_NAME);
-    sheet.appendRow(HEADERS);
-  } else {
-    var lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, HEADERS.length).clearContent();
-    }
-  }
-
-  var rows = [];
-  var ownerNames = Object.keys(nlrOwners).sort();
-  for (var o = 0; o < ownerNames.length; o++) {
-    var oName = ownerNames[o];
-    var d = nlrOwners[oName];
-
-    // Write summary row
-    var s = d.summary;
-    rows.push([oName, 'summary', s.name, s.rep, s.totalVolume, s.repCount, s.salesPerRep,
-      s.orderCount, s.ordersBefore, s.earlyPct, s.ordersAfter, s.latePct,
-      s.internet, s.voip, s.wireless, s.airAwb, s.weekendPct, s.tierPct,
-      s.abpPct, s.cruPct, s.newWrlsPct, s.byodPct]);
-
-    // Write rep rows
-    for (var r = 0; r < d.reps.length; r++) {
-      var rep = d.reps[r];
-      rows.push([oName, 'rep', rep.name, rep.rep, rep.totalVolume, rep.repCount, rep.salesPerRep,
-        rep.orderCount, rep.ordersBefore, rep.earlyPct, rep.ordersAfter, rep.latePct,
-        rep.internet, rep.voip, rep.wireless, rep.airAwb, rep.weekendPct, rep.tierPct,
-        rep.abpPct, rep.cruPct, rep.newWrlsPct, rep.byodPct]);
-    }
-  }
-
-  if (rows.length) {
-    sheet.getRange(2, 1, rows.length, HEADERS.length).setValues(rows);
-  }
-
-  return { success: true, ownersImported: ownerNames.length, rowsWritten: rows.length };
-}
-
-// ══════════════════════════════════════════════════
-// READ LOCAL PRODUCTION from _B2B_Production tab
-// Returns { owners: { "Name": { summary: {...}, reps: [{...}] } } }
-// ══════════════════════════════════════════════════
-
-function readLocalProduction() {
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
-  } catch (err) {
-    return { owners: {} };
-  }
-
-  var sheet = ss.getSheetByName('_B2B_Production');
-  if (!sheet) return { owners: {} };
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return { owners: {} };
-
-  var owners = {};
-  for (var i = 1; i < data.length; i++) {
-    var oName = String(data[i][0] || '').trim();
-    if (!oName) continue;
-    var type = String(data[i][1] || '').trim();
-
-    var entry = {
-      name:         String(data[i][2] || ''),
-      rep:          String(data[i][3] || ''),
-      totalVolume:  num(data[i][4]),
-      repCount:     num(data[i][5]),
-      salesPerRep:  numDec(data[i][6]),
-      orderCount:   num(data[i][7]),
-      ordersBefore: num(data[i][8]),
-      earlyPct:     numDec(data[i][9]),
-      ordersAfter:  num(data[i][10]),
-      latePct:      numDec(data[i][11]),
-      internet:     num(data[i][12]),
-      voip:         num(data[i][13]),
-      wireless:     num(data[i][14]),
-      airAwb:       num(data[i][15]),
-      weekendPct:   numDec(data[i][16]),
-      tierPct:      numDec(data[i][17]),
-      abpPct:       numDec(data[i][18]),
-      cruPct:       numDec(data[i][19]),
-      newWrlsPct:   numDec(data[i][20]),
-      byodPct:      numDec(data[i][21])
-    };
-
-    if (!owners[oName]) {
-      owners[oName] = { summary: null, reps: [] };
-    }
-
-    if (type === 'summary') {
-      owners[oName].summary = entry;
-    } else {
-      owners[oName].reps.push(entry);
-    }
-  }
-
-  return { owners: owners };
-}
-
-// ══════════════════════════════════════════════════
-// READ LOCAL HEADCOUNT from _B2B_Headcount tab
-// Returns same shape as readNLRHeadcount():
-// { owners: { "Name": { current: {...}, trend: [{...}] } } }
-// ══════════════════════════════════════════════════
-
-function readLocalHeadcount() {
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
-  } catch (err) {
-    return { error: 'Cannot open national sheet: ' + err.message, owners: {} };
-  }
-
-  var sheet = ss.getSheetByName('_B2B_Headcount');
-  if (!sheet) return { owners: {} };
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return { owners: {} };
-
-  // Header row 0: Owner | Date | Active | Leaders | Dist | Training | Internet | Wireless | DTV | Goals
-  var owners = {};
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    var name = String(row[0] || '').trim();
-    if (!name) continue;
-
-    var inet = num(row[6]);
-    var wrls = num(row[7]);
-    var dtvVal = num(row[8]);
-    var goalsRaw = String(row[9] || '');
-
-    // Determine active categories from non-zero data across ALL rows for this owner
-    // (simple approach: include category if column has any value)
-    var cats = [];
-    if (inet > 0 || row[6] !== '') cats.push('internet');
-    if (wrls > 0 || row[7] !== '') cats.push('wireless');
-    if (dtvVal > 0 || row[8] !== '') cats.push('dtv');
-    // Fallback: if no categories detected yet, use all three
-    if (!cats.length) cats = ['internet', 'wireless', 'dtv'];
-
-    var entry = {
-      date:     _normalizeDate(row[1]),
-      active:   num(row[2]),
-      leaders:  num(row[3]),
-      dist:     num(row[4]),
-      training: num(row[5]),
-      internet: inet,
-      wireless: wrls,
-      dtv:      dtvVal,
-      goalsRaw: goalsRaw,
-      production: _parseProductionGoals(cats, inet, wrls, dtvVal, goalsRaw),
-      productionLW: (inet || 0) + (wrls || 0) + (dtvVal || 0),
-      productionGoals: _sumGoals(goalsRaw)
-    };
-
-    if (!owners[name]) {
-      owners[name] = { current: entry, trend: [] };
-    }
-    owners[name].trend.push(entry);
-    owners[name].current = entry; // Last row wins as "current"
-  }
-
-  return { owners: owners };
-}
 
 // ══════════════════════════════════════════════════
 // OWNER NLR DATA — lazy load single owner from mapped NLR workbook
@@ -2868,8 +2184,8 @@ function readOwnerNlrData(ownerName, campaignFilter) {
 }
 
 // ══════════════════════════════════════════════════
-// UPDATE HEADCOUNT ROW in _B2B_Headcount tab
-// Finds row by Owner (col A) + Date (col B), updates cols C-F
+// UPDATE HEADCOUNT ROW in consolidated campaign tab
+// Finds row by Owner + Date, updates Active HC / Leaders / Dist / Training
 // ══════════════════════════════════════════════════
 
 function updateHeadcountRow(ownerName, date, active, leaders, dist, training, campaignLabel) {
@@ -2965,38 +2281,9 @@ function updateHeadcountRow(ownerName, date, active, leaders, dist, training, ca
     return { ok: true, row: targetRow, owner: ownerName, date: formatDate(targetDate), tab: campaignLabel };
   }
 
-  // Legacy fallback: _B2B_Headcount tab
-  var sheet = ss.getSheetByName('_B2B_Headcount');
-  if (!sheet) return { error: '_B2B_Headcount tab not found' };
-
-  var data = sheet.getDataRange().getValues();
-  var normDate = _normalizeDate(date);
-  var targetRow = -1;
-
-  for (var i = 1; i < data.length; i++) {
-    var rowOwner = String(data[i][0] || '').trim();
-    var rowDate  = _normalizeDate(data[i][1]);
-    if (rowOwner === ownerName && rowDate === normDate) {
-      targetRow = i + 1;
-      break;
-    }
-  }
-
-  if (targetRow === -1) {
-    return { error: 'Row not found for owner "' + ownerName + '" date "' + normDate + '"' };
-  }
-
-  sheet.getRange(targetRow, 3, 1, 4).setValues([
-    [parseInt(active) || 0, parseInt(leaders) || 0, parseInt(dist) || 0, parseInt(training) || 0]
-  ]);
-
-  return { ok: true, row: targetRow, owner: ownerName, date: normDate };
+  // campaignLabel is required — no fallback
+  return { error: 'campaignLabel is required to update headcount' };
 }
-
-// ══════════════════════════════════════════════════
-// UPDATE PRODUCTION ROW in _B2B_Headcount tab
-// Finds row by Owner (col A) + Date (col B), updates cols G-J (Internet, Wireless, DTV, Goals)
-// ══════════════════════════════════════════════════
 
 /**
  * Save goals for next week into the consolidated campaign tab.
@@ -3168,18 +2455,66 @@ function updateProductionRow(ownerName, date, campaignLabel, products, internet,
       }
     }
 
-    if (targetRow === -1) {
-      // If date-specific match failed, fall back to most recent row for this owner
+    // After finding a date-matched row, check if a newer row exists for this owner.
+    // If it does and has no production yet, redirect the write there — guards against
+    // stale frontend dates writing to an older week when a newer row already exists.
+    if (targetRow !== -1 && normDate) {
+      var colWeekCheck = colMap['Week'];
+      var targetDateMs = new Date(normDate).getTime();
+      var newerRow = -1;
+      var newerDateMs = targetDateMs;
       for (var i = 1; i < data.length; i++) {
-        var rowOwner = String(data[i][colOwner] || '').trim();
-        if (rowOwner.toLowerCase() === ownerName.toLowerCase()) {
-          targetRow = i + 1;
-          targetDate = colMap['Week'] !== undefined ? data[i][colMap['Week']] : '';
-          break;
+        var ro = String(data[i][colOwner] || '').trim();
+        if (ro.toLowerCase() !== ownerName.toLowerCase()) continue;
+        var rd = colWeekCheck !== undefined ? _normalizeDate(data[i][colWeekCheck]) : '';
+        if (!rd) continue;
+        var rdMs = new Date(rd).getTime();
+        if (rdMs > newerDateMs) { newerRow = i + 1; newerDateMs = rdMs; }
+      }
+      if (newerRow !== -1) {
+        // A newer row exists — check its production
+        var colProdCheck = colMap['Prod: Units'] !== undefined ? colMap['Prod: Units']
+          : (colMap['Production LW'] !== undefined ? colMap['Production LW'] : colMap['Production']);
+        if (colProdCheck === undefined) {
+          for (var hk in colMap) { if (hk.indexOf('Prod: ') === 0) { colProdCheck = colMap[hk]; break; } }
+        }
+        var newerProd = colProdCheck !== undefined ? (parseInt(data[newerRow - 1][colProdCheck]) || 0) : 0;
+        if (newerProd > 0) {
+          // Newer row already has production — don't overwrite it, and don't write to the stale row either
+          Logger.log('updateProductionRow: skipping "' + ownerName + '" — newer row at row ' + newerRow + ' already has prod ' + newerProd);
+          return { ok: true, skipped: true, reason: 'newer-row-has-production', owner: ownerName };
+        }
+        // Newer row has no production — redirect the write there
+        Logger.log('updateProductionRow: redirecting "' + ownerName + '" from stale row ' + targetRow + ' to newer row ' + newerRow);
+        targetRow = newerRow;
+        targetDate = data[newerRow - 1][colWeekCheck] || '';
+      }
+    }
+
+    if (targetRow === -1) {
+      // If no date was provided, fall back to the first row for this owner
+      if (!normDate) {
+        for (var i = 1; i < data.length; i++) {
+          var rowOwner = String(data[i][colOwner] || '').trim();
+          if (rowOwner.toLowerCase() === ownerName.toLowerCase()) {
+            targetRow = i + 1;
+            targetDate = colMap['Week'] !== undefined ? data[i][colMap['Week']] : '';
+            break;
+          }
         }
       }
+      // Date was provided but no matching row found, or no rows exist — append a new one
       if (targetRow === -1) {
-        return { error: 'No row found for owner "' + ownerName + '" in "' + campaignLabel + '"' };
+        var newRow = new Array(headers.length).fill('');
+        newRow[colOwner] = ownerName;
+        var colWeek = colMap['Week'];
+        if (colWeek !== undefined && normDate) newRow[colWeek] = date;
+        sheet.appendRow(newRow);
+        // Re-read to get the new row index
+        data = sheet.getDataRange().getValues();
+        targetRow = data.length; // last row
+        targetDate = normDate || '';
+        Logger.log('updateProductionRow: no existing row for "' + ownerName + '" — appended new row at ' + targetRow);
       }
     }
 
@@ -3201,7 +2536,18 @@ function updateProductionRow(ownerName, date, campaignLabel, products, internet,
     } else {
       // Legacy fallback: single Production LW / Production Goals columns
       var colProd = colMap['Production LW'] !== undefined ? colMap['Production LW'] : colMap['Production'];
+      // Further fallback: any 'Prod: *' column (e.g. att-b2b uses 'Prod: Units')
+      if (colProd === undefined) {
+        for (var hk in colMap) {
+          if (hk.indexOf('Prod: ') === 0) { colProd = colMap[hk]; break; }
+        }
+      }
       var colGoals = colMap['Production Goals'] !== undefined ? colMap['Production Goals'] : colMap['Goals'];
+      if (colGoals === undefined) {
+        for (var hk in colMap) {
+          if (hk.indexOf('Goal: ') === 0) { colGoals = colMap[hk]; break; }
+        }
+      }
       if (colProd !== undefined) sheet.getRange(targetRow, colProd + 1).setValue(parseInt(internet) || 0);
       if (colGoals !== undefined) sheet.getRange(targetRow, colGoals + 1).setValue(parseInt(goals) || 0);
       written.push('prod=' + (internet || 0) + ' goals=' + (goals || 0));
@@ -4111,14 +3457,9 @@ function _formatCellDate(v) {
   return String(v).trim();
 }
 
-// ══════════════════════════════════════════════════
-// READ NDS HEADCOUNT from external NDS One-on-Ones sheet
-// Reads specified owner tabs (or all owner tabs) and returns
-// headcount/production data in the same shape as readNLRHeadcount().
-// ══════════════════════════════════════════════════
-
 // NDS data sources: One-on-Ones sheet + NLR NDS report
 // Each entry: { sheetId, tabs } — tabs is array of tab names to read
+// Used by readNDSProduction() below
 var NDS_SOURCES = [
   { sheetId: 'NDS_ONE_ON_ONES', tabs: ['Sam Poles'] },
   { sheetId: 'NLR_NDS',         tabs: null }  // null = read ALL owner tabs (skip known non-owner tabs)
@@ -4131,267 +3472,13 @@ var NDS_SKIP_TABS = {
   'sheet1': true, 'sheet2': true, 'sheet3': true
 };
 
-function readNDSHeadcount() {
-  var owners = {};
 
-  for (var s = 0; s < NDS_SOURCES.length; s++) {
-    var src = NDS_SOURCES[s];
-    var id = SHEETS[src.sheetId];
-    if (!id) continue;
 
-    var ss;
-    try {
-      ss = SpreadsheetApp.openById(id);
-    } catch (err) {
-      Logger.log('Cannot open ' + src.sheetId + ': ' + err.message);
-      continue;
-    }
-
-    // Determine which tabs to read
-    var tabsToRead = src.tabs;
-    if (!tabsToRead) {
-      // Read all tabs, skip known non-owner tabs
-      tabsToRead = ss.getSheets().map(function(sh) { return sh.getName(); })
-        .filter(function(name) { return !NDS_SKIP_TABS[name.toLowerCase().trim()]; });
-    }
-
-    for (var t = 0; t < tabsToRead.length; t++) {
-      var tabName = tabsToRead[t];
-      var sheet = ss.getSheetByName(tabName);
-      if (!sheet) { Logger.log('NDS tab not found: ' + tabName + ' in ' + src.sheetId); continue; }
-
-    // Read top ~50 rows (office health section is at top, recruiting starts around row 48)
-    var lastRow = Math.min(sheet.getLastRow(), 50);
-    if (lastRow < 2) continue;
-    var lastCol = Math.min(sheet.getLastColumn(), 18); // cols A-R
-    var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-
-    // Row 0 = headers — use header-based column mapping
-    var headers = data[0].map(function(h) { return String(h).toLowerCase().trim(); });
-
-    var colMap = {
-      dates:          findCol(headers, ['dates', 'date']),
-      active:         findCol(headers, ['active']),
-      leaders:        findCol(headers, ['leaders']),
-      dist:           findCol(headers, ['dist']),
-      training:       findCol(headers, ['training']),
-      productionLW:   findCol(headers, ['production lw']),
-      productionGoals:findCol(headers, ['production goals', 'production goal', 'goals'])
-    };
-
-    if (colMap.dates < 0 && colMap.active < 0) continue;
-
-    // Also map recruiting funnel columns (same row, cols H onward)
-    var rcMap = {
-      firstRoundsBooked:  findCol(headers, ['1st rounds booked', '1st round booked']),
-      firstRoundsShowed:  findCol(headers, ['1st rounds showed', '1st round showed']),
-      turnedTo2nd:        findCol(headers, ['turned to 2nd']),
-      retention1:         _findNthCol(headers, ['retention'], 1),
-      conversion:         findCol(headers, ['conversion']),
-      secondRoundsBooked: findCol(headers, ['2nd rounds booked', '2nd round booked']),
-      secondRoundsShowed: findCol(headers, ['2nd rounds showed', '2nd round showed']),
-      retention2:         _findNthCol(headers, ['retention'], 2),
-      newStartScheduled:  findCol(headers, ['new start scheduled', 'new starts scheduled']),
-      newStartsShowed:    findCol(headers, ['new starts showed']),
-      retention3:         _findNthCol(headers, ['retention'], 3)
-    };
-
-    var trend = [];
-    var lastGood = null;
-    for (var i = 1; i < data.length; i++) {
-      var row = data[i];
-
-      // Date gate
-      var dateCell = colMap.dates >= 0 ? row[colMap.dates] : null;
-      if (!dateCell) continue;
-      if (!(dateCell instanceof Date)) {
-        var parsed = new Date(dateCell);
-        if (isNaN(parsed.getTime())) continue;
-      }
-
-      var hasActive = colMap.active >= 0 && row[colMap.active] !== '' && row[colMap.active] !== null;
-      var hasProd   = colMap.productionLW >= 0 && row[colMap.productionLW] !== '' && row[colMap.productionLW] !== null;
-      if (!hasActive && !hasProd) continue;
-
-      var entry = {
-        date:            colMap.dates >= 0 ? formatDate(row[colMap.dates]) : '',
-        active:          colMap.active >= 0 ? num(row[colMap.active]) : 0,
-        leaders:         colMap.leaders >= 0 ? num(row[colMap.leaders]) : 0,
-        dist:            colMap.dist >= 0 ? num(row[colMap.dist]) : 0,
-        training:        colMap.training >= 0 ? num(row[colMap.training]) : 0,
-        productionLW:    colMap.productionLW >= 0 ? num(row[colMap.productionLW]) : 0,
-        productionGoals: colMap.productionGoals >= 0 ? num(row[colMap.productionGoals]) : 0,
-        // Recruiting funnel
-        firstRoundsBooked:  rcMap.firstRoundsBooked >= 0 ? num(row[rcMap.firstRoundsBooked]) : 0,
-        firstRoundsShowed:  rcMap.firstRoundsShowed >= 0 ? num(row[rcMap.firstRoundsShowed]) : 0,
-        turnedTo2nd:        rcMap.turnedTo2nd >= 0 ? num(row[rcMap.turnedTo2nd]) : 0,
-        retention1:         rcMap.retention1 >= 0 ? numDec(row[rcMap.retention1]) : 0,
-        conversion:         rcMap.conversion >= 0 ? numDec(row[rcMap.conversion]) : 0,
-        secondRoundsBooked: rcMap.secondRoundsBooked >= 0 ? num(row[rcMap.secondRoundsBooked]) : 0,
-        secondRoundsShowed: rcMap.secondRoundsShowed >= 0 ? num(row[rcMap.secondRoundsShowed]) : 0,
-        retention2:         rcMap.retention2 >= 0 ? numDec(row[rcMap.retention2]) : 0,
-        newStartScheduled:  rcMap.newStartScheduled >= 0 ? num(row[rcMap.newStartScheduled]) : 0,
-        newStartsShowed:    rcMap.newStartsShowed >= 0 ? num(row[rcMap.newStartsShowed]) : 0,
-        retention3:         rcMap.retention3 >= 0 ? numDec(row[rcMap.retention3]) : 0
-      };
-      trend.push(entry);
-      lastGood = entry;
-    }
-
-    if (lastGood) {
-      owners[tabName] = { current: lastGood, trend: trend };
-    }
-    } // end tabs loop
-  } // end sources loop
-
-  return { owners: owners };
-}
-
-// ── Helper: find Nth occurrence of a header (for repeated "Retention" columns) ──
-function _findNthCol(headers, patterns, n) {
-  var count = 0;
-  for (var i = 0; i < headers.length; i++) {
-    for (var p = 0; p < patterns.length; p++) {
-      if (headers[i] === patterns[p]) {
-        count++;
-        if (count === n) return i;
-      }
-    }
-  }
-  return -1;
-}
-
-// ══════════════════════════════════════════════════
-// IMPORT NDS HEADCOUNT → LOCAL _NDS_Headcount TAB
-// Reads from NDS One-on-Ones sheet, writes into Ken's national sheet.
-// Tab format: Owner | Date | Active | Leaders | Dist | Training | ProductionLW | ProductionGoals |
-//             1stBooked | 1stShowed | TurnedTo2nd | Ret1 | Conversion |
-//             2ndBooked | 2ndShowed | Ret2 | NewStartSched | NewStartsShowed | Ret3
-// ══════════════════════════════════════════════════
-
-function importNDSHeadcount() {
-  // 1. Read from NDS spreadsheet
-  var ndsResult = readNDSHeadcount();
-  if (ndsResult.error) return ndsResult;
-  var ndsOwners = ndsResult.owners || {};
-  if (!Object.keys(ndsOwners).length) return { error: 'No owner data found in NDS sheet' };
-
-  // 2. Open Ken's national sheet
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
-  } catch (err) {
-    return { error: 'Cannot open national sheet: ' + err.message };
-  }
-
-  // 3. Get or create _NDS_Headcount tab
-  var TAB_NAME = '_NDS_Headcount';
-  var HEADERS = [
-    'Owner', 'Date', 'Active', 'Leaders', 'Dist', 'Training', 'ProductionLW', 'ProductionGoals',
-    '1stBooked', '1stShowed', 'TurnedTo2nd', 'Ret1', 'Conversion',
-    '2ndBooked', '2ndShowed', 'Ret2', 'NewStartSched', 'NewStartsShowed', 'Ret3'
-  ];
-  var sheet = ss.getSheetByName(TAB_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(TAB_NAME);
-    sheet.appendRow(HEADERS);
-  } else {
-    var lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, HEADERS.length).clearContent();
-    }
-  }
-
-  // Name aliases: tab name → canonical owner name (for matching with recruiting data)
-  var NAME_ALIASES = {
-    'Sam Poles': 'Samih Poles'
-  };
-
-  // 4. Build rows
-  var rows = [];
-  var ownerNames = Object.keys(ndsOwners).sort();
-  for (var o = 0; o < ownerNames.length; o++) {
-    var rawName = ownerNames[o];
-    var name = NAME_ALIASES[rawName] || rawName;
-    var ownerData = ndsOwners[rawName];
-    var trend = ownerData.trend || [];
-    for (var t = 0; t < trend.length; t++) {
-      var e = trend[t];
-      rows.push([
-        name, e.date, e.active, e.leaders, e.dist, e.training, e.productionLW, e.productionGoals,
-        e.firstRoundsBooked, e.firstRoundsShowed, e.turnedTo2nd, e.retention1, e.conversion,
-        e.secondRoundsBooked, e.secondRoundsShowed, e.retention2, e.newStartScheduled, e.newStartsShowed, e.retention3
-      ]);
-    }
-  }
-
-  // 5. Write all rows
-  if (rows.length) {
-    sheet.getRange(2, 1, rows.length, HEADERS.length).setValues(rows);
-  }
-
-  return { success: true, ownersImported: ownerNames.length, rowsWritten: rows.length };
-}
-
-// ══════════════════════════════════════════════════
-// READ LOCAL NDS HEADCOUNT from _NDS_Headcount tab
-// Returns same shape as readNLRHeadcount():
-// { owners: { "Name": { current: {...}, trend: [{...}] } } }
-// ══════════════════════════════════════════════════
-
-function readLocalNDSHeadcount() {
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SHEETS.NATIONAL);
-  } catch (err) {
-    return { error: 'Cannot open national sheet: ' + err.message, owners: {} };
-  }
-
-  var sheet = ss.getSheetByName('_NDS_Headcount');
-  if (!sheet) return { owners: {} };
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return { owners: {} };
-
-  var owners = {};
-  for (var i = 1; i < data.length; i++) {
-    var oName = String(data[i][0] || '').trim();
-    if (!oName) continue;
-
-    var entry = {
-      date:            formatDate(data[i][1]),
-      active:          num(data[i][2]),
-      leaders:         num(data[i][3]),
-      dist:            num(data[i][4]),
-      training:        num(data[i][5]),
-      productionLW:    num(data[i][6]),
-      productionGoals: num(data[i][7]),
-      firstRoundsBooked:  num(data[i][8]),
-      firstRoundsShowed:  num(data[i][9]),
-      turnedTo2nd:        num(data[i][10]),
-      retention1:         numDec(data[i][11]),
-      conversion:         numDec(data[i][12]),
-      secondRoundsBooked: num(data[i][13]),
-      secondRoundsShowed: num(data[i][14]),
-      retention2:         numDec(data[i][15]),
-      newStartScheduled:  num(data[i][16]),
-      newStartsShowed:    num(data[i][17]),
-      retention3:         numDec(data[i][18])
-    };
-
-    if (!owners[oName]) owners[oName] = { current: null, trend: [] };
-    owners[oName].trend.push(entry);
-    owners[oName].current = entry; // last row wins
-  }
-
-  return { owners: owners };
-}
 
 // ══════════════════════════════════════════════════
 // READ NDS PRODUCTION/SALES from NDS One-on-Ones sheet
 // Finds "Rep" in column A, reads headers + data rows.
-// Returns same shape as readNLRProduction():
-// { owners: { "Tab Name": { summary: {...}, reps: [{...}] } } }
+// Returns { owners: { "Tab Name": { summary: {...}, reps: [{...}] } } }
 // ══════════════════════════════════════════════════
 
 function readNDSProduction() {
@@ -4671,7 +3758,7 @@ function readB2BOwnerSales(ownerName) {
     }
   }
 
-  // Find best match: exact → starts-with → contains
+  // Find best match: exact → contains → last name match
   var matchIdx = -1;
   for (var m = 0; m < ownerRows.length; m++) {
     if (ownerRows[m].nameLc === ownerLower) { matchIdx = ownerRows[m].idx; break; }
@@ -4679,6 +3766,18 @@ function readB2BOwnerSales(ownerName) {
   if (matchIdx < 0) {
     for (var m = 0; m < ownerRows.length; m++) {
       if (ownerRows[m].nameLc.indexOf(ownerLower) >= 0 || ownerLower.indexOf(ownerRows[m].nameLc) >= 0) { matchIdx = ownerRows[m].idx; break; }
+    }
+  }
+  // Last name match: "Alex Badawi" ↔ "Alexander Badawi" (same last name)
+  if (matchIdx < 0) {
+    var ownerParts = ownerLower.split(/\s+/);
+    var ownerLast = ownerParts.length > 1 ? ownerParts[ownerParts.length - 1] : '';
+    if (ownerLast) {
+      for (var m = 0; m < ownerRows.length; m++) {
+        var rowParts = ownerRows[m].nameLc.split(/\s+/);
+        var rowLast = rowParts.length > 1 ? rowParts[rowParts.length - 1] : '';
+        if (rowLast && rowLast === ownerLast) { matchIdx = ownerRows[m].idx; break; }
+      }
     }
   }
 
@@ -4705,7 +3804,26 @@ function readB2BOwnerSales(ownerName) {
     }
   }
 
-  if (!summary) return { error: 'Owner not found: ' + ownerName };
+  // ── MCOE Sales — extracted unconditionally, before any early returns ──
+  // Must happen here so owners with no Tableau data still get their MCOE card.
+  var mcoeSales = null;
+  var srcSS = null;
+  try {
+    srcSS = SpreadsheetApp.openById(OD_CAMPAIGNS['att-b2b'].sheetId);
+    mcoeSales = _extractMcoeSales_(srcSS, ownerName);
+    Logger.log('readB2BOwnerSales: MCOE for "' + ownerName + '": ' + (mcoeSales ? mcoeSales.length + ' rows' : 'null'));
+  } catch (e) {
+    Logger.log('readB2BOwnerSales: MCOE read failed for "' + ownerName + '": ' + e.message);
+  }
+
+  if (!summary) {
+    Logger.log('readB2BOwnerSales: no Tableau match for "' + ownerName + '" — available owners: ' + ownerRows.map(function(r) { return r.name; }).join(', '));
+    // Still return MCOE if we have it — don't block the card on Tableau data
+    if (mcoeSales) {
+      return { summary: null, reps: [], dailyActivity: [], marketFulfillment: null, avgPaychecks: null, mcoeSales: mcoeSales, tab: 'B2B Sales Metrics' };
+    }
+    return { error: 'Owner not found: ' + ownerName };
+  }
   summary.repCount = reps.length;
 
   // Read daily activity data
@@ -4732,11 +3850,11 @@ function readB2BOwnerSales(ownerName) {
     }
   }
 
-  // Read Market Fulfillment and Average Paychecks from source 1-on-1 sheet
+  // Read Market Fulfillment and Average Paychecks from owner's source tab
   var marketFulfillment = null;
   var avgPaychecks = null;
   try {
-    var srcSS = SpreadsheetApp.openById(OD_CAMPAIGNS['att-b2b'].sheetId);
+    if (!srcSS) srcSS = SpreadsheetApp.openById(OD_CAMPAIGNS['att-b2b'].sheetId);
     var ownerTab = _findOwnerTab_(srcSS, ownerName);
     if (ownerTab) {
       var range = ownerTab.getDataRange();
@@ -4746,14 +3864,72 @@ function readB2BOwnerSales(ownerName) {
       avgPaychecks = _extractAvgPaychecks_(srcData, srcDisplay);
     }
   } catch (e) {
-    Logger.log('readB2BOwnerSales: source data read failed: ' + e.message);
+    Logger.log('readB2BOwnerSales: source tab read failed: ' + e.message);
   }
 
   return {
     summary: summary, reps: reps, dailyActivity: dailyActivity,
     marketFulfillment: marketFulfillment, avgPaychecks: avgPaychecks,
+    mcoeSales: mcoeSales,
     tab: 'B2B Sales Metrics'
   };
+}
+
+/**
+ * Extract MCOE Sales rows for an owner from the "INPUT - MCOE Weekly Sales" tab.
+ * Returns an array of { office, aiaCnt, byodCnt, phoneCnt, totalLines } objects,
+ * one per matching row (owner may have multiple ICD offices).
+ * Skips the "Grand Total" row.
+ */
+function _extractMcoeSales_(srcSS, ownerName) {
+  var tab = srcSS.getSheetByName('INPUT - MCOE Weekly Sales');
+  if (!tab) { Logger.log('_extractMcoeSales_: tab "INPUT - MCOE Weekly Sales" not found'); return null; }
+  if (tab.getLastRow() < 2) { Logger.log('_extractMcoeSales_: tab is empty'); return null; }
+
+  var data = tab.getDataRange().getValues();
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+  Logger.log('_extractMcoeSales_: headers = ' + JSON.stringify(headers));
+
+  var nameCol    = headers.indexOf('Name (ICD Office)');
+  var aiaCol     = headers.indexOf('AIA Cnt');
+  var byodCol    = headers.indexOf('BYOD Cnt');
+  var phoneCol   = headers.indexOf('Phone Cnt');
+  var totalCol   = headers.indexOf('Total Lines Count');
+
+  if (nameCol < 0) {
+    Logger.log('_extractMcoeSales_: "Name (ICD Office)" column not found in headers: ' + JSON.stringify(headers));
+    return null;
+  }
+
+  var ownerLower = ownerName.toLowerCase().trim();
+  var ownerParts = ownerLower.split(/\s+/);
+  var ownerLast  = ownerParts.length > 1 ? ownerParts[ownerParts.length - 1] : '';
+
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    var cellName = String(data[i][nameCol] || '').trim();
+    if (!cellName) continue;
+    if (cellName.toLowerCase() === 'grand total') continue;
+
+    // Match: name cell contains the owner's full name or last name
+    var cellLower = cellName.toLowerCase();
+    var matched = cellLower === ownerLower
+      || cellLower.indexOf(ownerLower) >= 0
+      || ownerLower.indexOf(cellLower) >= 0
+      || (ownerLast && cellLower.indexOf(ownerLast) >= 0);
+
+    if (!matched) continue;
+
+    rows.push({
+      office:     cellName,
+      aiaCnt:     parseInt(data[i][aiaCol])   || 0,
+      byodCnt:    parseInt(data[i][byodCol])  || 0,
+      phoneCnt:   parseInt(data[i][phoneCol]) || 0,
+      totalLines: parseInt(data[i][totalCol]) || 0
+    });
+  }
+
+  return rows.length > 0 ? rows : null;
 }
 
 /** Format helpers for B2B source data */
@@ -4826,7 +4002,7 @@ function _extractMarketFulfillment_(data, ownerName, displayData) {
     if (h.indexOf('dma') >= 0) colDMA = c;
     else if (h.indexOf('total workable') >= 0) colWorkable = c;
     else if (h.indexOf('total') >= 0 && h.indexOf('workable') < 0 && h.indexOf('weekly') < 0 && colTotal < 0) colTotal = c;
-    else if (h.indexOf('actual pen') >= 0) colPen = c;
+    else if (h.indexOf('actual pen') >= 0 || h.indexOf('pen %') >= 0 || h.indexOf('% pen') >= 0 || h.indexOf('pen rate') >= 0 || (h.indexOf('penetration') >= 0 && h.indexOf('%') >= 0)) colPen = c;
     else if (h.indexOf('weekly total') >= 0) colWeeklyTotal = c;
     else if (h.indexOf('weekly cru') >= 0) colWeeklyCRU = c;
     else if (h.match(/^\d{1,2}\/\d{1,2}/)) dateCols.push({ idx: c, label: headers[c] });
@@ -5615,7 +4791,7 @@ function getOwnerNamesForCampaign_(cfg, ss) {
       if (SKIP_TABS_.indexOf(tName.toLowerCase()) >= 0) continue;
       owners.push(tName);
     }
-    return owners;
+    return _applyExcludeOwners(owners, cfg);
   }
 
   // ── Strategy 2b: Visible (non-hidden) tab names as owners (AT&T B2B) ──
@@ -5634,7 +4810,7 @@ function getOwnerNamesForCampaign_(cfg, ss) {
       owners2.push(tName2);
     }
     Logger.log('getOwnerNames visible-tabs: ' + owners2.length + ' visible owners');
-    return owners2;
+    return _applyExcludeOwners(owners2, cfg);
   }
 
   // ── Strategy 3: Section header in a specific tab (Lumen) ──
@@ -5684,7 +4860,7 @@ function getOwnerNamesForCampaign_(cfg, ss) {
       owners.push(val);
     }
     Logger.log('getOwnerNames sectionHeader: returning ' + owners.length + ' owners: ' + owners.join(', '));
-    return owners;
+    return _applyExcludeOwners(owners, cfg);
   }
 
   // ── Strategy 1 (Default): Column A from first tab ──
@@ -5701,7 +4877,22 @@ function getOwnerNamesForCampaign_(cfg, ss) {
         valLower.indexOf('header') >= 0 || valLower.indexOf('average') >= 0) continue;
     owners.push(val);
   }
-  return owners;
+  return _applyExcludeOwners(owners, cfg);
+}
+
+/**
+ * Filter out explicitly excluded owner names (case-insensitive).
+ * Works with any owner-source strategy — applied as a final pass.
+ */
+function _applyExcludeOwners(owners, cfg) {
+  if (!cfg.excludeOwners || !cfg.excludeOwners.length) return owners;
+  var excludeSet = {};
+  for (var i = 0; i < cfg.excludeOwners.length; i++) {
+    excludeSet[cfg.excludeOwners[i].toLowerCase()] = true;
+  }
+  return owners.filter(function(name) {
+    return !excludeSet[name.toLowerCase()];
+  });
 }
 
 /**
@@ -8042,13 +7233,18 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
       var range = tab.getDataRange();
       var data = range.getValues();
       var displayData = range.getDisplayValues();
-      if (!data || data.length < 2) continue;
+      if (!data || data.length < 2) { Logger.log('consolidateCampaignSlim_ SKIP ' + ownerName + ': <2 rows'); continue; }
 
       var sections = findSections(data);
 
       // Extract health (for production only) and recruiting
       var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, displayData, campaignKey);
       var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End, campaignKey);
+
+      // Debug: log extraction results for owners with no data
+      if (!healthRows.length && !recruitingRows.length) {
+        Logger.log('consolidateCampaignSlim_ EMPTY ' + ownerName + ': sections=' + JSON.stringify(sections) + ' rows=' + data.length + ' tab=' + tab.getName());
+      }
 
       // +7 day offset for non-LeafGuard
       if (campaignKey !== 'leafguard') {

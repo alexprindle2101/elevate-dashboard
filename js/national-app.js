@@ -131,7 +131,7 @@ const NationalApp = {
       this._showLoading('Loading campaign data...');
       try {
         await Promise.all([
-          this._fetchPlanningSchedule(),
+          Promise.race([this._fetchPlanningSchedule(), new Promise(resolve => setTimeout(resolve, 8000))]),
           this.selectCampaign(campaign)
         ]);
       } catch (err) {
@@ -141,7 +141,11 @@ const NationalApp = {
     } else {
       // Landing page — fetch planning + campaign data together, show loading until both ready
       this._showLoading('Loading coaching data...');
-      const planningPromise = this._fetchPlanningSchedule();
+      // Wrap planning in a timeout so a slow/hung Apps Script response never blocks the spinner
+      const planningPromise = Promise.race([
+        this._fetchPlanningSchedule(),
+        new Promise(resolve => setTimeout(resolve, 8000))
+      ]);
       const dataPromise = this._tryRenderLandingFromCache()
         ? Promise.resolve(true)
         : this.loadCampaignData(Object.keys(NATIONAL_CONFIG.campaigns)[0] || 'frontier').catch(err => {
@@ -301,8 +305,9 @@ const NationalApp = {
 
     // ── Build owners from recruiting data ──
     // Guard: if user navigated away during async fetch, don't overwrite their state
-    // Exception: prefetch loads are allowed through since they restore state afterward
-    const isPrefetch = this._prefetchingActive;
+    // Exception: only bypass the guard for the specific campaign being prefetched,
+    // not any concurrent loads (using _prefetchKey instead of _prefetchingActive)
+    const isPrefetch = this._prefetchKey === campaignKey;
     if (!isPrefetch && this.state.campaign !== campaignKey) {
       console.log('[NationalApp] Stale load for', campaignKey, '(user now on', this.state.campaign + ') — skipping state update');
       return;
@@ -619,6 +624,7 @@ const NationalApp = {
     select.value = this.state.campaign;
   },
 
+
   // ── Fetch owner → Cam company mapping + cost sheet assignments from _OwnerCamMapping tab ──
   async _fetchOwnerCamMapping() {
     const url = NATIONAL_CONFIG.appsScriptUrl +
@@ -795,13 +801,14 @@ const NationalApp = {
       const resp = await this._fetchWithTimeout(fetch(url), 30000);
       const result = await resp.json();
       owner._b2bSalesFetching = false;
-      if (!result.error && (result.summary || result.reps)) {
+      if (result.summary || result.reps || result.mcoeSales) {
         owner.sales = {
-          summary: result.summary, reps: result.reps || [], dailyActivity: result.dailyActivity || [],
-          marketFulfillment: result.marketFulfillment || null, avgPaychecks: result.avgPaychecks || null
+          summary: result.summary || null, reps: result.reps || [], dailyActivity: result.dailyActivity || [],
+          marketFulfillment: result.marketFulfillment || null, avgPaychecks: result.avgPaychecks || null,
+          mcoeSales: result.mcoeSales || null
         };
         owner._b2bSalesFetched = true;
-        console.log('[NationalApp] B2B sales loaded for', owner.name, ':', result.reps?.length, 'reps,', (result.dailyActivity || []).length, 'daily,', result.marketFulfillment ? result.marketFulfillment.length + ' markets' : 'no MF', result.avgPaychecks ? 'has AP' : 'no AP');
+        console.log('[NationalApp] B2B sales loaded for', owner.name, ':', result.reps?.length, 'reps,', (result.dailyActivity || []).length, 'daily,', result.marketFulfillment ? result.marketFulfillment.length + ' markets' : 'no MF', result.avgPaychecks ? 'has AP' : 'no AP', result.mcoeSales ? result.mcoeSales.length + ' MCOE rows' : 'no MCOE');
       } else {
         console.warn('[NationalApp] B2B sales empty for', owner.name, ':', result.error || 'no data');
       }
@@ -1755,19 +1762,27 @@ const NationalApp = {
         this._prefetchKey = key;
         this.state.campaign = key;
         await this.loadCampaignData(key);
-        this._writeCoachCampaignCache(key);
         this._prefetchKey = null;
 
-        // Restore state — but only restore campaign if user hasn't navigated away
+        // Capture prefetched data BEFORE restoring state, so no render window
+        // can ever display prefetch data on the wrong campaign view
+        const prefetchedOwners = this.state.owners;
+        const prefetchedTotals = this.state.campaignTotals;
+        const prefetchedWeekDate = this._latestWeekDate;
+
+        // Restore state immediately — before writing cache or any async callback fires
         this.state.owners = savedOwners;
         this.state.campaignTotals = savedTotals;
+        this._latestWeekDate = savedLatestWeek;
         if (this.state.campaign === key) {
           // User didn't navigate — safe to restore
           this.state.campaign = savedCampaign;
         }
         // If user navigated (this.state.campaign !== key), don't touch it
-        this._latestWeekDate = savedLatestWeek;
         this._prefetchingActive = false;
+
+        // Write cache from captured snapshot, never from live state
+        this._writeCoachCampaignCacheWith(key, prefetchedOwners, prefetchedTotals, prefetchedWeekDate);
 
         console.log('[NationalApp] Prefetched + cached:', key);
       } catch (err) {
@@ -1779,7 +1794,7 @@ const NationalApp = {
     }
   },
 
-  _COACH_CACHE_VERSION: 11, // bump to invalidate all caches after code changes
+  _COACH_CACHE_VERSION: 12, // bump to invalidate all caches after code changes
   _COACH_CACHE_MAX_AGE: 15 * 60 * 1000, // 15 min per-campaign cache
 
   async selectCampaign(campaignKey) {
@@ -1792,8 +1807,9 @@ const NationalApp = {
     const select = document.getElementById('campaign-select');
     if (select) select.value = campaignKey;
 
-    // Hide landing, show campaign view
+    // Hide landing, show campaign view — always close any open owner detail
     document.getElementById('campaign-landing').style.display = 'none';
+    document.getElementById('owner-detail').style.display = 'none';
     document.querySelector('.campaign-overview').style.display = '';
     document.querySelector('.owners-section').style.display = '';
 
@@ -1911,9 +1927,13 @@ const NationalApp = {
   },
 
   _writeCoachCampaignCache(campaignKey) {
+    this._writeCoachCampaignCacheWith(campaignKey, this.state.owners, this.state.campaignTotals, this._latestWeekDate);
+  },
+
+  _writeCoachCampaignCacheWith(campaignKey, owners, campaignTotals, latestWeekDate) {
     try {
       // Only cache if owners have real data (not empty-weeks placeholders)
-      const hasRealData = this.state.owners.some(o =>
+      const hasRealData = (owners || []).some(o =>
         (o.headcountHistory && o.headcountHistory.length > 0) ||
         (o.headcount && o.headcount.active > 0)
       );
@@ -1921,12 +1941,22 @@ const NationalApp = {
         console.warn('[NationalApp] Skipping coach cache write (no health data):', campaignKey);
         return;
       }
+      // Strip on-demand sales data and fetch flags — always re-fetched fresh per session
+      const ownersToCache = (owners || []).map(o => {
+        const c = Object.assign({}, o);
+        delete c.sales;
+        delete c._b2bSalesFetched; delete c._b2bSalesFetching;
+        delete c._ndsSalesFetched; delete c._ndsSalesFetching;
+        delete c._resSalesFetched; delete c._resSalesFetching;
+        delete c._fiosSalesFetched; delete c._fiosSalesFetching;
+        return c;
+      });
       localStorage.setItem('coach_cache_' + campaignKey, JSON.stringify({
         _ts: Date.now(),
         _v: this._COACH_CACHE_VERSION,
-        owners: this.state.owners,
-        campaignTotals: this.state.campaignTotals,
-        latestWeekDate: this._latestWeekDate || null
+        owners: ownersToCache,
+        campaignTotals: campaignTotals,
+        latestWeekDate: latestWeekDate || null
       }));
     } catch (err) {
       console.warn('[NationalApp] Coach cache write failed:', err.message);
@@ -2200,14 +2230,17 @@ const NationalApp = {
         <div class="kpi-breakdown">${prodItems || '<div class="kpi-bd-empty">No breakdown</div>'}</div>
       </div>`;
 
-    // Hide campaign-level refresh for non-superadmins
+    // Show refresh button for superadmins + org managers/admins
     const isSA = this._isSuperadmin();
+    const _odRole = typeof OwnerDev !== 'undefined' && OwnerDev.state ? (OwnerDev.state.effectiveRole || '') : '';
+    const canRefresh = isSA || _odRole === 'org_manager' || _odRole === 'admin';
     const refreshBtn = document.getElementById('btn-import-recruiting');
-    if (refreshBtn) refreshBtn.style.display = isSA ? '' : 'none';
+    if (refreshBtn) refreshBtn.style.display = canRefresh ? '' : 'none';
+    // Weeks selector only for superadmins — org managers always refresh latest week only
     const importWeeks = document.getElementById('import-weeks');
     if (importWeeks) importWeeks.style.display = isSA ? '' : 'none';
     const importStatus = document.getElementById('import-status');
-    if (importStatus) importStatus.style.display = isSA ? '' : 'none';
+    if (importStatus) importStatus.style.display = canRefresh ? '' : 'none';
   },
 
   // ══════════════════════════════════════════════════
@@ -5163,6 +5196,33 @@ const NationalApp = {
               ${apHtml}
             </div>`;
         }
+
+        // MCOE Sales card
+        const mcoe = s.mcoeSales;
+        if (mcoe && mcoe.length > 0) {
+          const mcoeRows = mcoe.map(r => `
+            <tr>
+              <td style="padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">${this._esc(r.office)}</td>
+              <td style="text-align:center;padding:4px 8px;">${r.aiaCnt}</td>
+              <td style="text-align:center;padding:4px 8px;">${r.byodCnt}</td>
+              <td style="text-align:center;padding:4px 8px;">${r.phoneCnt}</td>
+              <td style="text-align:center;padding:4px 8px;font-weight:600;">${r.totalLines}</td>
+            </tr>`).join('');
+
+          summaryEl.innerHTML += `
+            <div class="coaching-section" style="margin-top:16px;">
+              <div class="coaching-label" style="font-size:13px;">MCOE Sales</div>
+              <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
+                  <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--silver);">ICD Office</th>
+                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">AIA</th>
+                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">BYOD</th>
+                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Phone</th>
+                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Total Lines</th>
+                </tr></thead>
+                <tbody>${mcoeRows}</tbody>
+              </table>
+            </div>`;
       } else {
         summaryEl.innerHTML = `
           <div class="coaching-section">

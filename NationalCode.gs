@@ -7248,9 +7248,29 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
       }
 
       // +7 day offset: campaigns whose source dates are 1 week behind consolidated dates.
-      // LeafGuard and AT&T B2B use direct/Monday-lock dates — no offset needed.
-      var NO_DATE_OFFSET_SLIM = ['leafguard', 'att-b2b'];
-      if (NO_DATE_OFFSET_SLIM.indexOf(campaignKey) < 0) {
+      // LeafGuard skips entirely. AT&T B2B is mixed: some owners (e.g. Van's team) date
+      // entries as the current Monday → no offset needed. Others (e.g. Ken's team) date
+      // entries as the previous Sunday/Monday → +7 is needed to align to the correct week.
+      // Auto-detect per-owner: if the most recent source date is a Monday, skip +7 (direct
+      // Monday convention). If it's a Sunday or other day, apply +7.
+      var applyOffset = true;
+      if (campaignKey === 'leafguard') {
+        applyOffset = false;
+      } else if (campaignKey === 'att-b2b') {
+        // Check the day-of-week of the most recent health or recruiting date
+        var sampleDate = null;
+        if (healthRows.length > 0) sampleDate = healthRows[healthRows.length - 1].date;
+        else if (recruitingRows.length > 0) sampleDate = recruitingRows[recruitingRows.length - 1].date;
+        if (sampleDate instanceof Date) {
+          // Monday (day=1) → owner uses current-Monday convention → no offset
+          // Sunday (day=0) or any other day → offset needed
+          applyOffset = sampleDate.getDay() !== 1;
+        } else {
+          applyOffset = false; // no dates to sample — leave as-is
+        }
+        Logger.log('consolidateCampaignSlim_ att-b2b ' + ownerName + ': sampleDate=' + (sampleDate ? sampleDate.toDateString() : 'none') + ' applyOffset=' + applyOffset);
+      }
+      if (applyOffset) {
         var offset = 7 * 86400000;
         for (var hi = 0; hi < healthRows.length; hi++) {
           if (healthRows[hi].date instanceof Date) healthRows[hi].date = new Date(healthRows[hi].date.getTime() + offset);

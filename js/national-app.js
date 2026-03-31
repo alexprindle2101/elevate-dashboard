@@ -5224,9 +5224,6 @@ const NationalApp = {
             const _$v = v => v === 0 ? '$0' : '$' + v.toLocaleString();
             const _ownerSatRow = _satRows.find(r => r.name === owner.name);
             const _filteredSatRows = _ownerSatRow ? [_ownerSatRow] : [];
-            const _ownerSatTotal = _ownerSatRow
-              ? { pct: _ownerSatRow.pct, opptSales: _ownerSatRow.opptSales, opptLost: _ownerSatRow.opptLost, annLost: _ownerSatRow.annLost }
-              : _satTotal;
             const _satDataRows = _filteredSatRows.map(r => `
               <tr style="border-bottom:1px solid rgba(0,0,0,0.04);">
                 <td style="padding:2px 5px;text-align:center;color:var(--silver);font-size:10px;">${r.rank}</td>
@@ -5241,12 +5238,6 @@ const NationalApp = {
             _satCardHtml = `
               <div class="coaching-section" style="flex:2;min-width:0;">
                 <div class="coaching-label" style="font-size:13px;">Saturday % of Weekday Sales <span style="font-size:9px;font-weight:400;color:var(--silver-dim);margin-left:6px;">Week of 3/30</span></div>
-                <div style="display:flex;gap:16px;margin-bottom:6px;font-size:11px;flex-wrap:wrap;">
-                  <span>Sat %: <strong>${_ownerSatTotal.pct}%</strong></span>
-                  <span>Oppt Sales: <strong>${_ownerSatTotal.opptSales}</strong></span>
-                  <span>Oppt Lost: <strong>${_$v(_ownerSatTotal.opptLost)}</strong></span>
-                  <span>Ann. Oppt Loss: <strong>${_$v(_ownerSatTotal.annLost)}</strong></span>
-                </div>
                 <div style="max-height:420px;overflow-y:auto;">
                   <table style="width:100%;font-size:11px;border-collapse:collapse;">
                     <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);position:sticky;top:0;background:var(--card-bg,#fff);z-index:1;">

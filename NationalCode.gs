@@ -6719,9 +6719,9 @@ function readConsolidatedRecruiting(weekCount, campaignFilter, bustCache) {
       var owner = String(row[colOwner] || '').trim();
       if (!dateVal || !owner) continue;
 
-      // Snap to Sunday so all dates align to week boundaries
-      // (timezone shifts when reading from Sheet can nudge a Sunday midnight to Saturday)
-      var dateKey = _normalizeDateKey_(dateVal);
+      // Snap to week boundary — Sunday for most campaigns, Monday for att-b2b.
+      // Must pass campaign key so att-b2b Monday-lock is respected here too.
+      var dateKey = _normalizeDateKey_(dateVal, key);
       if (!dateKey) continue;
       ownerSet[owner] = true;
 

@@ -8161,3 +8161,63 @@ function seedODRolesAndOwnership() {
   Logger.log('=== SEED COMPLETE ===');
   return { ownership: ownershipRows.length, usersAdded: added, usersUpdated: updated };
 }
+
+// ── Diagnostic: inspect Joey Ramirez's tab in the B2B source sheet ──
+// Run from the Apps Script editor (▶ button). Safe — read-only, no writes.
+function TEST_joey_ramirez() {
+  var OWNER = 'Joey Ramirez';
+  var campaign = OD_CAMPAIGNS['att-b2b'];
+  var ss = SpreadsheetApp.openById(campaign.sheetId);
+
+  // 1. Find the tab
+  var tab = ss.getSheetByName(OWNER);
+  if (!tab) {
+    Logger.log('❌ Tab "' + OWNER + '" NOT FOUND.');
+    Logger.log('Available tabs: ' + ss.getSheets().map(function(t) { return t.getName(); }).join(', '));
+    return;
+  }
+  Logger.log('✅ Tab found: "' + tab.getName() + '"');
+
+  // 2. Read raw data
+  var data = tab.getDataRange().getValues();
+  var displayData = tab.getDataRange().getDisplayValues();
+  Logger.log('Total rows in tab: ' + data.length);
+
+  // 3. Print first 5 rows so you can see the structure
+  Logger.log('--- First 5 rows (raw) ---');
+  for (var i = 0; i < Math.min(5, data.length); i++) {
+    Logger.log('Row ' + i + ': ' + JSON.stringify(data[i].slice(0, 10)));
+  }
+
+  // 4. Detect sections
+  var sections = findSections(data);
+  Logger.log('Sections: s1=' + sections.section1Start + '-' + sections.section1End
+    + '  s2=' + sections.section2Start + '-' + sections.section2End);
+
+  // 5. Extract health rows
+  var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, displayData, 'att-b2b');
+  Logger.log('Health rows extracted: ' + healthRows.length);
+  for (var h = 0; h < healthRows.length; h++) {
+    var hr = healthRows[h];
+    Logger.log('  Health[' + h + '] date=' + (hr.date ? hr.date.toDateString() : 'null')
+      + ' active=' + hr.active + ' leaders=' + hr.leaders
+      + ' prod=' + hr.productionRaw + ' goals=' + hr.goalsRaw);
+  }
+
+  // 6. Extract recruiting rows
+  var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End, 'att-b2b');
+  Logger.log('Recruiting rows extracted: ' + recruitingRows.length);
+  for (var r = 0; r < recruitingRows.length; r++) {
+    var rr = recruitingRows[r];
+    Logger.log('  Recruiting[' + r + '] date=' + (rr.date ? rr.date.toDateString() : 'null')
+      + ' metrics=' + JSON.stringify(rr.metrics));
+  }
+
+  // 7. Run the full merge and show output rows
+  var merged = mergeHealthRecruiting_(OWNER, healthRows, recruitingRows, 'att-b2b');
+  Logger.log('Merged rows: ' + merged.length);
+  for (var m = 0; m < merged.length; m++) {
+    Logger.log('  Row[' + m + '] week=' + (merged[m][0] instanceof Date ? merged[m][0].toDateString() : merged[m][0])
+      + ' owner=' + merged[m][1]);
+  }
+}

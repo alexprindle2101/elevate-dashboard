@@ -5476,7 +5476,7 @@ var CAMPAIGN_PROD_COLUMNS = {
     'Gross Sales':      { prod: ['gross sales'], goal: ['gross sales goal', 'sales goal', 'goal'] }
   },
   'verizon-fios': {
-    'Units':     { prod: ['production lw', 'production'], goal: [] },
+    'Units':     { prod: ['production lw', 'production', 'fios sales'], goal: [] },
     'Wireless':  { prod: ['wireless'], goal: [] }
   },
   'rogers': {
@@ -5995,10 +5995,13 @@ function extractHealthRows_(data, start, end, displayData, campaignKey) {
       var sharedGoalParts = _splitSlashValues(sharedGoalRaw);
 
       // First pass: read production values + detect which have dedicated goal columns
+      // Use display data and take only the FIRST slash-part so that cells with multiple
+      // outputs like "20/5" (e.g. Ayman's Wireless column) only count the first value.
       var hasGoalCol = [];
       for (var pp = 0; pp < products.length; pp++) {
         var ppc = perProdCols[products[pp]] || { prodCol: -1, goalCol: -1 };
-        prodVals.push(ppc.prodCol >= 0 ? num(row[ppc.prodCol]) : 0);
+        var pCellRaw = ppc.prodCol >= 0 ? (displayData && displayData[i] ? displayData[i][ppc.prodCol] : row[ppc.prodCol]) : '';
+        prodVals.push(_splitSlashValues(pCellRaw)[0]);
         hasGoalCol.push(ppc.goalCol >= 0);
       }
 
@@ -8224,6 +8227,136 @@ function TEST_joey_ramirez() {
   for (var m = 0; m < merged.length; m++) {
     Logger.log('  Row[' + m + '] week=' + (merged[m][0] instanceof Date ? merged[m][0].toDateString() : merged[m][0])
       + ' owner=' + merged[m][1]);
+  }
+}
+
+// ── Diagnostic: inspect Ayman's Fios tab — check 3 tracked columns + slash-split production ──
+// Run from the Apps Script editor (▶ button). Safe — read-only, no writes.
+function TEST_ayman_fios() {
+  var OWNER = 'Ayman';
+  var campaign = OD_CAMPAIGNS['verizon-fios'];
+  var ss = SpreadsheetApp.openById(campaign.sheetId);
+
+  // 1. List all tabs and find Ayman's
+  var allTabs = ss.getSheets().map(function(t) { return t.getName(); });
+  Logger.log('All tabs: ' + allTabs.join(', '));
+
+  // Try to find Ayman's tab (exact or partial match)
+  var tab = ss.getSheetByName(OWNER);
+  if (!tab) {
+    // Try partial match
+    for (var ti = 0; ti < allTabs.length; ti++) {
+      if (allTabs[ti].toLowerCase().indexOf('ayman') >= 0) {
+        tab = ss.getSheetByName(allTabs[ti]);
+        Logger.log('Matched tab by partial name: "' + allTabs[ti] + '"');
+        break;
+      }
+    }
+  }
+  if (!tab) {
+    Logger.log('❌ No tab matching "Ayman" found. Available tabs listed above.');
+    return;
+  }
+  Logger.log('✅ Tab: "' + tab.getName() + '"');
+
+  // 2. Read raw + display data
+  var data = tab.getDataRange().getValues();
+  var displayData = tab.getDataRange().getDisplayValues();
+  Logger.log('Total rows: ' + data.length);
+
+  // 3. Print first 8 rows (raw) to see structure
+  Logger.log('--- First 8 rows (raw, cols 0-12) ---');
+  for (var i = 0; i < Math.min(8, data.length); i++) {
+    Logger.log('Row ' + i + ': ' + JSON.stringify(data[i].slice(0, 13)));
+  }
+  Logger.log('--- First 8 rows (display, cols 0-12) ---');
+  for (var i = 0; i < Math.min(8, data.length); i++) {
+    Logger.log('Row ' + i + ': ' + JSON.stringify(displayData[i].slice(0, 13)));
+  }
+
+  // 4. Detect sections
+  var sections = findSections(data);
+  Logger.log('Sections: s1=' + sections.section1Start + '-' + sections.section1End
+    + '  s2=' + sections.section2Start + '-' + sections.section2End);
+
+  // 5. Show Section 1 headers + per-product column resolution
+  if (sections.section1Start >= 0) {
+    // Find actual header row (first non-empty row in section)
+    var headerIdx = sections.section1Start;
+    for (var hi = sections.section1Start; hi <= Math.min(sections.section1Start + 3, sections.section1End); hi++) {
+      var rowText = data[hi].map(function(c) { return String(c).trim(); }).join('');
+      if (rowText.length > 0) { headerIdx = hi; break; }
+    }
+    var headers = data[headerIdx].map(function(h) { return String(h).toLowerCase().trim(); });
+    Logger.log('Section 1 headers (row ' + headerIdx + '): ' + JSON.stringify(headers));
+
+    // Show what CAMPAIGN_PROD_COLUMNS resolves to for Fios
+    var prodColConfig = CAMPAIGN_PROD_COLUMNS['verizon-fios'];
+    Logger.log('--- Per-product column resolution (verizon-fios) ---');
+    var prodNames = Object.keys(prodColConfig);
+    for (var pp = 0; pp < prodNames.length; pp++) {
+      var cfg = prodColConfig[prodNames[pp]];
+      var colIdx = findCol(headers, cfg.prod);
+      Logger.log('  Product "' + prodNames[pp] + '": searching ' + JSON.stringify(cfg.prod) + ' → col ' + colIdx
+        + (colIdx >= 0 ? ' (header: "' + headers[colIdx] + '")' : ' NOT FOUND'));
+    }
+
+    // Also show ALL headers that contain 'wireless', 'production', 'units'
+    Logger.log('--- Headers containing key terms ---');
+    for (var ci = 0; ci < headers.length; ci++) {
+      var h = headers[ci];
+      if (h.indexOf('wireless') >= 0 || h.indexOf('production') >= 0 || h.indexOf('units') >= 0
+          || h.indexOf('internet') >= 0 || h.indexOf('sales') >= 0 || h.indexOf('fios') >= 0) {
+        Logger.log('  col[' + ci + '] = "' + h + '"');
+      }
+    }
+  }
+
+  // 6. Extract health rows and show raw vs display for production columns
+  var healthRows = extractHealthRows_(data, sections.section1Start, sections.section1End, displayData, 'verizon-fios');
+  Logger.log('Health rows extracted: ' + healthRows.length);
+  for (var h = 0; h < healthRows.length; h++) {
+    var hr = healthRows[h];
+    Logger.log('  Health[' + h + '] date=' + (hr.date ? hr.date.toDateString() : 'null')
+      + ' active=' + hr.active
+      + ' prodRaw="' + hr.productionRaw + '" goalsRaw="' + hr.goalsRaw + '"');
+  }
+
+  // 7. Also show raw cell values for section 1 data rows (to see if slash-values are stored)
+  if (sections.section1Start >= 0) {
+    var headerIdx2 = sections.section1Start;
+    for (var hi2 = sections.section1Start; hi2 <= Math.min(sections.section1Start + 3, sections.section1End); hi2++) {
+      if (data[hi2].map(function(c) { return String(c).trim(); }).join('').length > 0) { headerIdx2 = hi2; break; }
+    }
+    var headers2 = data[headerIdx2].map(function(h) { return String(h).toLowerCase().trim(); });
+    var unitCol = findCol(headers2, ['production lw', 'production']);
+    var wlCol   = findCol(headers2, ['wireless']);
+    Logger.log('--- Section 1 data rows: col[' + unitCol + ']=Units, col[' + wlCol + ']=Wireless ---');
+    for (var di = headerIdx2 + 1; di <= sections.section1End; di++) {
+      var dateV = data[di][findCol(headers2, ['dates', 'date'])];
+      if (!dateV) continue;
+      var unitRaw = unitCol >= 0 ? data[di][unitCol] : 'N/A';
+      var unitDisp = unitCol >= 0 ? displayData[di][unitCol] : 'N/A';
+      var wlRaw  = wlCol >= 0  ? data[di][wlCol]  : 'N/A';
+      var wlDisp = wlCol >= 0  ? displayData[di][wlCol]  : 'N/A';
+      Logger.log('  Row ' + di + ' date=' + dateV
+        + '  Units raw=' + JSON.stringify(unitRaw) + ' disp=' + JSON.stringify(unitDisp)
+        + '  Wireless raw=' + JSON.stringify(wlRaw) + ' disp=' + JSON.stringify(wlDisp));
+    }
+  }
+
+  // 8. Show merged output
+  var recruitingRows = extractHorizontalRecruitingRows_(data, sections.section1Start, sections.section1End, 'verizon-fios');
+  Logger.log('Recruiting rows: ' + recruitingRows.length);
+  var merged = mergeHealthRecruiting_(OWNER, healthRows, recruitingRows, 'verizon-fios');
+  Logger.log('Merged rows: ' + merged.length);
+  var mHeaders = getConsolidatedHeaders_('verizon-fios');
+  var unitsIdx  = mHeaders.indexOf('Units');
+  var wlIdx     = mHeaders.indexOf('Wireless');
+  for (var m = 0; m < merged.length; m++) {
+    var week = merged[m][0];
+    Logger.log('  Row[' + m + '] week=' + (week instanceof Date ? week.toDateString() : week)
+      + '  Units=' + merged[m][unitsIdx] + '  Wireless=' + merged[m][wlIdx]);
   }
 }
 

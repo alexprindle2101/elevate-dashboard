@@ -5115,30 +5115,154 @@ const NationalApp = {
             </div>
           </div>`;
 
-        // MCOE Sales card — right below Owner Overview
+        // MCOE Sales + Saturday % of Weekday Sales — side by side
+        // Saturday card is temporary — date-gated, auto-hides after 2026-04-01
         const mcoe = s.mcoeSales;
-        if (mcoe && mcoe.length > 0) {
-          const mcoeRows = mcoe.map(r => `
-            <tr>
-              <td style="padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">${this._esc(r.office)}</td>
-              <td style="text-align:center;padding:4px 8px;">${r.aiaCnt}</td>
-              <td style="text-align:center;padding:4px 8px;">${r.byodCnt}</td>
-              <td style="text-align:center;padding:4px 8px;">${r.phoneCnt}</td>
-              <td style="text-align:center;padding:4px 8px;font-weight:600;">${r.totalLines}</td>
-            </tr>`).join('');
+        const _showSat = new Date() < new Date('2026-04-02');
+        const _satTotal = { pct: 54, opptSales: 275, opptLost: 60554, annLost: 3148812 };
+        const _satRows = [
+          { rank:  1, name: 'Blake Welle',           pct: 83,  opptSales:  0, opptLost:     0, annLost:       0 },
+          { rank:  2, name: 'Max Powell',             pct: 93,  opptSales:  0, opptLost:     0, annLost:       0 },
+          { rank:  3, name: 'Kinsey Guenther',        pct: 87,  opptSales:  0, opptLost:     0, annLost:       0 },
+          { rank:  4, name: 'Tessa Lopez',            pct: 103, opptSales:  0, opptLost:     0, annLost:       0 },
+          { rank:  5, name: 'Ryan Kabbes',            pct: 88,  opptSales:  0, opptLost:     0, annLost:       0 },
+          { rank:  6, name: 'Aaron Corso',            pct: 80,  opptSales:  0, opptLost:     0, annLost:       0 },
+          { rank:  7, name: 'David Munoz',            pct: 75,  opptSales:  1, opptLost:   208, annLost:   10820 },
+          { rank:  8, name: 'Luis Salazar',           pct: 75,  opptSales:  1, opptLost:   238, annLost:   12393 },
+          { rank:  9, name: 'Alexander Badawi',       pct: 71,  opptSales:  3, opptLost:   621, annLost:   32294 },
+          { rank: 10, name: 'Tony McDaniel',          pct: 71,  opptSales:  2, opptLost:   393, annLost:   20449 },
+          { rank: 11, name: 'Sean Negrin',            pct: 70,  opptSales:  1, opptLost:   132, annLost:    6888 },
+          { rank: 12, name: 'Gregory Halstead',       pct: 70,  opptSales:  1, opptLost:   298, annLost:   15516 },
+          { rank: 13, name: 'Maxwell Scott',          pct: 69,  opptSales:  3, opptLost:   660, annLost:   34301 },
+          { rank: 14, name: 'Jeffrey Starr',          pct: 69,  opptSales:  2, opptLost:   360, annLost:   18714 },
+          { rank: 15, name: 'David Pisikian',         pct: 68,  opptSales:  1, opptLost:   255, annLost:   13237 },
+          { rank: 16, name: 'Joey Ramirez',           pct: 68,  opptSales:  0, opptLost:    80, annLost:    4185 },
+          { rank: 17, name: 'Jamis Garay',            pct: 68,  opptSales:  2, opptLost:   443, annLost:   23042 },
+          { rank: 18, name: 'Luke Baldwin',           pct: 68,  opptSales:  1, opptLost:   310, annLost:   16107 },
+          { rank: 19, name: 'Stefan Cameron',         pct: 67,  opptSales:  1, opptLost:   149, annLost:    7736 },
+          { rank: 20, name: 'Jacob Dunlavy',          pct: 66,  opptSales:  1, opptLost:   265, annLost:   13780 },
+          { rank: 21, name: 'Adrian Sarabia',         pct: 66,  opptSales:  1, opptLost:   300, annLost:   15592 },
+          { rank: 22, name: 'Ricky Malone',           pct: 64,  opptSales: 11, opptLost:  2319, annLost:  120563 },
+          { rank: 23, name: 'Darius Sessions',        pct: 62,  opptSales:  1, opptLost:   138, annLost:    7198 },
+          { rank: 24, name: 'Jackie LeRoy',           pct: 61,  opptSales:  4, opptLost:   937, annLost:   48739 },
+          { rank: 25, name: 'Demetrius Pruitt',       pct: 61,  opptSales:  3, opptLost:   750, annLost:   39025 },
+          { rank: 26, name: 'Shalonda Warren',        pct: 61,  opptSales:  4, opptLost:   772, annLost:   40154 },
+          { rank: 27, name: 'Eshaunte Williams',      pct: 60,  opptSales:  2, opptLost:   523, annLost:   27170 },
+          { rank: 28, name: 'George Hipolito',        pct: 60,  opptSales:  3, opptLost:   593, annLost:   30817 },
+          { rank: 29, name: 'Roberto Rodriguez',      pct: 56,  opptSales:  4, opptLost:   914, annLost:   47548 },
+          { rank: 30, name: 'Blaise St Julien',       pct: 55,  opptSales:  2, opptLost:   535, annLost:   27833 },
+          { rank: 31, name: 'Joe Shipman',            pct: 55,  opptSales:  3, opptLost:   592, annLost:   30774 },
+          { rank: 32, name: 'Lizette Ruiz-Conejo',    pct: 53,  opptSales:  3, opptLost:   649, annLost:   33762 },
+          { rank: 33, name: 'Kevin Driggs',           pct: 53,  opptSales:  6, opptLost:  1235, annLost:   64231 },
+          { rank: 34, name: 'Sabrina Alicea',         pct: 53,  opptSales:  5, opptLost:  1045, annLost:   54350 },
+          { rank: 35, name: 'Dhyey Patel',            pct: 53,  opptSales:  3, opptLost:   636, annLost:   33057 },
+          { rank: 36, name: 'Elijah Golston',         pct: 52,  opptSales:  3, opptLost:   651, annLost:   33834 },
+          { rank: 37, name: 'Carlos Hidalgo',         pct: 51,  opptSales: 13, opptLost:  2944, annLost:  153077 },
+          { rank: 38, name: 'Jordan Cline',           pct: 51,  opptSales:  1, opptLost:   305, annLost:   15835 },
+          { rank: 39, name: 'Joseph Eckhart',         pct: 50,  opptSales:  7, opptLost:  1581, annLost:   82187 },
+          { rank: 40, name: 'Ulysses Guerrero',       pct: 50,  opptSales:  4, opptLost:   914, annLost:   47552 },
+          { rank: 41, name: 'Eveliz Wright',          pct: 49,  opptSales: 11, opptLost:  2483, annLost:  129105 },
+          { rank: 42, name: 'Justin Wood',            pct: 47,  opptSales:  4, opptLost:   938, annLost:   48801 },
+          { rank: 43, name: 'Joshua Murphy',          pct: 45,  opptSales:  3, opptLost:   705, annLost:   36660 },
+          { rank: 44, name: 'Mitchell Evans',         pct: 44,  opptSales:  4, opptLost:   927, annLost:   48191 },
+          { rank: 45, name: 'Ellen Dent',             pct: 44,  opptSales:  4, opptLost:   970, annLost:   50427 },
+          { rank: 46, name: 'Diamante Williams',      pct: 43,  opptSales:  2, opptLost:   364, annLost:   18919 },
+          { rank: 47, name: 'Cruz Venegas',           pct: 41,  opptSales:  8, opptLost:  1793, annLost:   93255 },
+          { rank: 48, name: 'Luna Leung',             pct: 41,  opptSales:  5, opptLost:  1201, annLost:   62429 },
+          { rank: 49, name: 'Alex Censi',             pct: 38,  opptSales:  2, opptLost:   472, annLost:   24567 },
+          { rank: 50, name: 'Devin Hokanson-Smith',   pct: 38,  opptSales:  9, opptLost:  1940, annLost:  100906 },
+          { rank: 51, name: 'Logan McBride',          pct: 37,  opptSales: 12, opptLost:  2714, annLost:  141146 },
+          { rank: 52, name: 'Jesse Knight',           pct: 35,  opptSales:  8, opptLost:  1757, annLost:   91353 },
+          { rank: 53, name: 'Dylan McCann',           pct: 35,  opptSales:  4, opptLost:   803, annLost:   41770 },
+          { rank: 54, name: 'Taylor Blayde',          pct: 32,  opptSales:  4, opptLost:   804, annLost:   41818 },
+          { rank: 55, name: 'Marvin Williams',        pct: 32,  opptSales:  8, opptLost:  1723, annLost:   89613 },
+          { rank: 56, name: 'Tim Ewing',              pct: 32,  opptSales:  3, opptLost:   704, annLost:   36594 },
+          { rank: 57, name: 'Ryleigh Zahn',           pct: 31,  opptSales:  5, opptLost:  1013, annLost:   52667 },
+          { rank: 58, name: 'Josh Rawlins',           pct: 31,  opptSales: 12, opptLost:  2543, annLost:  132232 },
+          { rank: 59, name: 'Brandon Lim',            pct: 29,  opptSales:  4, opptLost:   827, annLost:   42995 },
+          { rank: 60, name: 'Cody Lowery',            pct: 29,  opptSales: 15, opptLost:  3236, annLost:  168263 },
+          { rank: 61, name: 'Monika Swanson',         pct: 24,  opptSales: 10, opptLost:  2262, annLost:  117598 },
+          { rank: 62, name: 'Mihir Vadlamani',        pct: 24,  opptSales:  2, opptLost:   425, annLost:   22098 },
+          { rank: 63, name: 'Valeria Tristan',        pct: 18,  opptSales:  5, opptLost:  1140, annLost:   59283 },
+          { rank: 64, name: 'Jacques Duncan',         pct: 17,  opptSales:  6, opptLost:  1313, annLost:   68297 },
+          { rank: 65, name: 'Jessica Vihtelic',       pct: 13,  opptSales:  6, opptLost:  1308, annLost:   67992 },
+          { rank: 66, name: 'Nick Chandler',          pct:  0,  opptSales:  5, opptLost:  1159, annLost:   60251 },
+        ];
+
+        if ((mcoe && mcoe.length > 0) || _showSat) {
+          // MCOE card
+          let _mcoeCardHtml = '';
+          if (mcoe && mcoe.length > 0) {
+            const mcoeRows = mcoe.map(r => `
+              <tr>
+                <td style="padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">${this._esc(r.office)}</td>
+                <td style="text-align:center;padding:4px 8px;">${r.aiaCnt}</td>
+                <td style="text-align:center;padding:4px 8px;">${r.byodCnt}</td>
+                <td style="text-align:center;padding:4px 8px;">${r.phoneCnt}</td>
+                <td style="text-align:center;padding:4px 8px;font-weight:600;">${r.totalLines}</td>
+              </tr>`).join('');
+            _mcoeCardHtml = `
+              <div class="coaching-section" style="min-width:0;flex:1;">
+                <div class="coaching-label" style="font-size:13px;">MCOE Sales</div>
+                <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                  <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
+                    <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--silver);">ICD Office</th>
+                    <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">AIA</th>
+                    <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">BYOD</th>
+                    <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Phone</th>
+                    <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Total Lines</th>
+                  </tr></thead>
+                  <tbody>${mcoeRows}</tbody>
+                </table>
+              </div>`;
+          }
+
+          // Saturday % card (temporary)
+          let _satCardHtml = '';
+          if (_showSat) {
+            const _satBg = p => p >= 80 ? '#1e6f34' : p >= 67 ? '#2ea043' : p >= 60 ? '#6a7c00' : p >= 50 ? '#9a6500' : p >= 40 ? '#a84000' : '#8b1a1a';
+            const _$v = v => v === 0 ? '$0' : '$' + v.toLocaleString();
+            const _satDataRows = _satRows.map(r => `
+              <tr style="border-bottom:1px solid rgba(0,0,0,0.04);">
+                <td style="padding:2px 5px;text-align:center;color:var(--silver);font-size:10px;">${r.rank}</td>
+                <td style="padding:2px 5px;white-space:nowrap;">${r.name}</td>
+                <td style="padding:2px 5px;text-align:center;">
+                  <span style="display:inline-block;background:${_satBg(r.pct)};color:#fff;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;min-width:34px;text-align:center;">${r.pct}%</span>
+                </td>
+                <td style="padding:2px 5px;text-align:center;">${r.opptSales}</td>
+                <td style="padding:2px 5px;text-align:right;">${_$v(r.opptLost)}</td>
+                <td style="padding:2px 5px;text-align:right;font-weight:600;">${_$v(r.annLost)}</td>
+              </tr>`).join('');
+            _satCardHtml = `
+              <div class="coaching-section" style="flex:2;min-width:0;">
+                <div class="coaching-label" style="font-size:13px;">Saturday % of Weekday Sales <span style="font-size:9px;font-weight:400;color:var(--silver-dim);margin-left:6px;">Week of 3/30</span></div>
+                <div style="display:flex;gap:16px;margin-bottom:6px;font-size:11px;flex-wrap:wrap;">
+                  <span>Total: <strong>${_satTotal.pct}%</strong></span>
+                  <span>Oppt Sales: <strong>${_satTotal.opptSales}</strong></span>
+                  <span>Oppt Lost: <strong>${_$v(_satTotal.opptLost)}</strong></span>
+                  <span>Ann. Oppt Loss: <strong>${_$v(_satTotal.annLost)}</strong></span>
+                </div>
+                <div style="max-height:420px;overflow-y:auto;">
+                  <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                    <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);position:sticky;top:0;background:var(--card-bg,#fff);z-index:1;">
+                      <th style="text-align:center;padding:3px 5px;font-size:10px;color:var(--silver);">#</th>
+                      <th style="text-align:left;padding:3px 5px;font-size:10px;color:var(--silver);">Owner</th>
+                      <th style="text-align:center;padding:3px 5px;font-size:10px;color:var(--silver);">Sat %</th>
+                      <th style="text-align:center;padding:3px 5px;font-size:10px;color:var(--silver);">Oppt Sales</th>
+                      <th style="text-align:right;padding:3px 5px;font-size:10px;color:var(--silver);">Oppt Lost</th>
+                      <th style="text-align:right;padding:3px 5px;font-size:10px;color:var(--silver);">Ann. Loss</th>
+                    </tr></thead>
+                    <tbody>${_satDataRows}</tbody>
+                  </table>
+                </div>
+                <div style="margin-top:5px;font-size:9px;color:var(--silver-dim);">*Assumes 80% actvt rate &nbsp;·&nbsp; **Excludes offices avg &lt;4 sales/day</div>
+              </div>`;
+          }
+
           summaryEl.innerHTML += `
-            <div class="coaching-section" style="margin-top:16px;">
-              <div class="coaching-label" style="font-size:13px;">MCOE Sales</div>
-              <table style="width:100%;font-size:11px;border-collapse:collapse;">
-                <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
-                  <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--silver);">ICD Office</th>
-                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">AIA</th>
-                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">BYOD</th>
-                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Phone</th>
-                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Total Lines</th>
-                </tr></thead>
-                <tbody>${mcoeRows}</tbody>
-              </table>
+            <div style="display:flex;gap:16px;margin-top:16px;align-items:flex-start;">
+              ${_mcoeCardHtml}
+              ${_satCardHtml}
             </div>`;
         }
 

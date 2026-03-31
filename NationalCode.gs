@@ -7247,8 +7247,10 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
         Logger.log('consolidateCampaignSlim_ EMPTY ' + ownerName + ': sections=' + JSON.stringify(sections) + ' rows=' + data.length + ' tab=' + tab.getName());
       }
 
-      // +7 day offset for non-LeafGuard
-      if (campaignKey !== 'leafguard') {
+      // +7 day offset: campaigns whose source dates are 1 week behind consolidated dates.
+      // LeafGuard and AT&T B2B use direct/Monday-lock dates — no offset needed.
+      var NO_DATE_OFFSET_SLIM = ['leafguard', 'att-b2b'];
+      if (NO_DATE_OFFSET_SLIM.indexOf(campaignKey) < 0) {
         var offset = 7 * 86400000;
         for (var hi = 0; hi < healthRows.length; hi++) {
           if (healthRows[hi].date instanceof Date) healthRows[hi].date = new Date(healthRows[hi].date.getTime() + offset);

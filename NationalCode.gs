@@ -3882,7 +3882,8 @@ function readB2BOwnerSales(ownerName) {
  * Skips the "Grand Total" row.
  */
 function _extractMcoeSales_(srcSS, ownerName) {
-  var tab = srcSS.getSheetByName('INPUT - MCOE Weekly Sales');
+  var tab = srcSS.getSheetByName('INPUT - MCOE Weekly Sales')
+    || srcSS.getSheetByName(' INPUT - MCOE Weekly Sales');
   if (!tab) { Logger.log('_extractMcoeSales_: tab "INPUT - MCOE Weekly Sales" not found'); return null; }
   if (tab.getLastRow() < 2) { Logger.log('_extractMcoeSales_: tab is empty'); return null; }
 

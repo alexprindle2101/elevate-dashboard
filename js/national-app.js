@@ -5115,6 +5115,33 @@ const NationalApp = {
             </div>
           </div>`;
 
+        // MCOE Sales card — right below Owner Overview
+        const mcoe = s.mcoeSales;
+        if (mcoe && mcoe.length > 0) {
+          const mcoeRows = mcoe.map(r => `
+            <tr>
+              <td style="padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">${this._esc(r.office)}</td>
+              <td style="text-align:center;padding:4px 8px;">${r.aiaCnt}</td>
+              <td style="text-align:center;padding:4px 8px;">${r.byodCnt}</td>
+              <td style="text-align:center;padding:4px 8px;">${r.phoneCnt}</td>
+              <td style="text-align:center;padding:4px 8px;font-weight:600;">${r.totalLines}</td>
+            </tr>`).join('');
+          summaryEl.innerHTML += `
+            <div class="coaching-section" style="margin-top:16px;">
+              <div class="coaching-label" style="font-size:13px;">MCOE Sales</div>
+              <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
+                  <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--silver);">ICD Office</th>
+                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">AIA</th>
+                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">BYOD</th>
+                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Phone</th>
+                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Total Lines</th>
+                </tr></thead>
+                <tbody>${mcoeRows}</tbody>
+              </table>
+            </div>`;
+        }
+
         // Store MF data for tooltip access
         this._mfData = s.marketFulfillment || [];
 
@@ -5197,33 +5224,6 @@ const NationalApp = {
             </div>`;
         }
 
-        // MCOE Sales card
-        const mcoe = s.mcoeSales;
-        if (mcoe && mcoe.length > 0) {
-          const mcoeRows = mcoe.map(r => `
-            <tr>
-              <td style="padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">${this._esc(r.office)}</td>
-              <td style="text-align:center;padding:4px 8px;">${r.aiaCnt}</td>
-              <td style="text-align:center;padding:4px 8px;">${r.byodCnt}</td>
-              <td style="text-align:center;padding:4px 8px;">${r.phoneCnt}</td>
-              <td style="text-align:center;padding:4px 8px;font-weight:600;">${r.totalLines}</td>
-            </tr>`).join('');
-
-          summaryEl.innerHTML += `
-            <div class="coaching-section" style="margin-top:16px;">
-              <div class="coaching-label" style="font-size:13px;">MCOE Sales</div>
-              <table style="width:100%;font-size:11px;border-collapse:collapse;">
-                <thead><tr style="border-bottom:1px solid rgba(0,0,0,0.1);">
-                  <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--silver);">ICD Office</th>
-                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">AIA</th>
-                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">BYOD</th>
-                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Phone</th>
-                  <th style="text-align:center;padding:4px 8px;font-size:10px;color:var(--silver);">Total Lines</th>
-                </tr></thead>
-                <tbody>${mcoeRows}</tbody>
-              </table>
-            </div>`;
-        }
       } else {
         summaryEl.innerHTML = `
           <div class="coaching-section">

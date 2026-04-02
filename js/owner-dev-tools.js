@@ -648,7 +648,6 @@ const OwnerDevTools = {
   _onCopyAll() {
     if (!this._outputRows.length) return this._toast('No rows to copy', 'error');
 
-    const header = this.OUTPUT_COLS.join('\t');
     const rows = this._outputRows.map(r => [
       r.manager, r.recruiter, r.opens, r.aiBooked, r.recruiterBooked,
       this._fmtPct(r.pctCallList), r.firstCalendar, r.firstShowed, r.turnedTo2nd,
@@ -657,7 +656,7 @@ const OwnerDevTools = {
       r.newStartsScheduled, r.newStartsShowed, this._fmtPct(r.newStartsRetention)
     ].join('\t'));
 
-    const text = header + '\n' + rows.join('\n');
+    const text = rows.join('\n');
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {

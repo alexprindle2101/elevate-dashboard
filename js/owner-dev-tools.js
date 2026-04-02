@@ -304,15 +304,28 @@ const OwnerDevTools = {
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i];
       const cells = rawLine.split('\t');
-      const label = (cells[0] || '').trim();
+
+      // Find label: first non-empty cell (sub-rows may have leading empty tabs)
+      let label = '';
+      let labelCol = 0;
+      for (let c = 0; c < cells.length; c++) {
+        const trimmed = (cells[c] || '').trim();
+        if (trimmed) { label = trimmed; labelCol = c; break; }
+      }
       if (!label) continue;
 
       // Skip section headers like "Administrative Booking Data:"
       if (label.endsWith(':') && cells.length <= 2) continue;
 
-      // Parse value cells (indices 1-8 typically: Mon-Sun + Total)
+      // Parse value cells — they start after the label column
+      // For category rows (labelCol=0): values are cells[1..8]
+      // For sub-rows with offset labels: values still map to day columns
+      // The data always has 7 day columns + 1 total at fixed positions from the right
       const values = [];
-      for (let c = 1; c < Math.min(cells.length, 9); c++) {
+      const totalCells = cells.length;
+      // Take the last 8 numeric cells (7 days + total) regardless of label position
+      const valueStart = Math.max(labelCol + 1, totalCells - 8);
+      for (let c = valueStart; c < totalCells; c++) {
         values.push(this._parseValue(cells[c]));
       }
       // Pad to 8 if shorter

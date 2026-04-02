@@ -94,17 +94,6 @@ const OwnerDevTools = {
         </div>
       </div>
 
-      <!-- SAVED OFFICE MAPPINGS CARD -->
-      <div class="tools-card">
-        <div class="tools-card-header">
-          <h3>Saved Office Mappings</h3>
-          <button class="tools-btn tools-btn-icon" id="asrf-refresh-btn" title="Refresh from server">&#x21bb;</button>
-        </div>
-        <div id="asrf-office-tags" class="tools-office-tags">
-          <span class="tools-muted">Loading...</span>
-        </div>
-      </div>
-
       <!-- OUTPUT TABLE CARD -->
       <div class="tools-card">
         <div class="tools-card-header">
@@ -122,6 +111,17 @@ const OwnerDevTools = {
         <div class="tools-form-row tools-actions" style="margin-top:12px">
           <button class="tools-btn tools-btn-primary" id="asrf-copy-btn">Copy All to Clipboard</button>
           <button class="tools-btn tools-btn-danger" id="asrf-clear-rows-btn">Clear All Rows</button>
+        </div>
+      </div>
+
+      <!-- SAVED OFFICE MAPPINGS CARD -->
+      <div class="tools-card">
+        <div class="tools-card-header">
+          <h3>Saved Office Mappings</h3>
+          <button class="tools-btn tools-btn-icon" id="asrf-refresh-btn" title="Refresh from server">&#x21bb;</button>
+        </div>
+        <div id="asrf-office-tags" class="tools-office-tags">
+          <span class="tools-muted">Loading...</span>
         </div>
       </div>
 

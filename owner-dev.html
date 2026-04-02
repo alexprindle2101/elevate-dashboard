@@ -86,6 +86,7 @@
     <button id="nav-team-tab" class="nav-tab" data-tab="team" onclick="OwnerDev.switchTab('team')" style="display:none">Team</button>
     <button id="nav-coach-tab" class="nav-tab" data-tab="coach" onclick="OwnerDev.switchTab('coach')" style="display:none">Coach</button>
     <button id="nav-planning-tab" class="nav-tab" data-tab="planning" onclick="OwnerDev.switchTab('planning')" style="display:none">Planning <span id="planning-notif-badge" class="notif-badge" style="display:none"></span></button>
+    <button id="nav-tools-tab" class="nav-tab" data-tab="tools" onclick="OwnerDev.switchTab('tools')" style="display:none">Tools</button>
   </nav>
 
   <!-- MAPPING VIEW -->
@@ -380,6 +381,11 @@
     </div>
   </div>
 
+  <!-- TOOLS VIEW -->
+  <div id="view-tools" class="dashboard-content" style="display:none">
+    <div id="tools-content"></div>
+  </div>
+
 </div>
 
 <!-- Toast notification -->
@@ -391,7 +397,8 @@
 <script src="js/owner-dev-config.js?v=4"></script>
 <script src="js/national-config.js?v=17"></script>
 <script src="js/national-app.js?v=179"></script>
-<script src="js/owner-dev-app.js?v=22"></script>
+<script src="js/owner-dev-tools.js?v=1"></script>
+<script src="js/owner-dev-app.js?v=23"></script>
 
 </body>
 </html>

@@ -63,7 +63,8 @@ const OwnerDev = {
     const tabMap = {
       'nav-team-tab': access.team,
       'nav-coach-tab': access.coach,
-      'nav-planning-tab': access.planning
+      'nav-planning-tab': access.planning,
+      'nav-tools-tab': access.tools
     };
     // Mapping tab is always visible (it's the default); others hidden by default in HTML
     for (const [id, level] of Object.entries(tabMap)) {
@@ -142,6 +143,7 @@ const OwnerDev = {
       this._renderFilterPills();
       this._renderStats();
       this.renderMapping();
+      this._updateRefreshButton();
     }
   },
 
@@ -559,6 +561,7 @@ const OwnerDev = {
       this._renderFilterPills();
       this._renderStats();
       this.renderMapping();
+      this._updateRefreshButton();
     }
     // For background refreshes, defer the re-render until all data is in
     // to avoid jarring mid-interaction table rebuilds (scroll/dropdown resets).
@@ -973,6 +976,8 @@ const OwnerDev = {
     if (coachView) coachView.style.display = tab === 'coach' ? '' : 'none';
     const planningView = document.getElementById('view-planning');
     if (planningView) planningView.style.display = tab === 'planning' ? '' : 'none';
+    const toolsView = document.getElementById('view-tools');
+    if (toolsView) toolsView.style.display = tab === 'tools' ? '' : 'none';
 
     // Flush any deferred mapping re-render when returning to mapping tab
     if (tab === 'mapping' && this._pendingRerender) {
@@ -1003,6 +1008,9 @@ const OwnerDev = {
     if (tab === 'planning') {
       this._initPlanning();
     }
+    if (tab === 'tools') {
+      if (typeof OwnerDevTools !== 'undefined') OwnerDevTools.render();
+    }
   },
 
   // ══════════════════════════════════════════════════════
@@ -1017,6 +1025,7 @@ const OwnerDev = {
     this._updateFilterPillsActive();
     this._renderStats();
     this.renderMapping();
+    this._updateRefreshButton();
   },
 
   /**
@@ -1040,6 +1049,109 @@ const OwnerDev = {
     }
     this._updateSortArrows();
     this.renderMapping();
+  },
+
+  // ══════════════════════════════════════════════════════
+  // CAMPAIGN REFRESH (per-campaign, latest week)
+  // ══════════════════════════════════════════════════════
+
+  /**
+   * Show/hide the per-campaign refresh button based on:
+   * - A specific campaign is selected (not 'all')
+   * - The user has edit access on that campaign (own, edit, or superadmin)
+   */
+  _updateRefreshButton() {
+    let btn = document.getElementById('campaign-refresh-btn');
+    const key = this.state.activeCampaign;
+    const show = key && key !== 'all' && this._canRefreshCampaign(key);
+
+    if (!show) {
+      if (btn) btn.style.display = 'none';
+      return;
+    }
+
+    // Create button if it doesn't exist yet
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'campaign-refresh-btn';
+      btn.className = 'campaign-refresh-btn';
+      btn.onclick = () => this.refreshCampaign();
+      const bar = document.querySelector('.filter-bar');
+      if (bar) bar.appendChild(btn);
+    }
+
+    const label = OD_CONFIG.campaignSources[key]?.label || key;
+    btn.textContent = `Refresh ${label}`;
+    btn.disabled = false;
+    btn.style.display = '';
+  },
+
+  /**
+   * Check if the current user can refresh a given campaign.
+   * Allowed for: superadmins, org_managers (own campaigns + edit grants), admins with edit access.
+   */
+  _canRefreshCampaign(campaignKey) {
+    if (this.state.isSuperadmin) return true;
+    const role = this.state.effectiveRole || '';
+    if (role === 'org_manager' || role === 'admin') {
+      const access = (this.state.campaignAccessMap || {})[campaignKey] || '';
+      return access === 'own' || access === 'edit' || access === 'auto';
+    }
+    return false;
+  },
+
+  /**
+   * Refresh the currently selected campaign's data from the source spreadsheet.
+   * Calls the backend refreshCampaign action, then reloads owner data.
+   */
+  async refreshCampaign() {
+    const key = this.state.activeCampaign;
+    if (!key || key === 'all') return;
+
+    const btn = document.getElementById('campaign-refresh-btn');
+    const label = OD_CONFIG.campaignSources[key]?.label || key;
+
+    if (btn) { btn.disabled = true; btn.textContent = `Refreshing ${label}...`; }
+
+    try {
+      const result = await this._post('refreshCampaign', { campaign: key });
+      if (result.error) throw new Error(result.error);
+      if (!result.ok) throw new Error(result.error || 'Refresh failed');
+
+      this._bustCampaignCache(key);
+      await this._refreshFromServer();
+
+      this._renderFilterPills();
+      this._renderStats();
+      this.renderMapping();
+
+      const msg = `${label} refreshed (${result.rows || 0} rows)`;
+      this._toast(msg, 'success');
+      console.log('[OwnerDev] Campaign refresh:', result);
+    } catch (err) {
+      console.error('[OwnerDev] Campaign refresh failed:', err);
+      this._toast(`Refresh failed: ${err.message}`, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = `Refresh ${label}`; }
+      this._updateRefreshButton();
+    }
+  },
+
+  /**
+   * Remove a single campaign's data from the local cache so the next
+   * _refreshFromServer pulls fresh data.
+   */
+  _bustCampaignCache(campaignKey) {
+    try {
+      const cache = this._readCache();
+      if (cache && cache.campaigns && cache.campaigns[campaignKey]) {
+        delete cache.campaigns[campaignKey];
+        cache._ts = 0;
+        localStorage.setItem(this._CACHE_KEY, JSON.stringify(cache));
+      }
+    } catch (e) {
+      console.warn('[OwnerDev] Cache bust error:', e.message);
+    }
   },
 
   // ══════════════════════════════════════════════════════

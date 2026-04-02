@@ -283,6 +283,11 @@ function doGet(e) {
       return jsonResp(odGetNlrTabs(sheetId));
     }
 
+    // ── OD: Get office ID → owner name mappings ──
+    if (action === 'odGetOfficeIds') {
+      return jsonResp(odGetOfficeIds());
+    }
+
     // ── OD: Get mappings ──
     if (action === 'odGetMappings') {
       return jsonResp(odGetMappings());
@@ -460,6 +465,9 @@ function doPost(e) {
         break;
       case 'odDeleteAccessGrant':
         result = odDeleteAccessGrant(body);
+        break;
+      case 'odSaveOfficeId':
+        result = odSaveOfficeId(body);
         break;
       default:
         result = { error: 'unknown action: ' + body.action };
@@ -5062,6 +5070,47 @@ function odGetNlrTabs(sheetId) {
     tabs.push(sheets[i].getName());
   }
   return { success: true, tabs: tabs };
+}
+
+/**
+ * action=odGetOfficeIds
+ * Read _OD_Office_IDs tab, return all office number → owner name mappings.
+ */
+function odGetOfficeIds() {
+  odGetOrCreateTab('_OD_Office_IDs', ['officeNumber', 'ownerName', 'updatedBy', 'updatedAt']);
+  var rows = odReadTab('_OD_Office_IDs');
+  return { success: true, officeIds: rows };
+}
+
+/**
+ * action=odSaveOfficeId (POST)
+ * Upsert an office number → owner name mapping in _OD_Office_IDs.
+ * Body: { officeNumber, ownerName, email }
+ */
+function odSaveOfficeId(body) {
+  var officeNumber = String(body.officeNumber || '').trim();
+  var ownerName = String(body.ownerName || '').trim();
+  var email = String(body.email || '').trim();
+  if (!officeNumber) return { error: 'Missing officeNumber' };
+  if (!ownerName) return { error: 'Missing ownerName' };
+
+  var sheet = odGetOrCreateTab('_OD_Office_IDs', ['officeNumber', 'ownerName', 'updatedBy', 'updatedAt']);
+  var data = sheet.getDataRange().getValues();
+  var now = new Date().toISOString();
+
+  // Find existing row by officeNumber (col 0)
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][0]).trim() === officeNumber) {
+      sheet.getRange(r + 1, 2).setValue(ownerName);
+      sheet.getRange(r + 1, 3).setValue(email);
+      sheet.getRange(r + 1, 4).setValue(now);
+      return { success: true, updated: true, officeNumber: officeNumber, ownerName: ownerName };
+    }
+  }
+
+  // New entry
+  sheet.appendRow([officeNumber, ownerName, email, now]);
+  return { success: true, updated: false, officeNumber: officeNumber, ownerName: ownerName };
 }
 
 /**

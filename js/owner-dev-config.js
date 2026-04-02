@@ -53,15 +53,15 @@ const OD_CONFIG = {
   // Which nav tabs each role can see.
   // 'edit' = full access, 'view' = read-only, false = hidden
   tabAccess: {
-    superadmin:    { mapping: 'edit', team: 'edit', coach: 'edit', planning: 'edit' },
-    aptel:         { mapping: 'view', team: 'view', coach: 'view', planning: 'view' },
-    national:      { mapping: false,  team: false,  coach: 'edit', planning: false  },
-    org_manager:   { mapping: 'edit', team: 'edit', coach: 'edit', planning: 'edit' },
-    admin:         { mapping: 'edit', team: false,  coach: 'edit', planning: 'edit' },
-    nlr_manager:   { mapping: 'edit', team: 'edit', coach: 'view', planning: 'view' },
-    nlr:           { mapping: 'edit', team: false,  coach: 'view', planning: 'view' },
-    bis_manager:   { mapping: 'edit', team: 'edit', coach: 'view', planning: 'view' },
-    bis:           { mapping: 'edit', team: false,  coach: 'view', planning: 'view' }
+    superadmin:    { mapping: 'edit', team: 'edit', coach: 'edit', planning: 'edit', tools: 'edit' },
+    aptel:         { mapping: 'view', team: 'view', coach: 'view', planning: 'view', tools: false  },
+    national:      { mapping: false,  team: false,  coach: 'edit', planning: false,  tools: false  },
+    org_manager:   { mapping: 'edit', team: 'edit', coach: 'edit', planning: 'edit', tools: 'edit' },
+    admin:         { mapping: 'edit', team: false,  coach: 'edit', planning: 'edit', tools: 'edit' },
+    nlr_manager:   { mapping: 'edit', team: 'edit', coach: 'view', planning: 'view', tools: false  },
+    nlr:           { mapping: 'edit', team: false,  coach: 'view', planning: 'view', tools: false  },
+    bis_manager:   { mapping: 'edit', team: 'edit', coach: 'view', planning: 'view', tools: false  },
+    bis:           { mapping: 'edit', team: false,  coach: 'view', planning: 'view', tools: false  }
   },
 
   // ── Column Edit Rights by Role ──

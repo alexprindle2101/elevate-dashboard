@@ -2239,13 +2239,24 @@ const NationalApp = {
   // RENDER: Owners List (directory-style cards)
   // ══════════════════════════════════════════════════
 
-  _ownerSortMode: 'scheduled', // 'scheduled' or 'alpha'
+  _ownerSortMode: 'scheduled', // 'scheduled', 'alpha', or 'rank'
 
   _toggleOwnerSort() {
-    this._ownerSortMode = this._ownerSortMode === 'scheduled' ? 'alpha' : 'scheduled';
-    const btn = document.getElementById('owner-sort-toggle');
-    if (btn) btn.textContent = this._ownerSortMode === 'alpha' ? '📅' : 'A→Z';
+    const cycle = ['scheduled', 'alpha', 'rank'];
+    const idx = cycle.indexOf(this._ownerSortMode);
+    this._ownerSortMode = cycle[(idx + 1) % cycle.length];
+    this._updateSortToggleBtn();
     this.renderOwnersList();
+  },
+
+  _updateSortToggleBtn() {
+    const btn = document.getElementById('owner-sort-toggle');
+    if (!btn) return;
+    const labels = { scheduled: '📅', alpha: 'A→Z', rank: '#1' };
+    // Show what the NEXT click will switch to
+    const cycle = ['scheduled', 'alpha', 'rank'];
+    const nextIdx = (cycle.indexOf(this._ownerSortMode) + 1) % cycle.length;
+    btn.textContent = labels[cycle[nextIdx]];
   },
 
   renderOwnersList() {
@@ -2253,11 +2264,12 @@ const NationalApp = {
     const owners = this.state.owners;
 
     // Update toggle button label
-    const btn = document.getElementById('owner-sort-toggle');
-    if (btn) btn.textContent = this._ownerSortMode === 'alpha' ? '📅' : 'A→Z';
+    this._updateSortToggleBtn();
 
     if (this._ownerSortMode === 'alpha') {
       owners.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (this._ownerSortMode === 'rank') {
+      owners.sort((a, b) => (a.d2dRank || 9999) - (b.d2dRank || 9999));
     } else {
       // Apply planning owner order if available for current campaign + today
       const schedule = this._planningSchedule || [];

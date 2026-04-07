@@ -261,15 +261,17 @@ const Challenge = {
       if (r.bonusPoints > 0) totalParts.push(`Bonus: ${r.bonusPoints}`);
       const totalTip = totalParts.join(' + ') + ` = ${r.total}`;
 
+      const tip = (text, content) => `<span class="challenge-tip-wrap">${content}<span class="challenge-tip">${text}</span></span>`;
+
       rows += `<tr class="${isMe ? 'challenge-row-me' : ''}">
         <td class="challenge-rank">${medal}</td>
         <td class="challenge-name">${this._esc(r.name)}</td>
         ${teamCell}
-        <td class="challenge-pts" title="${this._esc(unitTip)}">${r.unitPoints}</td>
-        <td class="challenge-pts" title="${this._esc(goalTip)}">${r.goalPoints}</td>
-        <td class="challenge-pts" title="${this._esc(bonusTip)}">${r.bonusPoints}</td>
+        <td class="challenge-pts">${tip(this._esc(unitTip), r.unitPoints)}</td>
+        <td class="challenge-pts">${tip(this._esc(goalTip), r.goalPoints)}</td>
+        <td class="challenge-pts">${tip(this._esc(bonusTip), r.bonusPoints)}</td>
         <td class="challenge-pts">${penaltyStr}</td>
-        <td class="challenge-pts challenge-total" title="${this._esc(totalTip)}">${r.total}</td>
+        <td class="challenge-pts challenge-total">${tip(this._esc(totalTip), r.total)}</td>
       </tr>`;
     });
 

@@ -2175,6 +2175,7 @@ function readOwnerNlrData(ownerName, campaignFilter) {
       var e = histMap[histOrder[ahi]];
       var nWeeks = e.weeks.length;
       var last = e.weeks[nWeeks - 1];
+      var avgCpns = e.totalApplies > 0 && last.lifetimeHired > 0 ? Math.round(e.totalSpend / last.lifetimeHired * 100) / 100 : 0;
       adHistory.push({
         adTitle:        e.adTitle,
         location:       e.location,
@@ -2182,13 +2183,14 @@ function readOwnerNlrData(ownerName, campaignFilter) {
         avgWeeklySpend: nWeeks > 0 ? Math.round(e.totalSpend / nWeeks * 100) / 100 : 0,
         avgWeeklyApplies: nWeeks > 0 ? Math.round(e.totalApplies / nWeeks * 100) / 100 : 0,
         avgWeeklyCpa:   e.totalApplies > 0 ? Math.round(e.totalSpend / e.totalApplies * 100) / 100 : 0,
+        avgCpns:        avgCpns,
         totalApplies:   e.totalApplies,
         total2nds:      last.lifetime2nds,
         totalHired:     last.lifetimeHired,
         pctTo2nd:       last.pctTo2nd,
         pctToHire:      last.pctToHire,
         lastStatus:     last.status,
-        lastPlan:       last.plan
+        weeks:          e.weeks
       });
     }
 

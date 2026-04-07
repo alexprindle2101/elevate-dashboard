@@ -774,10 +774,29 @@ const OwnerDevTools = {
       return COLOR_HEX.red;
     };
 
+    const pctShadow = (key) => {
+      // Yellow/orange need heavier shadow for contrast on lighter bg
+      if (key === 'yellow') return '0 1px 3px rgba(0,0,0,0.55), 0 0 8px rgba(0,0,0,0.3)';
+      if (key === 'orange') return '0 1px 3px rgba(0,0,0,0.5), 0 0 7px rgba(0,0,0,0.25)';
+      return '0 1px 3px rgba(0,0,0,0.45), 0 0 6px rgba(0,0,0,0.2)';
+    };
+    const pctTier = (val, key) => {
+      const n = parseFloat(val) || 0;
+      const t = PCT_THRESHOLDS[key] || [60, 50, 40, 35];
+      if (n >= t[0]) return 'blue';
+      if (n >= t[1]) return 'green';
+      if (n >= t[2]) return 'yellow';
+      if (n >= t[3]) return 'orange';
+      return 'red';
+    };
+
     const fmtCell = (val, col) => {
       if (col.pct) {
         const n = parseFloat(val) || 0;
-        return `<span style="color:${pctColor(n, col.key)};font-weight:600;">${Math.round(n)}%</span>`;
+        const tier = pctTier(n, col.key);
+        const bg = COLOR_HEX[tier];
+        const shadow = pctShadow(tier);
+        return `<span style="display:inline-block;background:${bg};color:#fff;font-weight:700;border-radius:4px;padding:1px 6px;text-shadow:${shadow};min-width:36px;text-align:center;">${Math.round(n)}%</span>`;
       }
       return val;
     };

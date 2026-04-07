@@ -1782,6 +1782,18 @@ const NationalApp = {
     this.state.campaign = campaignKey;
     this.state.selectedOwner = null;
 
+    // B2B defaults: flip WoW cards to table (back) side, reset sort
+    if (campaignKey === 'att-b2b') {
+      this._hcFlipped = true;
+      this._prodFlipped = true;
+      this._recruitFlipped = true;
+    } else {
+      this._hcFlipped = false;
+      this._prodFlipped = false;
+      this._recruitFlipped = false;
+    }
+    this._salesSortCol = null;
+
     // Update the dropdown to match
     const select = document.getElementById('campaign-select');
     if (select) select.value = campaignKey;
@@ -4982,7 +4994,12 @@ const NationalApp = {
   },
 
   renderSalesTab(owner) {
-    // Sales data comes from Tableau — no Non-Partner gate needed here
+    // B2B: default sort reps by Volume desc on first render
+    if (this.state.campaign === 'att-b2b' && owner.sales?.reps?.length && !this._salesSortCol) {
+      this._salesSortCol = 'totalVolume';
+      this._salesSortAsc = false;
+      owner.sales.reps.sort((a, b) => (b.totalVolume || 0) - (a.totalVolume || 0));
+    }
 
     // Show loading if sales data is still being fetched
     if (owner._ndsSalesFetching || owner._resSalesFetching || owner._fiosSalesFetching || owner._b2bSalesFetching) {

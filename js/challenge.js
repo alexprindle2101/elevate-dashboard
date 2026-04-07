@@ -165,7 +165,7 @@ const Challenge = {
       const labels = {
         pointsPerUnit: 'Points/Unit', dailyGoals: 'Daily Goals', eventGoals: 'Event Goals',
         firstBlood: 'First Blood', lastBlood: 'Last Blood',
-        activePenalty: 'Active % Penalty', churn030Penalty: '0-30 Churn Penalty', churn30Penalty: '30d Churn Penalty'
+        activePenalty: 'Active % Penalty', churn030Penalty: '0-30 Churn Penalty'
       };
       return labels[k] || k;
     });
@@ -543,8 +543,7 @@ const Challenge = {
         firstBlood: { enabled: false, points: 200 },
         lastBlood: { enabled: false, points: 200 },
         activePenalty: { enabled: false },
-        churn030Penalty: { enabled: false },
-        churn30Penalty: { enabled: false }
+        churn030Penalty: { enabled: false }
       }
     };
     this._renderWizard();
@@ -670,7 +669,6 @@ const Challenge = {
 
     html += this._ruleCardHTML('activePenalty', 'Active % Penalty', 'Straight deduction — 75% active = 25% penalty on unit pts', r.activePenalty, 'toggle');
     html += this._ruleCardHTML('churn030Penalty', '0-30 Day Churn Penalty', 'Squared penalty — 5% churn = 25% penalty on unit pts', r.churn030Penalty, 'toggle');
-    html += this._ruleCardHTML('churn30Penalty', '30 Day Churn Penalty', 'Squared penalty — same formula as 0-30 day', r.churn30Penalty, 'toggle');
 
     return html;
   },
@@ -764,7 +762,6 @@ const Challenge = {
     if (r.lastBlood.enabled) rulesHtml += `<li><b>Last Blood:</b> ${r.lastBlood.points} pts/day</li>`;
     if (r.activePenalty.enabled) rulesHtml += `<li><b>Active % Penalty:</b> Squared penalty on unit pts</li>`;
     if (r.churn030Penalty.enabled) rulesHtml += `<li><b>0-30 Day Churn Penalty:</b> Squared penalty on unit pts</li>`;
-    if (r.churn30Penalty.enabled) rulesHtml += `<li><b>30 Day Churn Penalty:</b> Squared penalty on unit pts</li>`;
 
     if (!rulesHtml) rulesHtml = '<li style="color:var(--silver-dim)">No rules enabled</li>';
 

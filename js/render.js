@@ -563,7 +563,6 @@ const Render = {
         ${p('Penalties apply <b>only to unit-based points</b> (Points per Unit). Goal points and blood points are never reduced. Multiple penalties stack multiplicatively.')}
         ${li('<b>Active % Penalty:</b> Straight deduction based on your activation rate. If a rep has 75% of their orders active, they lose 25% of their unit points. 50% active = 50% penalty. This one hits hard — it incentivizes clean activations.')}
         ${li('<b>0-30 Day Churn Penalty:</b> Squared penalty based on the rep\'s 0-30 day churn rate. A 5% churn rate becomes a 25% penalty. 3% becomes 9%. 10% would be a 100% penalty (all unit points wiped). The squaring makes even small churn rates sting.')}
-        ${li('<b>30 Day Churn Penalty:</b> Same squared formula but using the 30-day churn bucket.')}
 
         ${h3('During the Challenge')}
         ${li('The leaderboard updates every time anyone opens the Challenge tab — it pulls live sales data.')}

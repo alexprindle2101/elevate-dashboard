@@ -15,7 +15,8 @@ const TAB = {
   TEAM_CUSTOM: '_TeamCustom',
   OVERRIDES: '_Overrides',
   UNLOCKS: '_Unlocks',
-  SETTINGS: '_Settings'
+  SETTINGS: '_Settings',
+  CHALLENGE: '_Challenge'
 };
 
 // Shared tabs (no officeId suffix — one copy per campaign sheet)
@@ -259,6 +260,9 @@ function getOrCreateSheet(ss, tabName, baseName) {
       case TAB.SETTINGS:
         sheet.appendRow(['key', 'value']);
         break;
+      case TAB.CHALLENGE:
+        sheet.appendRow(['rowType', 'key', 'value']);
+        break;
     }
   }
   return sheet;
@@ -332,6 +336,23 @@ function doGet(e) {
     if (action === 'readTableauDetail') {
       const dsi = (e.parameter && e.parameter.dsi) || '';
       return jsonResponse({ devices: readTableauDetail(ss, dsi) });
+    }
+
+    // Challenge — read config
+    if (action === 'readChallengeConfig') {
+      return jsonResponse({ config: readChallengeConfig(ss, officeId) });
+    }
+
+    // Challenge — read sales within date range
+    if (action === 'readChallengeSales') {
+      var startDate = (e.parameter && e.parameter.startDate) || '';
+      var endDate = (e.parameter && e.parameter.endDate) || '';
+      return jsonResponse({ sales: readChallengeSales(ss, officeId, startDate, endDate) });
+    }
+
+    // Challenge — read blood cache
+    if (action === 'readChallengeBlood') {
+      return jsonResponse({ blood: readChallengeBlood(ss, officeId) });
     }
 
     // Leaderboard snapshot (used by Make.com for daily Discord post)
@@ -921,6 +942,209 @@ function writeSetting(body, ss, officeId) {
 }
 
 
+// ═══════════════════════════════════════════════════════
+// CHALLENGE FUNCTIONS
+// ═══════════════════════════════════════════════════════
+
+// Read the active challenge config (or null)
+function readChallengeConfig(ss, officeId) {
+  var sheet = ss.getSheetByName(officeTab(TAB.CHALLENGE, officeId));
+  if (!sheet) return null;
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() === 'config' && String(data[i][1]).trim() === 'challengeConfig') {
+      try { return JSON.parse(String(data[i][2])); } catch (e) { return null; }
+    }
+  }
+  return null;
+}
+
+// Read per-rep sales within a date range — returns { email: { dailyUnits: { "YYYY-MM-DD": N }, totalUnits: N } }
+function readChallengeSales(ss, officeId, startDate, endDate) {
+  var olSheet = ss.getSheetByName(officeTab(TAB.SALES, officeId));
+  if (!olSheet) return {};
+  var olData = olSheet.getDataRange().getValues();
+  if (olData.length < 2) return {};
+
+  var start = new Date(startDate); start.setHours(0, 0, 0, 0);
+  var end = new Date(endDate); end.setHours(23, 59, 59, 999);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return {};
+
+  var sales = {};
+  for (var i = 1; i < olData.length; i++) {
+    var row = olData[i];
+    var email = String(row[OL.EMAIL] || '').trim().toLowerCase();
+    if (!email) continue;
+
+    var rawDate = row[OL.DATE_OF_SALE];
+    if (!rawDate) continue;
+    var saleDate = new Date(rawDate);
+    if (isNaN(saleDate.getTime())) continue;
+    saleDate.setHours(0, 0, 0, 0);
+    if (saleDate < start || saleDate > end) continue;
+
+    // Skip Tower orders (order channel)
+    var orderChannel = String(row[OL.ORDER_CHANNEL] || 'Sara').trim();
+    if (orderChannel === 'Tower') continue;
+
+    var units = Number(row[OL.UNITS]) || 0;
+    var dateKey = saleDate.toISOString().split('T')[0];
+
+    if (!sales[email]) sales[email] = { dailyUnits: {}, totalUnits: 0 };
+    sales[email].dailyUnits[dateKey] = (sales[email].dailyUnits[dateKey] || 0) + units;
+    sales[email].totalUnits += units;
+  }
+  return sales;
+}
+
+// Read all blood cache rows — returns { "YYYY-MM-DD": { firstBlood, lastBlood } }
+function readChallengeBlood(ss, officeId) {
+  var sheet = ss.getSheetByName(officeTab(TAB.CHALLENGE, officeId));
+  if (!sheet) return {};
+  var data = sheet.getDataRange().getValues();
+  var blood = {};
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() !== 'blood') continue;
+    var key = String(data[i][1]).trim();
+    var dateStr = key.replace('blood_', '');
+    try { blood[dateStr] = JSON.parse(String(data[i][2])); } catch (e) { /* skip bad rows */ }
+  }
+  return blood;
+}
+
+// Upsert challenge config
+function writeChallengeConfig(body, ss, officeId) {
+  var sheet = getOrCreateSheet(ss, officeTab(TAB.CHALLENGE, officeId), TAB.CHALLENGE);
+  var configJson = JSON.stringify(body.config || {});
+
+  // Find existing config row
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() === 'config' && String(data[i][1]).trim() === 'challengeConfig') {
+      sheet.getRange(i + 1, 3).setValue(configJson);
+      return { ok: true };
+    }
+  }
+  // Not found — append
+  sheet.appendRow(['config', 'challengeConfig', configJson]);
+  return { ok: true };
+}
+
+// End the active challenge
+function writeEndChallenge(body, ss, officeId) {
+  var config = readChallengeConfig(ss, officeId);
+  if (!config) return { error: 'no active challenge' };
+  config.status = 'ended';
+  return writeChallengeConfig({ config: config }, ss, officeId);
+}
+
+// Calculate first/last blood for a given date
+function writeCalculateBlood(body, ss, officeId) {
+  var targetDate = String(body.date || '').trim();
+  if (!targetDate) return { error: 'missing date' };
+
+  var target = new Date(targetDate);
+  if (isNaN(target.getTime())) return { error: 'invalid date' };
+  target.setHours(0, 0, 0, 0);
+  var targetStr = target.toISOString().split('T')[0];
+
+  // Build DSI → email map for this office
+  var dsiMap = buildDsiEmailMap(ss, officeId);
+  var dsiToEmail = dsiMap.dsiToEmail || {};
+
+  // Build set of active office rep emails from roster
+  var roster = readRoster(ss, officeId);
+  var officeEmails = {};
+  Object.keys(roster).forEach(function(email) {
+    if (!roster[email].deactivated) officeEmails[email] = roster[email].name || email;
+  });
+
+  // Read _TableauOrderLog
+  var tolSheet = ss.getSheetByName(TABLEAU_TAB);
+  if (!tolSheet) return { error: 'no _TableauOrderLog tab' };
+  var tolData = tolSheet.getDataRange().getValues();
+  if (tolData.length < 2) return { error: 'empty _TableauOrderLog' };
+  var col = buildTableauColumnMap(tolData[0]);
+
+  var earliest = null;  // { email, name, time, decimal }
+  var latest = null;
+
+  for (var i = 1; i < tolData.length; i++) {
+    var row = tolData[i];
+    // Match date
+    var rawDate = tCol(row, col, 'ORDER_DATE');
+    if (!rawDate) continue;
+    var rowDate = rawDate instanceof Date ? rawDate : new Date(rawDate);
+    if (isNaN(rowDate.getTime())) continue;
+    rowDate.setHours(0, 0, 0, 0);
+    if (rowDate.getTime() !== target.getTime()) continue;
+
+    // Match DSI to office rep
+    var dsi = String(tCol(row, col, 'DSI') || '').trim();
+    if (!dsi) continue;
+    var email = dsiToEmail[dsi];
+    if (!email || !officeEmails[email]) continue;
+
+    // Parse order time
+    var rawTime = tCol(row, col, 'ORDER_TIME');
+    if (!rawTime) continue;
+    var decimal = parseOrderTime(rawTime);
+    if (decimal === null) continue;
+
+    var timeStr = formatDecimalTime(decimal);
+    var entry = { email: email, name: officeEmails[email], time: timeStr, decimal: decimal };
+
+    if (!earliest || decimal < earliest.decimal) earliest = entry;
+    if (!latest || decimal > latest.decimal) latest = entry;
+  }
+
+  // Clean up decimal field before storing
+  var result = { date: targetStr, firstBlood: null, lastBlood: null };
+  if (earliest) { result.firstBlood = { email: earliest.email, name: earliest.name, time: earliest.time }; }
+  if (latest)   { result.lastBlood  = { email: latest.email, name: latest.name, time: latest.time }; }
+
+  // Upsert blood row
+  var sheet = getOrCreateSheet(ss, officeTab(TAB.CHALLENGE, officeId), TAB.CHALLENGE);
+  var bloodKey = 'blood_' + targetStr;
+  var data = sheet.getDataRange().getValues();
+  for (var j = 1; j < data.length; j++) {
+    if (String(data[j][0]).trim() === 'blood' && String(data[j][1]).trim() === bloodKey) {
+      sheet.getRange(j + 1, 3).setValue(JSON.stringify(result));
+      return { ok: true, blood: result };
+    }
+  }
+  sheet.appendRow(['blood', bloodKey, JSON.stringify(result)]);
+  return { ok: true, blood: result };
+}
+
+// Parse ORDER_TIME to decimal hours (e.g., "2:30 PM" → 14.5)
+function parseOrderTime(raw) {
+  if (raw instanceof Date) {
+    return raw.getHours() + raw.getMinutes() / 60;
+  }
+  var s = String(raw).trim();
+  if (!s) return null;
+  // Try HH:MM:SS or HH:MM format
+  var match = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (!match) return null;
+  var hours = parseInt(match[1]);
+  var minutes = parseInt(match[2]);
+  var ampm = (match[4] || '').toUpperCase();
+  if (ampm === 'PM' && hours < 12) hours += 12;
+  if (ampm === 'AM' && hours === 12) hours = 0;
+  return hours + minutes / 60;
+}
+
+// Format decimal hours to "H:MM AM/PM"
+function formatDecimalTime(decimal) {
+  var h = Math.floor(decimal);
+  var m = Math.round((decimal - h) * 60);
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  var h12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+  return h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+}
+
+
 function readOrderOverrides(ss, officeId) {
   const sheet = ss.getSheetByName(officeTab(TAB.OVERRIDES, officeId));
   if (!sheet) return {};
@@ -1442,6 +1666,10 @@ function doPost(e) {
       case 'addSale':              result = writeAddSale(body, ss, officeId); break;
       case 'replayWebhook':        result = replayWebhook(body, ss, officeId); break;
       case 'bustTableauCache':     result = writeBustTableauCache(officeId); break;
+      // Challenge management
+      case 'saveChallengeConfig':  result = writeChallengeConfig(body, ss, officeId); break;
+      case 'endChallenge':         result = writeEndChallenge(body, ss, officeId); break;
+      case 'calculateBlood':       result = writeCalculateBlood(body, ss, officeId); break;
       // Office provisioning (called by admin portal)
       case 'createOfficeTabs':     result = createOfficeTabs(body, ss); break;
       // One-time migration: old tabs → new per-office tabs

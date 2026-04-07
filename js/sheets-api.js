@@ -108,6 +108,34 @@ const SheetsAPI = {
     return data;
   },
 
+  // ── Challenge ──
+  async fetchChallengeConfig(config) {
+    const url = this._buildUrl(config, { action: 'readChallengeConfig' });
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Apps Script HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    return data.config || null;
+  },
+
+  async fetchChallengeSales(config, startDate, endDate) {
+    const url = this._buildUrl(config, { action: 'readChallengeSales', startDate, endDate });
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Apps Script HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    return data.sales || {};
+  },
+
+  async fetchChallengeBlood(config) {
+    const url = this._buildUrl(config, { action: 'readChallengeBlood' });
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Apps Script HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    return data.blood || {};
+  },
+
   // ── Fetch Tableau device detail for a single DSI ──
   async fetchTableauDetail(config, dsi) {
     const url = this._buildUrl(config, { action: 'readTableauDetail', dsi });

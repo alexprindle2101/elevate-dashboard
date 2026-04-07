@@ -140,6 +140,7 @@
       <button class="nav-tab" id="nav-teams" onclick="App.navTo('teams')" style="display:none">Teams</button>
       <button class="nav-tab" id="nav-leaderboard" onclick="App.navTo('leaderboard')">Leaderboard</button>
       <button class="nav-tab" id="nav-payroll" onclick="App.navTo('payroll')" style="display:none">Payroll</button>
+      <button class="nav-tab" id="nav-challenge" onclick="App.navTo('challenge')" style="display:none">Challenge</button>
       <button class="nav-tab" id="nav-office" onclick="App.navTo('office')" style="display:none">Office</button>
     </nav>
   </header>
@@ -539,6 +540,21 @@
   </div>
 
   <!-- ════════════════════════════════════════════════
+       CHALLENGE PAGE
+       ════════════════════════════════════════════════ -->
+  <div id="challenge-page" style="display:none">
+    <div style="max-width:960px;margin:0 auto;padding:24px 0 80px">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+        <div>
+          <div style="font-family:'Neue Montreal','Inter',sans-serif;font-size:32px;font-weight:700;letter-spacing:-0.5px;color:var(--white)">Challenge</div>
+          <div style="font-size:12px;color:var(--silver-dim);margin-top:4px" id="challenge-subtitle"></div>
+        </div>
+      </div>
+      <div id="challenge-content"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
        ORDER NOTE MODAL
        ════════════════════════════════════════════════ -->
   <div id="order-note-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.35);align-items:center;justify-content:center">
@@ -856,6 +872,7 @@
 <script src="js/render.js?v=20260312f"></script>
 <script src="js/orders.js?v=20260305h"></script>
 <script src="js/post-sale.js?v=20260312a"></script>
+<script src="js/challenge.js?v=20260407a"></script>
 <script src="js/app.js?v=20260311a"></script>
 
 </body>

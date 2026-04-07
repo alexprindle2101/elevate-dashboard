@@ -408,6 +408,7 @@ const App = {
     if (this.state.currentNav === 'allOrders') this._loadAndRenderOrders('all');
     if (this.state.currentNav === 'myOrders') this._loadAndRenderOrders('my');
     if (this.state.currentNav === 'payroll') this._loadAndRenderPayroll();
+    if (this.state.currentNav === 'challenge') Challenge.open();
     if (this.state.currentNav === 'office') this._renderOfficePage();
     this.updateLastUpdated();
 
@@ -560,6 +561,7 @@ const App = {
     const curEmail = (this.state.currentEmail || '').toLowerCase();
     const payrollMgr = (OFFICE_CONFIG.payrollManagerEmail || this.state.settings.payrollManager || '').toLowerCase();
     const showPayroll = isSA || (role === 'owner') || (payrollMgr && curEmail === payrollMgr);
+    const showChallenge = true; // visible to all roles
 
     // ── Separator visibility ──
     const hasTeamGroup = showTeam || showEdit || showTeamRoster;
@@ -595,6 +597,7 @@ const App = {
     setDisplay('nav-leaderboard', showLeaderboard);
     setDisplay('nav-office', showOffice);
     setDisplay('nav-payroll', showPayroll);
+    setDisplay('nav-challenge', showChallenge);
 
     // Update team label
     if (showTeam) {
@@ -639,6 +642,7 @@ const App = {
       myOrders: 'my-orders-page',
       office: 'office-page',
       payroll: 'payroll-page',
+      challenge: 'challenge-page',
       teamRoster: 'team-roster-page',
       postSale: 'post-sale-page'
     };
@@ -691,6 +695,8 @@ const App = {
       this._renderOfficePage();
     } else if (tab === 'payroll') {
       this._loadAndRenderPayroll();
+    } else if (tab === 'challenge') {
+      Challenge.open();
     } else if (tab === 'postSale') {
       PostSale.open();
     }

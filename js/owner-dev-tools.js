@@ -104,7 +104,21 @@ const OwnerDevTools = {
       <div class="tools-card">
         <div class="tools-card-header">
           <h3>Output</h3>
-          <span id="asrf-row-count" class="tools-muted">0 rows</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <select id="asrf-sort-select" class="tools-input" style="padding:4px 8px;font-size:11px;min-width:140px;">
+              <option value="default">Sort: Entry Order</option>
+              <option value="manager-asc">Manager A→Z</option>
+              <option value="manager-desc">Manager Z→A</option>
+              <option value="opens-desc">Opens ↓</option>
+              <option value="firstShowed-desc">1st Showed ↓</option>
+              <option value="retention1st-desc">Ret 1st ↓</option>
+              <option value="retention1st-asc">Ret 1st ↑</option>
+              <option value="newStartsShowed-desc">NS Showed ↓</option>
+              <option value="newStartsRetention-desc">NS Ret ↓</option>
+              <option value="newStartsRetention-asc">NS Ret ↑</option>
+            </select>
+            <span id="asrf-row-count" class="tools-muted">0 rows</span>
+          </div>
         </div>
         <div class="tools-table-wrap">
           <table class="tools-output-table" id="asrf-output-table">
@@ -182,6 +196,9 @@ const OwnerDevTools = {
       document.getElementById('asrf-paste-area').value = '';
     });
 
+    // Sort
+    document.getElementById('asrf-sort-select').addEventListener('change', () => this._onSort());
+
     // Copy all
     document.getElementById('asrf-copy-btn').addEventListener('click', () => this._onCopyAll());
 
@@ -238,6 +255,33 @@ const OwnerDevTools = {
 
 
   // ══════════════════════════════════════════════════════
+  // SORT
+  // ══════════════════════════════════════════════════════
+
+  _onSort() {
+    const sel = document.getElementById('asrf-sort-select');
+    if (!sel || !this._outputRows.length) return;
+    const val = sel.value;
+    if (val === 'default') {
+      // Restore original insertion order — re-sort by stored index
+      this._outputRows.sort((a, b) => (a._idx || 0) - (b._idx || 0));
+    } else {
+      const [field, dir] = val.split('-');
+      const asc = dir === 'asc';
+      this._outputRows.sort((a, b) => {
+        const va = field === 'manager' ? (a.manager || '').toLowerCase() : (parseFloat(a[field]) || 0);
+        const vb = field === 'manager' ? (b.manager || '').toLowerCase() : (parseFloat(b[field]) || 0);
+        if (va < vb) return asc ? -1 : 1;
+        if (va > vb) return asc ? 1 : -1;
+        return 0;
+      });
+    }
+    this._saveRows();
+    this._renderOutputTable();
+  },
+
+
+  // ══════════════════════════════════════════════════════
   // PROCESS FLOW
   // ══════════════════════════════════════════════════════
 
@@ -265,6 +309,7 @@ const OwnerDevTools = {
       const colIndex = this._mode === 'week' ? 7 : this._selectedDay;
       const row = this._extractRow(parsed, colIndex, officeNum);
 
+      row._idx = this._outputRows.length;
       this._outputRows.push(row);
       this._saveRows();
       this._renderOutputTable();

@@ -13,6 +13,7 @@ const OwnerDevTools = {
   _officeNumber: '',
   _officeMappings: {},   // { officeNumber: ownerName } — from server
   _outputRows: [],       // accumulated rows for current session
+  _reportDate: '',       // date for screenshot header (YYYY-MM-DD)
   _loading: false,
   _editingMappings: false,
 
@@ -86,6 +87,10 @@ const OwnerDevTools = {
             <div class="tools-radio-group" id="asrf-day-group">
               ${this.DAY_LABELS.map((d, i) => `<button class="tools-radio-btn tools-day-btn ${this._selectedDay === i ? 'active' : ''}" data-day="${i}">${d}</button>`).join('')}
             </div>
+          </div>
+          <div class="tools-field" style="margin-left:auto;">
+            <label class="tools-label" id="asrf-date-label">${this._mode === 'week' ? "Sunday's Date" : 'Date'}</label>
+            <input type="date" id="asrf-report-date" class="tools-input" value="${this._reportDate || ''}">
           </div>
         </div>
         <textarea id="asrf-paste-area" class="tools-textarea" placeholder="Paste Applicant Stream data here...\n\nCopy the full table including category rows (Starting Open Applicants, Emails Received, Interviews Booked, etc.) and paste here." rows="10"></textarea>
@@ -226,6 +231,9 @@ const OwnerDevTools = {
     document.querySelectorAll('#asrf-day-group .tools-day-btn').forEach(btn => {
       btn.classList.toggle('active', parseInt(btn.dataset.day) === this._selectedDay);
     });
+    // Date label
+    const dateLabel = document.getElementById('asrf-date-label');
+    if (dateLabel) dateLabel.textContent = this._mode === 'week' ? "Sunday's Date" : 'Date';
   },
 
 
@@ -699,8 +707,24 @@ const OwnerDevTools = {
     const existing = document.getElementById('asrf-screenshot-overlay');
     if (existing) existing.remove();
 
-    const today = new Date();
-    const dateStr = (today.getMonth() + 1) + '/' + today.getDate() + '/' + today.getFullYear();
+    // Read date from input field
+    const dateInput = document.getElementById('asrf-report-date');
+    this._reportDate = dateInput ? dateInput.value : '';
+
+    let headerDateStr = '';
+    if (this._reportDate) {
+      const parts = this._reportDate.split('-'); // YYYY-MM-DD
+      const sun = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+      if (this._mode === 'week') {
+        // Show range: Sunday → Saturday
+        const sat = new Date(sun.getTime() + 6 * 86400000);
+        const fmt = d => (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
+        headerDateStr = fmt(sun) + ' — ' + fmt(sat);
+      } else {
+        // Single day: just show the date + day name
+        headerDateStr = this.DAY_LABELS[sun.getDay()] + ' ' + (sun.getMonth() + 1) + '/' + sun.getDate() + '/' + sun.getFullYear();
+      }
+    }
 
     const headerCols = [
       { label: 'Manager', align: 'left' },
@@ -770,10 +794,8 @@ const OwnerDevTools = {
         <button class="tools-screenshot-close" onclick="document.getElementById('asrf-screenshot-overlay').remove()">&times;</button>
         <div class="tools-screenshot-content">
           <div class="tools-screenshot-header">
-            <div style="display:flex;align-items:center;gap:12px;">
-              <span style="font-size:18px;font-weight:800;color:var(--gray-800,#1a202c);">Applicant Stream Report</span>
-            </div>
-            <span style="font-size:12px;color:var(--gray-400,#98a3b3);font-weight:500;">${dateStr}</span>
+            <span style="font-size:18px;font-weight:800;color:var(--gray-800,#1a202c);">Applicant Stream Report</span>
+            ${headerDateStr ? `<span style="font-size:13px;color:var(--gray-500,#6b7a8d);font-weight:600;">${headerDateStr}</span>` : ''}
           </div>
           <div style="overflow-x:auto;">
             <table class="tools-screenshot-table">

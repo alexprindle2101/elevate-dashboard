@@ -6133,6 +6133,53 @@ function consolidateCampaign_(campaignKey, campaign, destSS) {
     Logger.log('consolidateCampaign_ restored orphaned row: ' + properOwner + ' | ' + orphanDate);
   }
 
+  // ── Ensure next-week goal rows exist ──
+  // For each owner, find the most recent row. If it has goals, create a next-week
+  // row with those goals (if one doesn't already exist).
+  var _ownerLatest = {}; // ownerLower → { dateMs, rowIdx }
+  for (var nw = 0; nw < rows.length; nw++) {
+    var nwOwner = String(rows[nw][1] || '').trim().toLowerCase();
+    var nwDateMs = (rows[nw][0] instanceof Date) ? rows[nw][0].getTime() : new Date(rows[nw][0]).getTime() || 0;
+    if (!_ownerLatest[nwOwner] || nwDateMs > _ownerLatest[nwOwner].dateMs) {
+      _ownerLatest[nwOwner] = { dateMs: nwDateMs, rowIdx: nw };
+    }
+  }
+  var _existingKeys = {};
+  for (var ek = 0; ek < rows.length; ek++) {
+    var ekOwner = String(rows[ek][1] || '').trim().toLowerCase();
+    var ekDate = _normalizeDateKey_(rows[ek][0], campaignKey);
+    _existingKeys[ekOwner + '|' + ekDate] = true;
+  }
+  var _goalRowsCreated = 0;
+  for (var olKey in _ownerLatest) {
+    var latestIdx = _ownerLatest[olKey].rowIdx;
+    var latestRow = rows[latestIdx];
+    // Check if this row has any non-zero goals
+    var hasGoals = false;
+    for (var gpi = 0; gpi < products.length; gpi++) {
+      var gIdx = prodStart + gpi * 2 + 1;
+      if (Number(latestRow[gIdx]) > 0) { hasGoals = true; break; }
+    }
+    if (!hasGoals) continue;
+    // Compute next week date
+    var latestDate = latestRow[0] instanceof Date ? latestRow[0] : new Date(latestRow[0]);
+    var nextDate = new Date(latestDate.getTime() + 7 * 86400000);
+    var nextKey = _normalizeDateKey_(nextDate, campaignKey);
+    if (_existingKeys[olKey + '|' + nextKey]) continue; // row already exists
+    // Create new row with goals only
+    var goalRow = [];
+    for (var gi2 = 0; gi2 < campaignHeaders.length; gi2++) goalRow.push(0);
+    goalRow[0] = nextDate;
+    goalRow[1] = String(latestRow[1] || '').trim(); // proper-cased owner name
+    for (var gpi2 = 0; gpi2 < products.length; gpi2++) {
+      goalRow[prodStart + gpi2 * 2 + 1] = Number(latestRow[prodStart + gpi2 * 2 + 1]) || 0;
+    }
+    rows.push(goalRow);
+    _existingKeys[olKey + '|' + nextKey] = true;
+    _goalRowsCreated++;
+  }
+  if (_goalRowsCreated) Logger.log('consolidateCampaign_ created ' + _goalRowsCreated + ' next-week goal rows');
+
   // ── Dedup: merge duplicate owner+date rows ──
   var dedupMap = {};
   for (var di = 0; di < rows.length; di++) {
@@ -7623,8 +7670,10 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
           if (!row[prodStart + pi * 2] && savedProd && savedProd[products[pi]]) {
             row[prodStart + pi * 2] = savedProd[products[pi]];
           }
-          // Goals: restore from existing
-          row[prodStart + pi * 2 + 1] = (savedGoals && savedGoals[products[pi]]) ? savedGoals[products[pi]] : 0;
+          // Goals: keep forwarded source goal if present, otherwise restore from existing
+          var currentGoal = Number(row[prodStart + pi * 2 + 1]) || 0;
+          var restoredGoal = (savedGoals && savedGoals[products[pi]]) ? savedGoals[products[pi]] : 0;
+          row[prodStart + pi * 2 + 1] = currentGoal || restoredGoal;
         }
 
         rows.push(row);
@@ -7677,6 +7726,49 @@ function consolidateCampaignSlim_(campaignKey, campaign, destSS) {
     for (var rci = 0; rci < 12; rci++) preservedRow.push(0); // recruiting
     rows.push(preservedRow);
   }
+
+  // ── Ensure next-week goal rows exist ──
+  var _prodStartGoal = 6 + extraHC.length;
+  var _ownerLatest = {};
+  for (var nw = 0; nw < rows.length; nw++) {
+    var nwOwner = String(rows[nw][1] || '').trim().toLowerCase();
+    var nwDateMs = (rows[nw][0] instanceof Date) ? rows[nw][0].getTime() : new Date(rows[nw][0]).getTime() || 0;
+    if (!_ownerLatest[nwOwner] || nwDateMs > _ownerLatest[nwOwner].dateMs) {
+      _ownerLatest[nwOwner] = { dateMs: nwDateMs, rowIdx: nw };
+    }
+  }
+  var _existingKeys = {};
+  for (var ek = 0; ek < rows.length; ek++) {
+    var ekOwner = String(rows[ek][1] || '').trim().toLowerCase();
+    var ekDate = _normalizeDateKey_(rows[ek][0], campaignKey);
+    _existingKeys[ekOwner + '|' + ekDate] = true;
+  }
+  var _goalRowsCreated = 0;
+  for (var olKey in _ownerLatest) {
+    var latestIdx = _ownerLatest[olKey].rowIdx;
+    var latestRow = rows[latestIdx];
+    var hasGoals = false;
+    for (var gpi = 0; gpi < products.length; gpi++) {
+      var gIdx = _prodStartGoal + gpi * 2 + 1;
+      if (Number(latestRow[gIdx]) > 0) { hasGoals = true; break; }
+    }
+    if (!hasGoals) continue;
+    var latestDate = latestRow[0] instanceof Date ? latestRow[0] : new Date(latestRow[0]);
+    var nextDate = new Date(latestDate.getTime() + 7 * 86400000);
+    var nextKey = _normalizeDateKey_(nextDate, campaignKey);
+    if (_existingKeys[olKey + '|' + nextKey]) continue;
+    var goalRow = [];
+    for (var gi2 = 0; gi2 < campaignHeaders.length; gi2++) goalRow.push(0);
+    goalRow[0] = nextDate;
+    goalRow[1] = String(latestRow[1] || '').trim();
+    for (var gpi2 = 0; gpi2 < products.length; gpi2++) {
+      goalRow[_prodStartGoal + gpi2 * 2 + 1] = Number(latestRow[_prodStartGoal + gpi2 * 2 + 1]) || 0;
+    }
+    rows.push(goalRow);
+    _existingKeys[olKey + '|' + nextKey] = true;
+    _goalRowsCreated++;
+  }
+  if (_goalRowsCreated) Logger.log('consolidateCampaignSlim_ created ' + _goalRowsCreated + ' next-week goal rows');
 
   // ── Dedup: merge duplicate owner+date rows (keep the one with most data) ──
   var dedupMap = {};

@@ -624,6 +624,7 @@ const OwnerDev = {
       if (this.state.clientToBusinessMap.length > 0) await this._autoMapCamCompanies();
       if (this.state.nlrWorkbooks.length > 0) await this._autoMapNlrFiles();
       if (Object.keys(this.state.campaignTabsCache).length > 0) await this._autoMapCampaignTabs();
+      this._syncNonPartnerTabs();
     }
 
     // Final re-render with all data (auto-mapping may have updated statuses).
@@ -888,25 +889,29 @@ const OwnerDev = {
         .catch(err => console.warn('[OwnerDev] Batch save NLR error:', err.message));
     }
 
-    // ── Step 5: Auto-fill nlrTab='Non-Partner' where nlrWorkbookId='Non-Partner' ──
-    const npToSave = [];
+    return autoMapped;
+  },
+
+  /**
+   * Sync nlrTab to 'Non-Partner' wherever nlrWorkbookId is 'Non-Partner'.
+   * Runs independently of NLR workbook loading.
+   */
+  _syncNonPartnerTabs() {
+    const toSave = [];
     for (const [campaignKey, campaign] of Object.entries(this.state.campaigns)) {
       for (const ownerName of (campaign.owners || [])) {
         const m = this._findMapping(campaignKey, ownerName);
         if (m && (m.nlrWorkbookId || '').toLowerCase() === 'non-partner' && (m.nlrTab || '').toLowerCase() !== 'non-partner') {
           this._upsertMapping(campaignKey, ownerName, { nlrTab: 'Non-Partner' });
-          npToSave.push({ campaign: campaignKey, ownerName, field: 'nlrTab', value: 'Non-Partner', updatedBy: 'auto-map' });
+          toSave.push({ campaign: campaignKey, ownerName, field: 'nlrTab', value: 'Non-Partner', updatedBy: 'auto-map' });
         }
       }
     }
-    if (npToSave.length > 0) {
-      autoMapped += npToSave.length;
-      for (const item of npToSave) {
+    if (toSave.length > 0) {
+      for (const item of toSave) {
         this._post('odSaveMapping', item).catch(err => console.warn('[OwnerDev] NP tab sync error:', err.message));
       }
     }
-
-    return autoMapped;
   },
 
   /**

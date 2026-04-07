@@ -7054,6 +7054,34 @@ function readConsolidatedRecruiting(weekCount, campaignFilter, bustCache) {
     // No week limit — send all history so WoW health/production cards have full data.
     // The frontend recruiting table handles its own 4-week column display independently.
 
+    // ── Filter owners for visible-tabs campaigns (e.g. att-b2b) ──
+    // If a tab was hidden in the campaign spreadsheet, remove that owner from results
+    if (campaign.ownerSource === 'visible-tabs') {
+      try {
+        var campaignSS = SpreadsheetApp.openById(campaign.sheetId);
+        var visibleNames = getOwnerNamesForCampaign_(campaign, campaignSS);
+        var visibleSet = {};
+        for (var vi = 0; vi < visibleNames.length; vi++) {
+          visibleSet[visibleNames[vi]] = true;
+        }
+        var allOwnerKeys = Object.keys(ownerSet);
+        for (var oi = 0; oi < allOwnerKeys.length; oi++) {
+          if (!visibleSet[allOwnerKeys[oi]]) {
+            delete ownerSet[allOwnerKeys[oi]];
+            // Scrub hidden owner data from week entries
+            for (var wk in weekMap) {
+              if (weekMap[wk].data[allOwnerKeys[oi]]) {
+                delete weekMap[wk].data[allOwnerKeys[oi]];
+              }
+            }
+          }
+        }
+        Logger.log('readConsolidatedRecruiting visible-tabs filter: ' + allOwnerKeys.length + ' → ' + Object.keys(ownerSet).length + ' owners');
+      } catch (e) {
+        Logger.log('readConsolidatedRecruiting visible-tabs filter error: ' + e.message);
+      }
+    }
+
     campaigns[key] = {
       label: campaign.label,
       owners: Object.keys(ownerSet).sort(),

@@ -310,16 +310,36 @@ const Challenge = {
       const isMyTeam = team.members.some(m => m.email === myEmail);
 
       // Member rows (collapsed by default, toggle with onclick)
+      const rules = this._config.rules || {};
+      const tip = (text, content) => `<span class="challenge-tip-wrap">${content}<span class="challenge-tip">${text}</span></span>`;
       let memberRows = '';
       team.members.sort((a, b) => b.total - a.total).forEach(m => {
         const meClass = m.email === myEmail ? ' challenge-row-me' : '';
+
+        const unitTip = m.rawUnitPoints !== m.unitPoints
+          ? `${m.totalUnits} units × ${Number(rules.pointsPerUnit?.points) || 0} pts = ${m.rawUnitPoints} (${m.unitPoints} after penalties)`
+          : `${m.totalUnits} units × ${Number(rules.pointsPerUnit?.points) || 0} pts`;
+        const goalParts = [];
+        if (m.dailyGoalPts > 0) goalParts.push(`Daily: ${m.dailyGoalPts}`);
+        if (m.eventGoalPts > 0) goalParts.push(`Event: ${m.eventGoalPts}`);
+        const goalTip = goalParts.length ? goalParts.join(' + ') : 'No goals reached';
+        const bonusParts = [];
+        if (m.firstBloodWins > 0) bonusParts.push(`First Blood: ${m.firstBloodWins}×${Number(rules.firstBlood?.points) || 0}`);
+        if (m.lastBloodWins > 0) bonusParts.push(`Last Blood: ${m.lastBloodWins}×${Number(rules.lastBlood?.points) || 0}`);
+        const bonusTip = bonusParts.length ? bonusParts.join(' + ') : 'No blood wins';
+        const totalParts = [];
+        if (m.unitPoints > 0) totalParts.push(`Unit: ${m.unitPoints}`);
+        if (m.goalPoints > 0) totalParts.push(`Goals: ${m.goalPoints}`);
+        if (m.bonusPoints > 0) totalParts.push(`Bonus: ${m.bonusPoints}`);
+        const totalTip = totalParts.join(' + ') + ` = ${m.total}`;
+
         memberRows += `<tr class="challenge-team-member${meClass}">
           <td></td>
           <td class="challenge-name" style="padding-left:32px;font-size:13px">${this._esc(m.name)}</td>
-          <td class="challenge-pts">${m.unitPoints}</td>
-          <td class="challenge-pts">${m.goalPoints}</td>
-          <td class="challenge-pts">${m.bonusPoints}</td>
-          <td class="challenge-pts challenge-total">${m.total}</td>
+          <td class="challenge-pts">${tip(this._esc(unitTip), m.unitPoints)}</td>
+          <td class="challenge-pts">${tip(this._esc(goalTip), m.goalPoints)}</td>
+          <td class="challenge-pts">${tip(this._esc(bonusTip), m.bonusPoints)}</td>
+          <td class="challenge-pts challenge-total">${tip(this._esc(totalTip), m.total)}</td>
         </tr>`;
       });
 

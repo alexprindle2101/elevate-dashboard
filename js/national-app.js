@@ -5436,8 +5436,8 @@ const NationalApp = {
                         onmouseenter="NationalApp._showMfTooltip(event,${mi})"
                         onmouseleave="NationalApp._hideMfTooltip()">
                         <td style="padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">${this._esc(m.dma.length > 30 ? m.dma.substring(0, 28) + '…' : m.dma)}</td>
-                        <td style="text-align:center;padding:3px 8px;">${m.totalWorkable}</td>
-                        <td style="text-align:center;padding:3px 8px;">${m.total}</td>
+                        <td style="text-align:center;padding:3px 8px;">${Number(m.totalWorkable).toLocaleString()}</td>
+                        <td style="text-align:center;padding:3px 8px;">${Number(m.total).toLocaleString()}</td>
                         <td style="text-align:center;padding:3px 8px;">${m.penRate}</td>
                       </tr>`).join('')}
                   </tbody>
@@ -5676,14 +5676,14 @@ const NationalApp = {
 
     let html = `<div style="font-weight:600;margin-bottom:6px;font-size:12px;">${m.dma}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 16px;font-size:11px;">
-        <span style="color:var(--silver);">Weekly Total</span><span style="font-weight:600;">${m.weeklyTotal}</span>
-        <span style="color:var(--silver);">Weekly CRU</span><span style="font-weight:600;">${m.weeklyCRU}</span>
+        <span style="color:var(--silver);">Weekly Total</span><span style="font-weight:600;">${Number(m.weeklyTotal).toLocaleString()}</span>
+        <span style="color:var(--silver);">Weekly CRU</span><span style="font-weight:600;">${Number(m.weeklyCRU).toLocaleString()}</span>
       </div>`;
     if (m.weeks && m.weeks.length) {
       html += `<div style="margin-top:8px;border-top:1px solid rgba(0,0,0,0.06);padding-top:6px;">
         <table style="width:100%;font-size:10px;border-collapse:collapse;">
           <tr>${m.weeks.map(w => `<th style="text-align:center;padding:2px 4px;color:var(--silver);font-weight:500;">${w.label}</th>`).join('')}</tr>
-          <tr>${m.weeks.map(w => `<td style="text-align:center;padding:2px 4px;font-weight:600;">${w.value}</td>`).join('')}</tr>
+          <tr>${m.weeks.map(w => `<td style="text-align:center;padding:2px 4px;font-weight:600;">${Number(w.value).toLocaleString()}</td>`).join('')}</tr>
         </table></div>`;
     }
     tip.innerHTML = html;

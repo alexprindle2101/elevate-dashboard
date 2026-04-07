@@ -424,20 +424,20 @@ const Challenge = {
 
       // Active % penalty: straight deduction — 75% active = 25% penalty
       if (rules.activePenalty && rules.activePenalty.enabled && m.monthTotalSPEs > 0) {
-        const activeFrac = (m.activePct || 0) / 100;
+        const activeFrac = num(m.activePct) / 100;
         penaltyMultiplier *= activeFrac;
       }
 
       // 0-30 Day Churn penalty: (churnPct)^2 / 100
       if (rules.churn030Penalty && rules.churn030Penalty.enabled && m.churnBuckets && m.churnBuckets[0]) {
-        const churnPct = m.churnBuckets[0].pct || 0;
+        const churnPct = num(m.churnBuckets[0].pct);
         const penalty = Math.min((churnPct * churnPct) / 100, 1);
         penaltyMultiplier *= (1 - penalty);
       }
 
       // 30 Day Churn penalty
       if (rules.churn30Penalty && rules.churn30Penalty.enabled && m.churnBuckets && m.churnBuckets[1]) {
-        const churnPct = m.churnBuckets[1].pct || 0;
+        const churnPct = num(m.churnBuckets[1].pct);
         const penalty = Math.min((churnPct * churnPct) / 100, 1);
         penaltyMultiplier *= (1 - penalty);
       }

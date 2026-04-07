@@ -10,7 +10,11 @@ const Challenge = {
   _sales: null,        // { email: { dailyUnits: {}, totalUnits } }
   _blood: null,        // { "YYYY-MM-DD": { firstBlood, lastBlood } }
   _leaderboard: [],    // computed leaderboard rows
+  _teamLeaderboard: [], // computed team leaderboard
   _loading: false,
+  _leaderboardView: 'teams', // 'teams' or 'individual'
+  _teamAssignActive: false,  // team assignment UI open
+  _teamAssignData: [],       // working copy of teams during assignment
 
   // ── Wizard state ──
   _wizardActive: false,
@@ -55,6 +59,11 @@ const Challenge = {
 
     if (this._wizardActive) {
       this._renderWizard();
+      return;
+    }
+
+    if (this._teamAssignActive) {
+      this._renderTeamAssignment();
       return;
     }
 
@@ -109,9 +118,24 @@ const Challenge = {
     }
 
     this._computeLeaderboard();
+    if (this._config.mode === 'teams') this._computeTeamLeaderboard();
+
     let html = '';
     if (this._isOwnerOrSuperadmin()) html += this._managementControlsHTML();
-    html += this._leaderboardHTML();
+
+    const isTeamMode = this._config.mode === 'teams';
+    const hasTeams = isTeamMode && this._config.teams && this._config.teams.length > 0;
+
+    if (isTeamMode && !hasTeams) {
+      html += '<div class="challenge-banner">Teams mode is active but teams haven\'t been assigned yet.</div>';
+    }
+
+    if (hasTeams) {
+      html += this._viewToggleHTML();
+      html += (this._leaderboardView === 'teams') ? this._teamLeaderboardHTML() : this._individualLeaderboardHTML(true);
+    } else {
+      html += this._individualLeaderboardHTML(false);
+    }
     content.innerHTML = html;
   },
 
@@ -153,7 +177,10 @@ const Challenge = {
             <div style="font-size:11px;color:var(--silver-dim);font-family:'Helvetica Neue','Inter',sans-serif;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px">Active Rules</div>
             <div style="display:flex;flex-wrap:wrap;gap:4px">${enabledRules.map(r => `<span class="challenge-rule-badge">${r}</span>`).join('')}</div>
           </div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${c.mode === 'teams' ? (c.teams && c.teams.length > 0
+              ? '<button class="challenge-btn-secondary" onclick="Challenge._openTeamAssignment()">Edit Teams</button>'
+              : '<button class="challenge-btn-primary" onclick="Challenge._openTeamAssignment()">Set Up Teams</button>') : ''}
             <button class="challenge-btn-secondary" onclick="Challenge._recalcAllBlood()">Recalc Blood</button>
             <button class="challenge-btn-danger" onclick="Challenge._confirmEndChallenge()">End Challenge</button>
           </div>
@@ -165,9 +192,33 @@ const Challenge = {
   // LEADERBOARD
   // ═════════════════════════════════════════
 
-  _leaderboardHTML() {
+  // ── View toggle (Teams | Individual) ──
+  _viewToggleHTML() {
+    const tCls = this._leaderboardView === 'teams' ? 'challenge-view-btn active' : 'challenge-view-btn';
+    const iCls = this._leaderboardView === 'individual' ? 'challenge-view-btn active' : 'challenge-view-btn';
+    return `<div class="challenge-view-toggle">
+      <button class="${tCls}" onclick="Challenge._setView('teams')">Teams</button>
+      <button class="${iCls}" onclick="Challenge._setView('individual')">Individual</button>
+    </div>`;
+  },
+
+  _setView(view) {
+    this._leaderboardView = view;
+    this._render();
+  },
+
+  // ── Individual leaderboard ──
+  _individualLeaderboardHTML(showTeamCol) {
     if (!this._leaderboard.length) {
       return '<div style="text-align:center;color:var(--silver-dim);padding:48px;font-size:14px">No sales data yet for this challenge period.</div>';
+    }
+
+    // Build email→team lookup
+    const teamLookup = {};
+    if (showTeamCol && this._config.teams) {
+      this._config.teams.forEach(t => {
+        (t.members || []).forEach(email => { teamLookup[email] = `${t.emoji || ''} ${t.name}`.trim(); });
+      });
     }
 
     const myEmail = (App.state.currentEmail || '').toLowerCase();
@@ -177,10 +228,12 @@ const Challenge = {
       const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
       const isMe = r.email === myEmail;
       const penaltyStr = r.penaltyPct > 0 ? `<span class="challenge-penalty">-${r.penaltyPct.toFixed(1)}%</span>` : '<span style="color:var(--silver-dim)">—</span>';
+      const teamCell = showTeamCol ? `<td class="challenge-pts" style="font-size:12px">${this._esc(teamLookup[r.email] || '—')}</td>` : '';
 
       rows += `<tr class="${isMe ? 'challenge-row-me' : ''}">
         <td class="challenge-rank">${medal}</td>
         <td class="challenge-name">${this._esc(r.name)}</td>
+        ${teamCell}
         <td class="challenge-pts">${r.unitPoints}</td>
         <td class="challenge-pts">${r.goalPoints}</td>
         <td class="challenge-pts">${r.bonusPoints}</td>
@@ -189,6 +242,7 @@ const Challenge = {
       </tr>`;
     });
 
+    const teamTh = showTeamCol ? '<th>Team</th>' : '';
     return `
       <div style="overflow-x:auto;border-radius:10px;border:1px solid rgba(0,0,0,0.15)">
         <table class="challenge-table">
@@ -196,6 +250,7 @@ const Challenge = {
             <tr>
               <th style="width:48px">#</th>
               <th style="text-align:left">Rep</th>
+              ${teamTh}
               <th>Unit Pts</th>
               <th>Goal Pts</th>
               <th>Bonus Pts</th>
@@ -206,6 +261,70 @@ const Challenge = {
           <tbody>${rows}</tbody>
         </table>
       </div>`;
+  },
+
+  // ── Team leaderboard ──
+  _teamLeaderboardHTML() {
+    if (!this._teamLeaderboard.length) {
+      return '<div style="text-align:center;color:var(--silver-dim);padding:48px;font-size:14px">No team data yet.</div>';
+    }
+
+    const myEmail = (App.state.currentEmail || '').toLowerCase();
+    let html = '';
+    this._teamLeaderboard.forEach((team, i) => {
+      const rank = i + 1;
+      const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+      const isMyTeam = team.members.some(m => m.email === myEmail);
+
+      // Member rows (collapsed by default, toggle with onclick)
+      let memberRows = '';
+      team.members.sort((a, b) => b.total - a.total).forEach(m => {
+        const meClass = m.email === myEmail ? ' challenge-row-me' : '';
+        memberRows += `<tr class="challenge-team-member${meClass}">
+          <td></td>
+          <td class="challenge-name" style="padding-left:32px;font-size:13px">${this._esc(m.name)}</td>
+          <td class="challenge-pts">${m.unitPoints}</td>
+          <td class="challenge-pts">${m.goalPoints}</td>
+          <td class="challenge-pts">${m.bonusPoints}</td>
+          <td class="challenge-pts challenge-total">${m.total}</td>
+        </tr>`;
+      });
+
+      html += `
+        <div class="challenge-team-card ${isMyTeam ? 'challenge-row-me' : ''}" onclick="Challenge._toggleTeamExpand(${i})" style="cursor:pointer">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span class="challenge-rank" style="font-size:18px">${medal}</span>
+              <span style="font-size:20px">${team.emoji || ''}</span>
+              <div>
+                <div style="font-family:'Neue Montreal','Inter',sans-serif;font-size:16px;font-weight:700;color:var(--white)">${this._esc(team.name)}</div>
+                <div style="font-size:12px;color:var(--silver-dim)">${team.members.length} member${team.members.length !== 1 ? 's' : ''}</div>
+              </div>
+            </div>
+            <div style="font-family:'Neue Montreal','Inter',sans-serif;font-size:24px;font-weight:800;color:var(--sc-teal)">${team.total}</div>
+          </div>
+          <div class="challenge-team-members" id="challenge-team-expand-${i}" style="display:none;margin-top:12px">
+            <table class="challenge-table" style="border:none">
+              <thead><tr>
+                <th style="width:32px"></th>
+                <th style="text-align:left">Rep</th>
+                <th>Unit Pts</th>
+                <th>Goal Pts</th>
+                <th>Bonus Pts</th>
+                <th>Total</th>
+              </tr></thead>
+              <tbody>${memberRows}</tbody>
+            </table>
+          </div>
+        </div>`;
+    });
+
+    return html;
+  },
+
+  _toggleTeamExpand(index) {
+    const el = document.getElementById(`challenge-team-expand-${index}`);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
   },
 
   // ═════════════════════════════════════════
@@ -312,6 +431,27 @@ const Challenge = {
     this._leaderboard.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
   },
 
+  _computeTeamLeaderboard() {
+    this._teamLeaderboard = [];
+    if (!this._config || !this._config.teams) return;
+
+    const emailToRow = {};
+    this._leaderboard.forEach(r => { emailToRow[r.email] = r; });
+
+    this._config.teams.forEach(team => {
+      const members = (team.members || []).map(email => emailToRow[email]).filter(Boolean);
+      const total = members.reduce((sum, m) => sum + m.total, 0);
+      this._teamLeaderboard.push({
+        name: team.name,
+        emoji: team.emoji || '',
+        members: members,
+        total: total
+      });
+    });
+
+    this._teamLeaderboard.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  },
+
   // ═════════════════════════════════════════
   // BLOOD AUTO-CALCULATION
   // ═════════════════════════════════════════
@@ -394,6 +534,7 @@ const Challenge = {
       name: '',
       startDate: new Date().toISOString().split('T')[0],
       endDate: '',
+      mode: 'ffa',
       competingRoles: ['rep', 'l1', 'jd'],
       rules: {
         pointsPerUnit: { enabled: true, points: 100 },
@@ -478,6 +619,14 @@ const Challenge = {
       <div class="wizard-field">
         <label class="wizard-label">Competing Roles</label>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">${roleChecks}</div>
+      </div>
+      <div class="wizard-field">
+        <label class="wizard-label">Mode</label>
+        <div class="challenge-view-toggle" style="margin-top:4px">
+          <button class="challenge-view-btn ${d.mode === 'ffa' ? 'active' : ''}" onclick="Challenge._setWizardMode('ffa')">Free-for-All</button>
+          <button class="challenge-view-btn ${d.mode === 'teams' ? 'active' : ''}" onclick="Challenge._setWizardMode('teams')">Teams</button>
+        </div>
+        ${d.mode === 'teams' ? '<div style="font-size:12px;color:var(--silver-dim);margin-top:6px">You can assign teams after launching the challenge.</div>' : ''}
       </div>`;
   },
 
@@ -488,6 +637,12 @@ const Challenge = {
     d.endDate = document.getElementById('cw-end')?.value || '';
     const checks = document.querySelectorAll('.challenge-role-check input:checked');
     d.competingRoles = [...checks].map(c => c.value);
+  },
+
+  _setWizardMode(mode) {
+    this._collectStep1();
+    this._wizardData.mode = mode;
+    this._renderWizard();
   },
 
   // ── Step 2: Rules ──
@@ -617,6 +772,7 @@ const Challenge = {
       <div class="challenge-review">
         <div class="challenge-review-row"><span class="challenge-review-label">Name</span><span>${this._esc(d.name)}</span></div>
         <div class="challenge-review-row"><span class="challenge-review-label">Dates</span><span>${d.startDate} — ${d.endDate}</span></div>
+        <div class="challenge-review-row"><span class="challenge-review-label">Mode</span><span>${d.mode === 'teams' ? 'Teams (assign after launch)' : 'Free-for-All'}</span></div>
         <div class="challenge-review-row"><span class="challenge-review-label">Competing</span><span>${roles}</span></div>
         <div style="margin-top:16px">
           <div class="challenge-review-label" style="margin-bottom:8px">Rules</div>
@@ -653,6 +809,157 @@ const Challenge = {
     this._render();
   },
 
+  // ═════════════════════════════════════════
+  // TEAM ASSIGNMENT
+  // ═════════════════════════════════════════
+
+  _openTeamAssignment() {
+    this._teamAssignActive = true;
+    // Deep copy existing teams or start fresh
+    this._teamAssignData = (this._config.teams || []).map(t => ({
+      name: t.name,
+      emoji: t.emoji || '',
+      members: [...(t.members || [])]
+    }));
+    if (this._teamAssignData.length === 0) {
+      this._teamAssignData.push({ name: 'Team 1', emoji: '🔴', members: [] });
+      this._teamAssignData.push({ name: 'Team 2', emoji: '🔵', members: [] });
+    }
+    this._renderTeamAssignment();
+  },
+
+  _renderTeamAssignment() {
+    const subtitle = document.getElementById('challenge-subtitle');
+    if (subtitle) subtitle.textContent = 'Assign Teams';
+
+    const content = document.getElementById('challenge-content');
+    if (!content) return;
+
+    // Get all competing reps
+    const competingRoles = new Set(this._config.competingRoles || ['rep', 'l1', 'jd']);
+    const allReps = [];
+    (App.state.people || []).forEach(p => {
+      if (!competingRoles.has(p._roleKey)) return;
+      const email = (Roster.getEmail(p.name) || '').toLowerCase();
+      if (email) allReps.push({ name: p.name, email });
+    });
+
+    // Find assigned emails
+    const assigned = new Set();
+    this._teamAssignData.forEach(t => (t.members || []).forEach(e => assigned.add(e)));
+    const unassigned = allReps.filter(r => !assigned.has(r.email));
+
+    // Unassigned pool
+    let poolHtml = unassigned.map(r =>
+      `<div class="challenge-assign-chip">${this._esc(r.name)}<button class="challenge-btn-icon" onclick="Challenge._assignRep('${r.email}')">+</button></div>`
+    ).join('');
+    if (!poolHtml) poolHtml = '<div style="color:var(--silver-dim);font-size:13px;padding:8px">All reps assigned</div>';
+
+    // Team columns
+    const teamEmojis = ['🔴','🔵','🟢','🟡','🟣','🟠','⚫','⚪'];
+    let teamsHtml = this._teamAssignData.map((team, ti) => {
+      const memberChips = (team.members || []).map(email => {
+        const rep = allReps.find(r => r.email === email);
+        const name = rep ? rep.name : email;
+        return `<div class="challenge-assign-chip">${this._esc(name)}<button class="challenge-btn-icon" onclick="Challenge._unassignRep(${ti},'${email}')">✕</button></div>`;
+      }).join('');
+
+      const emojiOptions = teamEmojis.map(e =>
+        `<span class="challenge-emoji-opt ${e === team.emoji ? 'active' : ''}" onclick="Challenge._setTeamEmoji(${ti},'${e}')">${e}</span>`
+      ).join('');
+
+      return `<div class="challenge-assign-team">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:20px">${team.emoji}</span>
+          <input class="wizard-input" value="${this._esc(team.name)}" onchange="Challenge._setTeamName(${ti},this.value)" style="flex:1;font-size:14px;font-weight:700">
+          <button class="challenge-btn-icon" onclick="Challenge._removeTeam(${ti})" title="Remove team">✕</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:8px">${emojiOptions}</div>
+        <div class="challenge-assign-members">${memberChips || '<div style="color:var(--silver-dim);font-size:12px;padding:4px">No members yet</div>'}</div>
+      </div>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="challenge-assign-layout">
+        <div class="challenge-assign-pool">
+          <div class="challenge-assign-pool-header">Unassigned (${unassigned.length})</div>
+          ${poolHtml}
+        </div>
+        <div class="challenge-assign-teams">
+          ${teamsHtml}
+          <button class="challenge-btn-secondary" style="width:100%;margin-top:8px" onclick="Challenge._addTeamSlot()">+ Add Team</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:24px">
+        <button class="challenge-btn-secondary" onclick="Challenge._cancelTeamAssignment()">Cancel</button>
+        <button class="challenge-btn-primary" onclick="Challenge._saveTeams()">Save Teams</button>
+      </div>`;
+  },
+
+  // Which team to assign to when clicking + on an unassigned rep
+  _assignRep(email) {
+    // Find the team with fewest members
+    let minIdx = 0;
+    let minCount = Infinity;
+    this._teamAssignData.forEach((t, i) => {
+      if (t.members.length < minCount) { minCount = t.members.length; minIdx = i; }
+    });
+    this._teamAssignData[minIdx].members.push(email);
+    this._renderTeamAssignment();
+  },
+
+  _unassignRep(teamIdx, email) {
+    const team = this._teamAssignData[teamIdx];
+    if (team) team.members = team.members.filter(e => e !== email);
+    this._renderTeamAssignment();
+  },
+
+  _setTeamName(idx, name) {
+    if (this._teamAssignData[idx]) this._teamAssignData[idx].name = name;
+  },
+
+  _setTeamEmoji(idx, emoji) {
+    if (this._teamAssignData[idx]) this._teamAssignData[idx].emoji = emoji;
+    this._renderTeamAssignment();
+  },
+
+  _addTeamSlot() {
+    const n = this._teamAssignData.length + 1;
+    const emojis = ['🔴','🔵','🟢','🟡','🟣','🟠','⚫','⚪'];
+    this._teamAssignData.push({ name: `Team ${n}`, emoji: emojis[(n - 1) % emojis.length], members: [] });
+    this._renderTeamAssignment();
+  },
+
+  _removeTeam(idx) {
+    this._teamAssignData.splice(idx, 1);
+    this._renderTeamAssignment();
+  },
+
+  _cancelTeamAssignment() {
+    this._teamAssignActive = false;
+    this._teamAssignData = [];
+    this._render();
+  },
+
+  async _saveTeams() {
+    // Filter out empty teams
+    const teams = this._teamAssignData.filter(t => t.members.length > 0);
+    this._config.teams = teams;
+    try {
+      await SheetsAPI.post(OFFICE_CONFIG, 'saveChallengeConfig', { config: this._config });
+      App.state.challengeConfig = this._config;
+      this._teamAssignActive = false;
+      this._teamAssignData = [];
+      this._render();
+    } catch (err) {
+      alert('Failed to save teams: ' + err.message);
+    }
+  },
+
+  // ═════════════════════════════════════════
+  // WIZARD SUBMIT
+  // ═════════════════════════════════════════
+
   async _wizardSubmit() {
     const d = this._wizardData;
     const config = {
@@ -661,7 +968,9 @@ const Challenge = {
       endDate: d.endDate,
       status: 'active',
       createdBy: App.state.currentEmail || '',
+      mode: d.mode || 'ffa',
       competingRoles: d.competingRoles,
+      teams: [],
       rules: d.rules
     };
 

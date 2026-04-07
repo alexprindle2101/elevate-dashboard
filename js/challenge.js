@@ -234,11 +234,19 @@ const Challenge = {
         ? `${r.totalUnits} units × ${Number(rules.pointsPerUnit?.points) || 0} pts = ${r.rawUnitPoints} (${r.unitPoints} after penalties)`
         : `${r.totalUnits} units × ${Number(rules.pointsPerUnit?.points) || 0} pts`;
 
-      // Build tooltip for goal pts
+      // Build tooltip for goal pts — show tier breakdown
       const goalParts = [];
-      if (r.dailyGoalPts > 0) goalParts.push(`Daily Goals: ${r.dailyGoalPts} pts`);
-      if (r.eventGoalPts > 0) goalParts.push(`Event Goals: ${r.eventGoalPts} pts`);
-      const goalTip = goalParts.length ? goalParts.join(' + ') : 'No goal thresholds reached';
+      if (r.dailyGoalPts > 0) {
+        const tierDetails = Object.entries(r.dailyTierHits)
+          .sort((a, b) => Number(a[0]) - Number(b[0]))
+          .map(([thresh, h]) => `${h.count}d at ${thresh}+ = ${h.count}×${h.points}`)
+          .join(', ');
+        goalParts.push(`Daily: ${tierDetails} (${r.dailyGoalPts} pts)`);
+      }
+      if (r.eventGoalPts > 0 && r.eventTierHit) {
+        goalParts.push(`Event: hit ${r.eventTierHit.threshold}+ units = ${r.eventTierHit.points} pts`);
+      }
+      const goalTip = goalParts.length ? goalParts.join(' | ') : 'No goal thresholds reached';
 
       // Build tooltip for bonus pts
       const bonusParts = [];
@@ -323,9 +331,17 @@ const Challenge = {
           ? `${m.totalUnits} units × ${Number(rules.pointsPerUnit?.points) || 0} pts = ${m.rawUnitPoints} (${m.unitPoints} after penalties)`
           : `${m.totalUnits} units × ${Number(rules.pointsPerUnit?.points) || 0} pts`;
         const goalParts = [];
-        if (m.dailyGoalPts > 0) goalParts.push(`Daily: ${m.dailyGoalPts}`);
-        if (m.eventGoalPts > 0) goalParts.push(`Event: ${m.eventGoalPts}`);
-        const goalTip = goalParts.length ? goalParts.join(' + ') : 'No goals reached';
+        if (m.dailyGoalPts > 0) {
+          const tierDetails = Object.entries(m.dailyTierHits)
+            .sort((a, b) => Number(a[0]) - Number(b[0]))
+            .map(([thresh, h]) => `${h.count}d at ${thresh}+ = ${h.count}×${h.points}`)
+            .join(', ');
+          goalParts.push(`Daily: ${tierDetails} (${m.dailyGoalPts})`);
+        }
+        if (m.eventGoalPts > 0 && m.eventTierHit) {
+          goalParts.push(`Event: hit ${m.eventTierHit.threshold}+ = ${m.eventTierHit.points}`);
+        }
+        const goalTip = goalParts.length ? goalParts.join(' | ') : 'No goals reached';
         const bonusParts = [];
         if (m.firstBloodWins > 0) bonusParts.push(`First Blood: ${m.firstBloodWins}×${Number(rules.firstBlood?.points) || 0}`);
         if (m.lastBloodWins > 0) bonusParts.push(`Last Blood: ${m.lastBloodWins}×${Number(rules.lastBlood?.points) || 0}`);
@@ -410,22 +426,32 @@ const Challenge = {
         rawUnitPts = repSales.totalUnits * num(rules.pointsPerUnit.points);
       }
 
-      // Daily goal points (highest tier per day)
+      // Daily goal points (highest tier per day) — track tier hit counts
       let dailyGoalPts = 0;
+      const dailyTierHits = {};  // "threshold" → { count, points }
       if (rules.dailyGoals && rules.dailyGoals.enabled && rules.dailyGoals.tiers) {
         const tiers = [...rules.dailyGoals.tiers].sort((a, b) => num(b.threshold) - num(a.threshold));
         Object.values(repSales.dailyUnits).forEach(dayUnits => {
           const tier = tiers.find(t => dayUnits >= num(t.threshold));
-          if (tier) dailyGoalPts += num(tier.points);
+          if (tier) {
+            dailyGoalPts += num(tier.points);
+            const key = num(tier.threshold);
+            if (!dailyTierHits[key]) dailyTierHits[key] = { count: 0, points: num(tier.points) };
+            dailyTierHits[key].count++;
+          }
         });
       }
 
       // Event goal points (highest tier, lifetime total)
       let eventGoalPts = 0;
+      let eventTierHit = null;
       if (rules.eventGoals && rules.eventGoals.enabled && rules.eventGoals.tiers) {
         const tiers = [...rules.eventGoals.tiers].sort((a, b) => num(b.threshold) - num(a.threshold));
         const tier = tiers.find(t => repSales.totalUnits >= num(t.threshold));
-        if (tier) eventGoalPts = num(tier.points);
+        if (tier) {
+          eventGoalPts = num(tier.points);
+          eventTierHit = { threshold: num(tier.threshold), points: num(tier.points) };
+        }
       }
 
       // Blood points
@@ -496,7 +522,9 @@ const Challenge = {
         rawUnitPoints: rawUnitPts,
         totalUnits: repSales.totalUnits,
         dailyGoalPts: dailyGoalPts,
+        dailyTierHits: dailyTierHits,
         eventGoalPts: eventGoalPts,
+        eventTierHit: eventTierHit,
         goalPoints: goalPoints,
         bonusPoints: bloodPts,
         firstBloodWins: firstBloodWins,

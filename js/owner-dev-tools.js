@@ -111,6 +111,7 @@ const OwnerDevTools = {
         </div>
         <div class="tools-form-row tools-actions" style="margin-top:12px">
           <button class="tools-btn tools-btn-primary" id="asrf-copy-btn">Copy All to Clipboard</button>
+          <button class="tools-btn tools-btn-secondary" id="asrf-screenshot-btn">📸 Screenshot View</button>
           <button class="tools-btn tools-btn-danger" id="asrf-clear-rows-btn">Clear All Rows</button>
         </div>
       </div>
@@ -178,6 +179,9 @@ const OwnerDevTools = {
 
     // Copy all
     document.getElementById('asrf-copy-btn').addEventListener('click', () => this._onCopyAll());
+
+    // Screenshot view
+    document.getElementById('asrf-screenshot-btn').addEventListener('click', () => this._onScreenshotView());
 
     // Clear rows
     document.getElementById('asrf-clear-rows-btn').addEventListener('click', () => {
@@ -681,6 +685,111 @@ const OwnerDevTools = {
       this._toast('Copy failed — select and copy manually', 'error');
     }
     document.body.removeChild(ta);
+  },
+
+
+  // ══════════════════════════════════════════════════════
+  // SCREENSHOT VIEW
+  // ══════════════════════════════════════════════════════
+
+  _onScreenshotView() {
+    if (!this._outputRows.length) return this._toast('No rows to display', 'error');
+
+    // Remove existing overlay if any
+    const existing = document.getElementById('asrf-screenshot-overlay');
+    if (existing) existing.remove();
+
+    const today = new Date();
+    const dateStr = (today.getMonth() + 1) + '/' + today.getDate() + '/' + today.getFullYear();
+
+    const headerCols = [
+      { label: 'Manager', align: 'left' },
+      { label: 'Recruiter', align: 'left' },
+      { label: 'Opens', align: 'right' },
+      { label: 'AI Bkd', align: 'right' },
+      { label: 'Rec Bkd', align: 'right' },
+      { label: '% Call List', align: 'right', pct: true },
+      { label: '1st Cal', align: 'right' },
+      { label: '1st Show', align: 'right' },
+      { label: '→ 2nd', align: 'right' },
+      { label: 'Ret 1st', align: 'right', pct: true },
+      { label: 'Conv', align: 'right', pct: true },
+      { label: '2nd Bkd', align: 'right' },
+      { label: '2nd Show', align: 'right' },
+      { label: 'Ret 2nd', align: 'right', pct: true },
+      { label: 'NS Sched', align: 'right' },
+      { label: 'NS Show', align: 'right' },
+      { label: 'NS Ret', align: 'right', pct: true }
+    ];
+
+    const rowValues = (r) => [
+      r.manager, r.recruiter, r.opens, r.aiBooked, r.recruiterBooked,
+      r.pctCallList, r.firstCalendar, r.firstShowed, r.turnedTo2nd,
+      r.retention1st, r.conversion, r.secondBooked, r.secondShowed,
+      r.retention2nd, r.newStartsScheduled, r.newStartsShowed, r.newStartsRetention
+    ];
+
+    const pctColor = (val) => {
+      const n = parseFloat(val) || 0;
+      if (n >= 70) return '#1e6f34';
+      if (n >= 50) return '#2ea043';
+      if (n >= 30) return '#9a6500';
+      return '#8b1a1a';
+    };
+
+    const fmtCell = (val, col) => {
+      if (col.pct) {
+        const n = parseFloat(val) || 0;
+        return `<span style="color:${pctColor(n)};font-weight:600;">${Math.round(n)}%</span>`;
+      }
+      return val;
+    };
+
+    const theadHtml = headerCols.map(c =>
+      `<th style="text-align:${c.align};padding:10px 12px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:0.3px;">${c.label}</th>`
+    ).join('');
+
+    const tbodyHtml = this._outputRows.map((r, idx) => {
+      const vals = rowValues(r);
+      const bg = idx % 2 === 0 ? '#fff' : 'var(--gray-50, #f8f9fb)';
+      const cells = vals.map((v, ci) => {
+        const col = headerCols[ci];
+        const weight = ci <= 1 ? 'font-weight:600;' : '';
+        const align = col.align;
+        const font = ci > 1 ? 'font-variant-numeric:tabular-nums;' : '';
+        return `<td style="text-align:${align};padding:8px 12px;${weight}${font}white-space:nowrap;">${fmtCell(v, col)}</td>`;
+      }).join('');
+      return `<tr style="background:${bg};border-bottom:1px solid rgba(0,0,0,0.05);">${cells}</tr>`;
+    }).join('');
+
+    const overlay = document.createElement('div');
+    overlay.id = 'asrf-screenshot-overlay';
+    overlay.className = 'tools-screenshot-overlay';
+    overlay.innerHTML = `
+      <div class="tools-screenshot-modal">
+        <button class="tools-screenshot-close" onclick="document.getElementById('asrf-screenshot-overlay').remove()">&times;</button>
+        <div class="tools-screenshot-content">
+          <div class="tools-screenshot-header">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-size:18px;font-weight:800;color:var(--gray-800,#1a202c);">Applicant Stream Report</span>
+            </div>
+            <span style="font-size:12px;color:var(--gray-400,#98a3b3);font-weight:500;">${dateStr}</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="tools-screenshot-table">
+              <thead><tr>${theadHtml}</tr></thead>
+              <tbody>${tbodyHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>`;
+
+    // Close on backdrop click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    document.body.appendChild(overlay);
   },
 
 

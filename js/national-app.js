@@ -4913,7 +4913,6 @@ const NationalApp = {
         <th class="num">Hires</th>
         <th class="num">App\u21922nd</th>
         <th class="num">App\u2192Hire</th>
-        <th>Status</th>
       </tr></thead><tbody>`;
 
     for (const a of sorted) {
@@ -4935,7 +4934,6 @@ const NationalApp = {
         <td class="num">${this._fmtNum(a.totalHired)}</td>
         <td class="num">${this._pct(a.pctTo2nd)}</td>
         <td class="num">${this._pct(a.pctToHire)}</td>
-        <td>${this._adStatusBadge(a.lastStatus)}</td>
       </tr>`;
     }
 

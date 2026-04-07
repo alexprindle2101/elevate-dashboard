@@ -801,8 +801,8 @@ const OwnerDevTools = {
       return val;
     };
 
-    const theadHtml = headerCols.map(c =>
-      `<th style="text-align:${c.align};padding:10px 12px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:0.3px;">${c.label}</th>`
+    const theadHtml = headerCols.map((c, ci) =>
+      `<th style="text-align:${c.align};padding:10px 12px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:0.3px;${ci === 1 ? 'border-right:2px solid rgba(255,255,255,0.3);' : ''}">${c.label}</th>`
     ).join('');
 
     const tbodyHtml = this._outputRows.map((r, idx) => {
@@ -813,7 +813,8 @@ const OwnerDevTools = {
         const weight = ci <= 1 ? 'font-weight:600;' : '';
         const align = col.align;
         const font = ci > 1 ? 'font-variant-numeric:tabular-nums;' : '';
-        return `<td style="text-align:${align};padding:8px 12px;${weight}${font}white-space:nowrap;">${fmtCell(v, col)}</td>`;
+        const divider = ci === 1 ? 'border-right:2px solid var(--gray-200, #dce1e8);' : '';
+        return `<td style="text-align:${align};padding:8px 12px;${weight}${font}${divider}white-space:nowrap;">${fmtCell(v, col)}</td>`;
       }).join('');
       return `<tr style="background:${bg};border-bottom:1px solid rgba(0,0,0,0.05);">${cells}</tr>`;
     }).join('');

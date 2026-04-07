@@ -346,28 +346,30 @@ const Challenge = {
 
       const repSales = this._sales[email] || { dailyUnits: {}, totalUnits: 0 };
 
+      const num = (v) => Number(v) || 0;
+
       // Unit points
       let rawUnitPts = 0;
       if (rules.pointsPerUnit && rules.pointsPerUnit.enabled) {
-        rawUnitPts = repSales.totalUnits * (rules.pointsPerUnit.points || 0);
+        rawUnitPts = repSales.totalUnits * num(rules.pointsPerUnit.points);
       }
 
       // Daily goal points (highest tier per day)
       let dailyGoalPts = 0;
       if (rules.dailyGoals && rules.dailyGoals.enabled && rules.dailyGoals.tiers) {
-        const tiers = [...rules.dailyGoals.tiers].sort((a, b) => b.threshold - a.threshold);
+        const tiers = [...rules.dailyGoals.tiers].sort((a, b) => num(b.threshold) - num(a.threshold));
         Object.values(repSales.dailyUnits).forEach(dayUnits => {
-          const tier = tiers.find(t => dayUnits >= t.threshold);
-          if (tier) dailyGoalPts += tier.points;
+          const tier = tiers.find(t => dayUnits >= num(t.threshold));
+          if (tier) dailyGoalPts += num(tier.points);
         });
       }
 
       // Event goal points (highest tier, lifetime total)
       let eventGoalPts = 0;
       if (rules.eventGoals && rules.eventGoals.enabled && rules.eventGoals.tiers) {
-        const tiers = [...rules.eventGoals.tiers].sort((a, b) => b.threshold - a.threshold);
-        const tier = tiers.find(t => repSales.totalUnits >= t.threshold);
-        if (tier) eventGoalPts = tier.points;
+        const tiers = [...rules.eventGoals.tiers].sort((a, b) => num(b.threshold) - num(a.threshold));
+        const tier = tiers.find(t => repSales.totalUnits >= num(t.threshold));
+        if (tier) eventGoalPts = num(tier.points);
       }
 
       // Blood points
@@ -375,12 +377,12 @@ const Challenge = {
       if (this._blood) {
         if (rules.firstBlood && rules.firstBlood.enabled) {
           Object.values(this._blood).forEach(day => {
-            if (day.firstBlood && day.firstBlood.email === email) bloodPts += rules.firstBlood.points;
+            if (day.firstBlood && day.firstBlood.email === email) bloodPts += num(rules.firstBlood.points);
           });
         }
         if (rules.lastBlood && rules.lastBlood.enabled) {
           Object.values(this._blood).forEach(day => {
-            if (day.lastBlood && day.lastBlood.email === email) bloodPts += rules.lastBlood.points;
+            if (day.lastBlood && day.lastBlood.email === email) bloodPts += num(rules.lastBlood.points);
           });
         }
       }

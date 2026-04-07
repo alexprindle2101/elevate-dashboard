@@ -901,7 +901,8 @@ const OwnerDev = {
     for (const [campaignKey, campaign] of Object.entries(this.state.campaigns)) {
       for (const ownerName of (campaign.owners || [])) {
         const m = this._findMapping(campaignKey, ownerName);
-        if (m && (m.nlrWorkbookId || '').toLowerCase() === 'non-partner' && (m.nlrTab || '').toLowerCase() !== 'non-partner') {
+        const isNP = m && ((m.nlrWorkbookId || '').toLowerCase() === 'non-partner' || (m.nlrWorkbookName || '').toLowerCase().includes('non-partner'));
+        if (isNP && (m.nlrTab || '').toLowerCase() !== 'non-partner') {
           this._upsertMapping(campaignKey, ownerName, { nlrTab: 'Non-Partner' });
           toSave.push({ campaign: campaignKey, ownerName, field: 'nlrTab', value: 'Non-Partner', updatedBy: 'auto-map' });
         }

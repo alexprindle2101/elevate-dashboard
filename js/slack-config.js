@@ -6,33 +6,11 @@ const SLACK_CONFIG = {
   // Cloudflare Worker proxy URL
   workerUrl: 'https://aptel-slack-proxy.aprindle.workers.dev',
 
-  // Path to the source-of-truth Excel file (relative to site root)
-  excelUrl: 'references/slack-template.xlsx',
-
-  // Excel sheet names
-  expectedSheets: {
-    people: 'People',
-    departments: 'Departments',
-    roles: 'Roles',
-  },
-
-  // Column header mappings — People sheet
-  peopleColumns: {
+  // Column keys (match Google Sheet headers)
+  columns: {
     name: 'Name',
     email: 'Email',
     slackEmail: 'SlackEmail',
-    department: 'Department',   // comma-separated if multiple
-    level: 'Level',             // SWAT, Manager, Lead, Member
-  },
-
-  // Column header mappings — Departments sheet (base channels)
-  deptColumns: {
-    department: 'Department',
-    channel: 'Channel',
-  },
-
-  // Column header mappings — Roles sheet (department + level specific channels)
-  roleColumns: {
     department: 'Department',
     level: 'Level',
     channel: 'Channel',

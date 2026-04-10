@@ -43,15 +43,23 @@ const SlackApp = {
     this.loadAll();
   },
 
-  // Fetch the Excel source-of-truth + Slack data, then compare
+  // Fetch sheet + Slack data, auto-populate people from Slack, then compare
   async loadAll() {
     SlackRender.hideError();
     SlackRender.showLoading('Loading configuration...');
 
     try {
-      await this.loadExcelData();
-      SlackRender.renderExcelInfo(this.state.excelData);
+      await this.loadSheetData();
       await this.loadSlackData();
+
+      // Auto-populate: add any Slack users missing from the People sheet
+      const synced = await this._syncSlackUsersToSheet();
+      if (synced) {
+        // Re-render info bar with updated counts
+        SlackRender.renderExcelInfo(this.state.excelData);
+      } else {
+        SlackRender.renderExcelInfo(this.state.excelData);
+      }
     } catch (err) {
       console.error('[SlackApp] Init error:', err);
       SlackRender.showError(`Failed to load: ${err.message}`);
@@ -60,54 +68,41 @@ const SlackApp = {
     }
   },
 
-  // Fetch and parse the .xlsx from the repo
-  async loadExcelData() {
-    const url = SLACK_CONFIG.excelUrl;
-    console.log(`[SlackApp] Fetching Excel from: ${url}`);
+  // Fetch sheet data from Google Sheets via Worker proxy
+  async loadSheetData() {
+    const url = `${SLACK_CONFIG.workerUrl}/sheet`;
+    console.log(`[SlackApp] Fetching sheet data from: ${url}`);
 
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Excel file not found (${res.status})`);
+    if (!res.ok) throw new Error(`Sheet fetch failed (${res.status})`);
 
-    const data = await res.arrayBuffer();
-    const workbook = XLSX.read(data, { type: 'array' });
-    const excelData = this.parseExcel(workbook);
-
-    if (!excelData.people.length) {
-      throw new Error('No people found in the People sheet. Check column headers: Name, Email, Department, Level');
-    }
-
-    const hasMappings = Object.keys(excelData.deptMappings).length || Object.keys(excelData.roleMappings).length;
-    if (!hasMappings) {
-      throw new Error('No channel mappings found. Check Departments and/or Roles sheets.');
-    }
-
-    this.state.excelData = excelData;
-    const depts = Object.keys(excelData.deptMappings).length;
-    const roles = Object.keys(excelData.roleMappings).length;
-    console.log(`[SlackApp] Parsed: ${excelData.people.length} people, ${depts} departments, ${roles} role combos`);
+    const raw = await res.json();
+    const sheetData = this.parseSheetData(raw);
+    this.state.excelData = sheetData;
+    const depts = Object.keys(sheetData.deptMappings).length;
+    const roles = Object.keys(sheetData.roleMappings).length;
+    console.log(`[SlackApp] Parsed: ${sheetData.people.length} people, ${depts} departments, ${roles} role combos`);
   },
 
 
   // ═══════════════════════════════════════════
-  // Excel Parsing
+  // Sheet Data Parsing
   // ═══════════════════════════════════════════
 
-  parseExcel(workbook) {
-    const cfg = SLACK_CONFIG;
+  parseSheetData(raw) {
+    const col = SLACK_CONFIG.columns;
     const result = { people: [], deptMappings: {}, roleMappings: {} };
 
-    // ── People sheet ──
-    const peopleSheet = workbook.Sheets[cfg.expectedSheets.people];
-    if (peopleSheet) {
-      const rows = XLSX.utils.sheet_to_json(peopleSheet, { defval: '' });
-      result.people = rows
+    // ── People ──
+    if (raw.people) {
+      result.people = raw.people
         .map(row => {
-          const deptRaw = String(row[cfg.peopleColumns.department] || '').trim();
-          const levelRaw = String(row[cfg.peopleColumns.level] || '').trim();
+          const deptRaw = String(row[col.department] || '').trim();
+          const levelRaw = String(row[col.level] || '').trim();
           return {
-            name: String(row[cfg.peopleColumns.name] || '').trim(),
-            email: String(row[cfg.peopleColumns.email] || '').trim().toLowerCase(),
-            slackEmail: String(row[cfg.peopleColumns.slackEmail] || '').trim().toLowerCase(),
+            name: String(row[col.name] || '').trim(),
+            email: String(row[col.email] || '').trim().toLowerCase(),
+            slackEmail: String(row[col.slackEmail] || '').trim().toLowerCase(),
             departments: deptRaw.split(',').map(d => d.trim()).filter(Boolean),
             level: levelRaw,
             displayDept: deptRaw,
@@ -115,17 +110,13 @@ const SlackApp = {
           };
         })
         .filter(p => p.name && p.email);
-    } else {
-      console.warn(`[SlackApp] Sheet "${cfg.expectedSheets.people}" not found. Available: ${workbook.SheetNames.join(', ')}`);
     }
 
-    // ── Departments sheet (2-col: Department | Channel) ──
-    const deptSheet = workbook.Sheets[cfg.expectedSheets.departments];
-    if (deptSheet) {
-      const rows = XLSX.utils.sheet_to_json(deptSheet, { defval: '' });
-      for (const row of rows) {
-        const dept = String(row[cfg.deptColumns.department] || '').trim();
-        const ch = this._normalizeChannel(String(row[cfg.deptColumns.channel] || ''));
+    // ── Departments (Department → [channels]) ──
+    if (raw.departments) {
+      for (const row of raw.departments) {
+        const dept = String(row[col.department] || '').trim();
+        const ch = this._normalizeChannel(String(row[col.channel] || ''));
         if (!dept || !ch) continue;
         if (!result.deptMappings[dept]) result.deptMappings[dept] = [];
         result.deptMappings[dept].push(ch);
@@ -133,19 +124,14 @@ const SlackApp = {
       for (const k of Object.keys(result.deptMappings)) {
         result.deptMappings[k] = [...new Set(result.deptMappings[k])];
       }
-    } else {
-      console.warn(`[SlackApp] Sheet "${cfg.expectedSheets.departments}" not found`);
     }
 
-    // ── Roles sheet (3-col: Department | Level | Channel) ──
-    // Keyed as "Department|Level" for lookup
-    const roleSheet = workbook.Sheets[cfg.expectedSheets.roles];
-    if (roleSheet) {
-      const rows = XLSX.utils.sheet_to_json(roleSheet, { defval: '' });
-      for (const row of rows) {
-        const dept = String(row[cfg.roleColumns.department] || '').trim();
-        const level = String(row[cfg.roleColumns.level] || '').trim();
-        const ch = this._normalizeChannel(String(row[cfg.roleColumns.channel] || ''));
+    // ── Roles (Department|Level → [channels]) ──
+    if (raw.roles) {
+      for (const row of raw.roles) {
+        const dept = String(row[col.department] || '').trim();
+        const level = String(row[col.level] || '').trim();
+        const ch = this._normalizeChannel(String(row[col.channel] || ''));
         if (!dept || !level || !ch) continue;
         const key = `${dept}|${level}`;
         if (!result.roleMappings[key]) result.roleMappings[key] = [];
@@ -154,8 +140,6 @@ const SlackApp = {
       for (const k of Object.keys(result.roleMappings)) {
         result.roleMappings[k] = [...new Set(result.roleMappings[k])];
       }
-    } else {
-      console.warn(`[SlackApp] Sheet "${cfg.expectedSheets.roles}" not found`);
     }
 
     return result;
@@ -237,7 +221,7 @@ const SlackApp = {
   },
 
   // Auto-detect departments from Slack User Group membership
-  // Matches user group name/handle (case-insensitive) to department names in deptMappings
+  // ALWAYS overrides with user group data — user groups are the source of truth for departments
   _autoDetectDepartments() {
     const { excelData, slackUserGroups, slackUserMap } = this.state;
     if (!excelData || !slackUserGroups.length) return;
@@ -248,7 +232,6 @@ const SlackApp = {
     for (const d of deptNames) {
       deptLookup[d.toLowerCase()] = d;
     }
-    // Also check roleMappings for dept names not in deptMappings
     for (const key of Object.keys(excelData.roleMappings)) {
       const dept = key.split('|')[0];
       if (!deptLookup[dept.toLowerCase()]) deptLookup[dept.toLowerCase()] = dept;
@@ -281,26 +264,164 @@ const SlackApp = {
       }
     }
 
-    // Auto-fill departments for people who have empty/blank department
-    let autoFilled = 0;
+    // Always set departments from user groups — user groups are the source of truth
+    const updates = [];
+    let changed = 0;
     for (const person of excelData.people) {
-      if (person.departments.length > 0) continue; // manual override takes priority
-
       const lookupEmail = person.slackEmail || person.email;
       const slackUser = slackUserMap[lookupEmail];
       if (!slackUser) continue;
 
       const detected = userDepts[slackUser.id];
       if (detected && detected.length) {
-        person.departments = detected;
-        person.displayDept = detected.join(', ');
-        autoFilled++;
+        const newDept = detected.sort().join(', ');
+        const oldDept = person.departments.sort().join(', ');
+        if (newDept !== oldDept) {
+          person.departments = detected;
+          person.displayDept = detected.join(', ');
+          updates.push({ email: person.email, department: person.displayDept });
+          changed++;
+        }
       }
     }
 
-    if (autoFilled) {
-      console.log(`[SlackApp] Auto-detected departments for ${autoFilled} people from user groups`);
+    if (changed) {
+      console.log(`[SlackApp] Updated departments for ${changed} people from user groups`);
+      // Write changes back to Google Sheet
+      this._writeDepartmentUpdates(updates);
     }
+  },
+
+  // Write department updates back to Google Sheet via Worker
+  async _writeDepartmentUpdates(updates) {
+    if (!updates.length) return;
+    try {
+      const res = await fetch(`${SLACK_CONFIG.workerUrl}/sheet/write`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'writePeople', updates }),
+      });
+      const data = await res.json();
+      console.log(`[SlackApp] Sheet write result:`, data);
+    } catch (err) {
+      console.warn('[SlackApp] Failed to write departments to sheet:', err.message);
+    }
+  },
+
+  // Auto-populate People sheet from Slack users
+  // Adds any Slack user not already in the sheet, detects departments from user groups
+  async _syncSlackUsersToSheet() {
+    const { excelData, slackUsers, slackUserGroups } = this.state;
+    if (!slackUsers.length) return false;
+
+    // Build set of emails already in the sheet
+    const existingEmails = new Set(
+      (excelData?.people || []).map(p => (p.slackEmail || p.email).toLowerCase())
+    );
+
+    // Find Slack users not in the sheet
+    const newUsers = slackUsers.filter(u => u.email && !existingEmails.has(u.email.toLowerCase()));
+
+    if (!newUsers.length && excelData?.people?.length) {
+      console.log('[SlackApp] All Slack users already in sheet');
+      return false;
+    }
+
+    // Build userId → departments from user groups
+    const deptLookup = this._buildDeptLookup();
+    const userDepts = {};
+    for (const ug of slackUserGroups) {
+      const dept = deptLookup[ug.id];
+      if (!dept) continue;
+      for (const userId of ug.users) {
+        if (!userDepts[userId]) userDepts[userId] = [];
+        if (!userDepts[userId].includes(dept)) userDepts[userId].push(dept);
+      }
+    }
+
+    // Build people entries for new users
+    const newPeople = newUsers.map(u => ({
+      name: u.realName || u.name,
+      email: u.email,
+      slackEmail: u.email,
+      department: (userDepts[u.id] || []).join(', '),
+      level: '',
+    }));
+
+    if (newPeople.length) {
+      console.log(`[SlackApp] Adding ${newPeople.length} new Slack users to sheet`);
+
+      // Write to Google Sheet — full sync with existing + new
+      const allPeople = [
+        ...(excelData?.people || []).map(p => ({
+          name: p.name,
+          email: p.email,
+          slackEmail: p.slackEmail,
+          department: p.displayDept,
+          level: p.displayLevel,
+        })),
+        ...newPeople,
+      ];
+
+      try {
+        const res = await fetch(`${SLACK_CONFIG.workerUrl}/sheet/write`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'syncPeople', people: allPeople }),
+        });
+        const data = await res.json();
+        console.log(`[SlackApp] Sheet sync result:`, data);
+      } catch (err) {
+        console.warn('[SlackApp] Failed to sync people to sheet:', err.message);
+      }
+
+      // Update local state with the new people
+      for (const p of newPeople) {
+        const depts = p.department.split(',').map(d => d.trim()).filter(Boolean);
+        excelData.people.push({
+          name: p.name,
+          email: p.email.toLowerCase(),
+          slackEmail: p.slackEmail.toLowerCase(),
+          departments: depts,
+          level: p.level,
+          displayDept: p.department,
+          displayLevel: p.level,
+        });
+      }
+
+      return true;
+    }
+
+    return false;
+  },
+
+  // Helper: build user group ID → department name lookup
+  _buildDeptLookup() {
+    const { excelData, slackUserGroups } = this.state;
+    const deptLookup = {};
+
+    // Collect all known department names
+    const allDepts = {};
+    if (excelData) {
+      for (const d of Object.keys(excelData.deptMappings || {})) {
+        allDepts[d.toLowerCase()] = d;
+      }
+      for (const key of Object.keys(excelData.roleMappings || {})) {
+        const dept = key.split('|')[0];
+        if (!allDepts[dept.toLowerCase()]) allDepts[dept.toLowerCase()] = dept;
+      }
+    }
+
+    // Match user group name/handle to department names
+    const groupToDept = {};
+    for (const ug of slackUserGroups) {
+      const nameMatch = allDepts[ug.name.toLowerCase()];
+      const handleMatch = allDepts[ug.handle.toLowerCase()];
+      if (nameMatch) groupToDept[ug.id] = nameMatch;
+      else if (handleMatch) groupToDept[ug.id] = handleMatch;
+    }
+
+    return groupToDept;
   },
 
 

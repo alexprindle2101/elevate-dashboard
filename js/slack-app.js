@@ -195,6 +195,9 @@ const SlackApp = {
       const time = this.state.lastRefresh.toLocaleTimeString();
       SlackRender.setStatus(`Updated ${time}`, true);
 
+      // Auto-sync: add people to any missing expected channels
+      this._syncMissingChannels();
+
     } catch (err) {
       console.error('[SlackApp] Slack fetch error:', err);
       SlackRender.showError(`Failed to fetch Slack data: ${err.message}`);
@@ -534,6 +537,55 @@ const SlackApp = {
     return channels.sort();
   },
 
+  // Auto-sync: add people to missing expected channels
+  async _syncMissingChannels() {
+    const results = this.state.comparisonResults;
+    if (!results.length) return;
+
+    // Collect all add actions for people with missing channels
+    const actions = [];
+    for (const r of results) {
+      if (!r.slackUser || !r.missing.length) continue;
+      for (const ch of r.missing) {
+        actions.push({ userId: r.slackUser.id, channel: ch, action: 'add' });
+      }
+    }
+
+    if (!actions.length) {
+      console.log('[SlackApp] No missing channels to sync');
+      return;
+    }
+
+    console.log(`[SlackApp] Syncing ${actions.length} missing channel assignments...`);
+
+    try {
+      const res = await fetch(`${SLACK_CONFIG.workerUrl}/slack/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actions }),
+      });
+      const data = await res.json();
+      console.log(`[SlackApp] Sync result: ${data.succeeded}/${data.total} succeeded`);
+
+      if (data.succeeded > 0) {
+        SlackRender.showToast(`Added ${data.succeeded} missing channel assignment${data.succeeded !== 1 ? 's' : ''}`);
+
+        // Update local state so the table reflects changes without a full refresh
+        for (const result of data.results || []) {
+          if (!result.ok) continue;
+          const chName = result.channel?.toLowerCase();
+          const memberSet = this.state.slackChannelMemberMap[chName];
+          if (memberSet) memberSet.add(result.userId);
+        }
+
+        // Re-run comparison to update the table
+        this.computeComparison();
+      }
+    } catch (err) {
+      console.warn('[SlackApp] Channel sync failed:', err.message);
+    }
+  },
+
 
   // ═══════════════════════════════════════════
   // Navigation
@@ -616,6 +668,10 @@ const SlackApp = {
       this.state.pendingPeopleUpdates.clear();
       this._renderPeoplePage();
       SlackRender.showToast(`Saved ${updates.length} change${updates.length !== 1 ? 's' : ''}`);
+
+      // Re-run comparison and sync channels with new levels
+      this.computeComparison();
+      this._syncMissingChannels();
     } catch (err) {
       console.error('[SlackApp] People save error:', err);
       SlackRender.showToast('Failed to save: ' + err.message, true);

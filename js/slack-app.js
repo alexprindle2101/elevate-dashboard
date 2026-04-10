@@ -5,10 +5,10 @@
 //
 // Excel schema:
 //   People sheet:      Name | Email | SlackEmail | Department | Level
-//   Departments sheet: Department | Channel  (one row per pair)
-//   Levels sheet:      Level | Channel       (one row per pair)
+//   Departments sheet: Department | Channel  (base channels for everyone in dept)
+//   Roles sheet:       Department | Level | Channel  (dept-specific level channels)
 //
-// Expected channels = union(dept channels) + level channels
+// Expected channels = dept base channels + dept-level specific channels
 // ═══════════════════════════════════════════════════════
 
 const SlackApp = {
@@ -19,7 +19,7 @@ const SlackApp = {
     // excelData shape: {
     //   people: [{ name, email, slackEmail, departments: [], level, displayDept, displayLevel }],
     //   deptMappings: { 'Sales': ['ch1','ch2'], 'QC': ['ch3'] },
-    //   levelMappings: { 'Manager': ['ch4'], 'Member': [] },
+    //   roleMappings: { 'QC|Lead': ['qc-managers'], 'Sales|SWAT': ['all-swat'] },
     // }
     slackChannels: [],
     slackUsers: [],
@@ -90,9 +90,9 @@ const SlackApp = {
         return;
       }
 
-      const hasMappings = Object.keys(excelData.deptMappings).length || Object.keys(excelData.levelMappings).length;
+      const hasMappings = Object.keys(excelData.deptMappings).length || Object.keys(excelData.roleMappings).length;
       if (!hasMappings) {
-        SlackRender.showError('No channel mappings found. Check Departments and/or Levels sheets (columns: Department/Level, Channel)');
+        SlackRender.showError('No channel mappings found. Check Departments sheet (Department, Channel) and/or Roles sheet (Department, Level, Channel)');
         return;
       }
 
@@ -100,8 +100,8 @@ const SlackApp = {
       localStorage.setItem(SLACK_CONFIG.excelStorageKey, JSON.stringify(excelData));
 
       const depts = Object.keys(excelData.deptMappings).length;
-      const levels = Object.keys(excelData.levelMappings).length;
-      console.log(`[SlackApp] Parsed: ${excelData.people.length} people, ${depts} departments, ${levels} levels`);
+      const roles = Object.keys(excelData.roleMappings).length;
+      console.log(`[SlackApp] Parsed: ${excelData.people.length} people, ${depts} departments, ${roles} role combos`);
       SlackRender.renderExcelInfo(excelData);
       this.loadSlackData();
 
@@ -118,7 +118,7 @@ const SlackApp = {
 
   parseExcel(workbook) {
     const cfg = SLACK_CONFIG;
-    const result = { people: [], deptMappings: {}, levelMappings: {} };
+    const result = { people: [], deptMappings: {}, roleMappings: {} };
 
     // ── People sheet ──
     const peopleSheet = workbook.Sheets[cfg.expectedSheets.people];
@@ -143,43 +143,46 @@ const SlackApp = {
       console.warn(`[SlackApp] Sheet "${cfg.expectedSheets.people}" not found. Available: ${workbook.SheetNames.join(', ')}`);
     }
 
-    // ── Departments sheet ──
+    // ── Departments sheet (2-col: Department | Channel) ──
     const deptSheet = workbook.Sheets[cfg.expectedSheets.departments];
     if (deptSheet) {
-      result.deptMappings = this._parseMappingSheet(deptSheet, cfg.deptColumns.department, cfg.deptColumns.channel);
+      const rows = XLSX.utils.sheet_to_json(deptSheet, { defval: '' });
+      for (const row of rows) {
+        const dept = String(row[cfg.deptColumns.department] || '').trim();
+        const ch = this._normalizeChannel(String(row[cfg.deptColumns.channel] || ''));
+        if (!dept || !ch) continue;
+        if (!result.deptMappings[dept]) result.deptMappings[dept] = [];
+        result.deptMappings[dept].push(ch);
+      }
+      for (const k of Object.keys(result.deptMappings)) {
+        result.deptMappings[k] = [...new Set(result.deptMappings[k])];
+      }
     } else {
       console.warn(`[SlackApp] Sheet "${cfg.expectedSheets.departments}" not found`);
     }
 
-    // ── Levels sheet ──
-    const levelSheet = workbook.Sheets[cfg.expectedSheets.levels];
-    if (levelSheet) {
-      result.levelMappings = this._parseMappingSheet(levelSheet, cfg.levelColumns.level, cfg.levelColumns.channel);
+    // ── Roles sheet (3-col: Department | Level | Channel) ──
+    // Keyed as "Department|Level" for lookup
+    const roleSheet = workbook.Sheets[cfg.expectedSheets.roles];
+    if (roleSheet) {
+      const rows = XLSX.utils.sheet_to_json(roleSheet, { defval: '' });
+      for (const row of rows) {
+        const dept = String(row[cfg.roleColumns.department] || '').trim();
+        const level = String(row[cfg.roleColumns.level] || '').trim();
+        const ch = this._normalizeChannel(String(row[cfg.roleColumns.channel] || ''));
+        if (!dept || !level || !ch) continue;
+        const key = `${dept}|${level}`;
+        if (!result.roleMappings[key]) result.roleMappings[key] = [];
+        result.roleMappings[key].push(ch);
+      }
+      for (const k of Object.keys(result.roleMappings)) {
+        result.roleMappings[k] = [...new Set(result.roleMappings[k])];
+      }
     } else {
-      console.warn(`[SlackApp] Sheet "${cfg.expectedSheets.levels}" not found`);
+      console.warn(`[SlackApp] Sheet "${cfg.expectedSheets.roles}" not found`);
     }
 
     return result;
-  },
-
-  // Parse a 2-column mapping sheet (key | channel) into { key: [channels] }
-  _parseMappingSheet(sheet, keyCol, channelCol) {
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-    const map = {};
-
-    for (const row of rows) {
-      const key = String(row[keyCol] || '').trim();
-      const ch = this._normalizeChannel(String(row[channelCol] || ''));
-      if (!key || !ch) continue;
-      if (!map[key]) map[key] = [];
-      map[key].push(ch);
-    }
-
-    // Deduplicate
-    for (const k of Object.keys(map)) {
-      map[k] = [...new Set(map[k])];
-    }
-    return map;
   },
 
   _normalizeChannel(ch) {
@@ -266,10 +269,13 @@ const SlackApp = {
       const lookupEmail = person.slackEmail || person.email;
       const slackUser = slackUserMap[lookupEmail];
 
-      // Expected = union of all department channels + level channels
+      // Expected = dept base channels + dept-specific level channels for each department
       const deptChannels = person.departments.flatMap(d => excelData.deptMappings[d] || []);
-      const levelChannels = excelData.levelMappings[person.level] || [];
-      const expectedChannels = [...new Set([...deptChannels, ...levelChannels])].sort();
+      const roleChannels = person.departments.flatMap(d => {
+        const key = `${d}|${person.level}`;
+        return excelData.roleMappings[key] || [];
+      });
+      const expectedChannels = [...new Set([...deptChannels, ...roleChannels])].sort();
 
       const roleDisplay = [person.displayDept, person.displayLevel].filter(Boolean).join(' | ');
 

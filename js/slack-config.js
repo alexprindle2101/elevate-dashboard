@@ -13,7 +13,7 @@ const SLACK_CONFIG = {
   expectedSheets: {
     people: 'People',
     departments: 'Departments',
-    levels: 'Levels',
+    roles: 'Roles',
   },
 
   // Column header mappings — People sheet
@@ -22,17 +22,18 @@ const SLACK_CONFIG = {
     email: 'Email',
     slackEmail: 'SlackEmail',
     department: 'Department',   // comma-separated if multiple
-    level: 'Level',             // single value: SWAT, Manager, Lead, Member
+    level: 'Level',             // SWAT, Manager, Lead, Member
   },
 
-  // Column header mappings — Departments sheet
+  // Column header mappings — Departments sheet (base channels)
   deptColumns: {
     department: 'Department',
     channel: 'Channel',
   },
 
-  // Column header mappings — Levels sheet
-  levelColumns: {
+  // Column header mappings — Roles sheet (department + level specific channels)
+  roleColumns: {
+    department: 'Department',
     level: 'Level',
     channel: 'Channel',
   },

@@ -43,13 +43,13 @@ const SlackRender = {
     if (!excelData) { this.hide('excel-info'); return; }
     const p = excelData.people.length;
     const d = Object.keys(excelData.deptMappings || {}).length;
-    const l = Object.keys(excelData.levelMappings || {}).length;
+    const r = Object.keys(excelData.roleMappings || {}).length;
     const allChannels = new Set([
       ...Object.values(excelData.deptMappings || {}).flat(),
-      ...Object.values(excelData.levelMappings || {}).flat(),
+      ...Object.values(excelData.roleMappings || {}).flat(),
     ]);
     document.getElementById('excel-info-text').textContent =
-      `Loaded: ${p} people, ${d} departments, ${l} levels, ${allChannels.size} unique channels`;
+      `Loaded: ${p} people, ${d} departments, ${r} role combos, ${allChannels.size} unique channels`;
     this.show('excel-info');
     this.hide('empty-state');
   },

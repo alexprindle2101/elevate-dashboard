@@ -158,6 +158,23 @@
         <p>Define which channels each department and level should have access to</p>
       </div>
 
+      <!-- Setup Guide -->
+      <div class="settings-section">
+        <div class="settings-section-title">Adding a New Automated Channel</div>
+        <div class="setup-instructions">
+          <strong>How to set up a new channel for automatic management:</strong>
+          <ol>
+            <li>Create the channel in Slack (public or private)</li>
+            <li>Invite the bot: type <code>/invite @Aptel Channel Auditor</code> in the channel</li>
+            <li>Come back here and add the mapping below (Department or Role)</li>
+            <li>The system will automatically add/remove people when their user group changes</li>
+          </ol>
+          <p style="margin-top:12px;color:var(--gray-500);font-size:12px;">
+            <strong>Note:</strong> The bot can only manage channels it has been invited to. For private channels, you must manually invite the bot first.
+          </p>
+        </div>
+      </div>
+
       <!-- Department → Channels -->
       <div class="settings-section">
         <div class="settings-section-title">Department Channels</div>
@@ -184,23 +201,6 @@
           </select>
           <input type="text" class="mapping-input" id="add-role-channel" placeholder="channel-name" list="channel-datalist">
           <button class="btn btn-sm btn-primary" onclick="SlackApp.addRoleMapping()">+ Add</button>
-        </div>
-      </div>
-
-      <!-- Setup Guide -->
-      <div class="settings-section">
-        <div class="settings-section-title">Adding a New Automated Channel</div>
-        <div class="setup-instructions">
-          <strong>How to set up a new channel for automatic management:</strong>
-          <ol>
-            <li>Create the channel in Slack (public or private)</li>
-            <li>Invite the bot: type <code>/invite @Aptel Channel Auditor</code> in the channel</li>
-            <li>Come back here and add the mapping above (Department or Role)</li>
-            <li>The system will automatically add/remove people when their user group changes</li>
-          </ol>
-          <p style="margin-top:12px;color:var(--gray-500);font-size:12px;">
-            <strong>Note:</strong> The bot can only manage channels it has been invited to. For private channels, you must manually invite the bot first.
-          </p>
         </div>
       </div>
 
